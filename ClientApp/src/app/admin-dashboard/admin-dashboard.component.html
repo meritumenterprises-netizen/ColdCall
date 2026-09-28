@@ -1,0 +1,77 @@
+<div class="app-layout admin-layout">
+  <aside class="sidebar">
+    <div class="sidebar-title">Administrator</div>
+    <button class="search-item" [class.active]="tab === 'companies'" (click)="tab = 'companies'">Firmy</button>
+    <button class="search-item" [class.active]="tab === 'users'" (click)="tab = 'users'">Uzytkownicy i plany</button>
+  </aside>
+
+  <main class="workspace">
+    <header class="workspace-head">
+      <div>
+        <span class="eyebrow">Tryb administratora</span>
+        <h1>{{ tab === 'companies' ? 'Edycja firm' : 'Plany uzytkownikow' }}</h1>
+      </div>
+      <button class="ghost-button" routerLink="/dashboard">Tryb uzytkownika</button>
+    </header>
+
+    <div class="message" *ngIf="message">{{ message }}</div>
+
+    <section *ngIf="tab === 'companies'">
+      <div class="toolbar">
+        <input name="filter" [(ngModel)]="filter" (input)="page = 1; loadCompanies()" placeholder="Filtruj po kilku znakach">
+      </div>
+
+      <section class="data-panel editable">
+        <table>
+          <thead>
+            <tr><th *ngFor="let col of companyColumns" (click)="sort(col)">{{ col }}</th><th></th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let company of companies">
+              <td><input [(ngModel)]="company.name" name="name{{company.id}}"></td>
+              <td>
+                <select [(ngModel)]="company.businessType" name="type{{company.id}}">
+                  <option value="Jdg">JDG</option><option value="Company">Spolka</option>
+                </select>
+              </td>
+              <td><input [(ngModel)]="company.firstName" name="first{{company.id}}"></td>
+              <td><input [(ngModel)]="company.lastName" name="last{{company.id}}"></td>
+              <td><input [(ngModel)]="company.wojewodztwo" name="woj{{company.id}}"></td>
+              <td><input [(ngModel)]="company.city" name="city{{company.id}}"></td>
+              <td><input [(ngModel)]="company.gmina" name="gmina{{company.id}}"></td>
+              <td><input [(ngModel)]="company.powiat" name="powiat{{company.id}}"></td>
+              <td><input [(ngModel)]="company.postalCode" name="postal{{company.id}}"></td>
+              <td><input [(ngModel)]="company.street" name="street{{company.id}}"></td>
+              <td><input [(ngModel)]="company.buildingNumber" name="building{{company.id}}"></td>
+              <td><input [(ngModel)]="company.apartmentNumber" name="apt{{company.id}}"></td>
+              <td><input [(ngModel)]="company.phone" name="phone{{company.id}}"></td>
+              <td><input [(ngModel)]="company.email" name="email{{company.id}}"></td>
+              <td><input [(ngModel)]="company.googleEmail" name="gemail{{company.id}}"></td>
+              <td><input [(ngModel)]="company.website" name="web{{company.id}}"></td>
+              <td><input [(ngModel)]="company.instagramAccount" name="ig{{company.id}}"></td>
+              <td><input [(ngModel)]="company.facebookAccount" name="fb{{company.id}}"></td>
+              <td><button class="primary-button compact" (click)="save(company)">Zapisz</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <footer class="pager"><button (click)="prev()">Poprzednia</button><span>{{ page }} · {{ total }}</span><button (click)="next()">Nastepna</button></footer>
+    </section>
+
+    <section class="users-list" *ngIf="tab === 'users'">
+      <div class="toolbar">
+        <select [(ngModel)]="planCode" name="planCode">
+          <option>PX1</option><option>PX2</option><option>PX3</option><option>PX4</option><option>PX5</option>
+        </select>
+      </div>
+      <article class="user-row" *ngFor="let user of users">
+        <div>
+          <strong>{{ user.googleEmail }}</strong>
+          <p>{{ user.displayName }}</p>
+          <small *ngFor="let plan of user.plans">{{ plan.planCode }}: {{ plan.purchasedAtUtc | date:'yyyy-MM-dd' }} - {{ plan.expiresAtUtc | date:'yyyy-MM-dd' }} · {{ plan.source }} </small>
+        </div>
+        <button class="primary-button" (click)="grant(user)">Dodaj plan</button>
+      </article>
+    </section>
+  </main>
+</div>

@@ -1,0 +1,22 @@
+<main class="workspace plans-page">
+  <header class="workspace-head">
+    <div>
+      <span class="eyebrow">Miesieczny dostep</span>
+      <h1>Wybierz plan</h1>
+    </div>
+    <button class="ghost-button" routerLink="/dashboard">Wroc</button>
+  </header>
+
+  <div class="error" *ngIf="error">{{ error }}</div>
+
+  <section class="plan-grid">
+    <article class="plan-card" *ngFor="let plan of plans">
+      <span class="plan-code">{{ plan.code }}</span>
+      <strong>{{ plan.searchLimit }}</strong>
+      <p>zapisanych wyszukan pod zbiorcza nazwa</p>
+      <div class="price">{{ plan.price | number:'1.0-0' }} {{ plan.currency }}</div>
+      <small *ngIf="plan.activeUntil">Aktywny do {{ plan.activeUntil | date:'yyyy-MM-dd' }}</small>
+      <button class="primary-button" (click)="buy(plan)">Kup przez Stripe</button>
+    </article>
+  </section>
+</main>

@@ -1,0 +1,68 @@
+<div class="app-layout">
+  <aside class="sidebar">
+    <div class="sidebar-title">Wyszukania</div>
+    <button class="search-item" *ngFor="let search of searches" (click)="selectSearch(search)">
+      <strong>{{ search.name }}</strong>
+      <span>{{ search.pkdCodes.length }} PKD</span>
+    </button>
+  </aside>
+
+  <main class="workspace">
+    <header class="workspace-head">
+      <div>
+        <span class="eyebrow">Tryb uzytkownika</span>
+        <h1>Firmy wedlug PKD</h1>
+      </div>
+      <button class="ghost-button" routerLink="/plans">Plany</button>
+    </header>
+
+    <section class="toolbar">
+      <div class="pkd-picker">
+        <label>PKD</label>
+        <input name="pkdTerm" [(ngModel)]="pkdTerm" (input)="findPkd()" placeholder="Wpisz min. 2 znaki">
+        <div class="suggestions" *ngIf="pkdSuggestions.length">
+          <button *ngFor="let pkd of pkdSuggestions" (click)="addPkd(pkd)">
+            <strong>{{ pkd.code }}</strong> {{ pkd.name }}
+          </button>
+        </div>
+      </div>
+      <div class="save-search">
+        <label>Nazwa zbiorcza</label>
+        <input name="searchName" [(ngModel)]="searchName" placeholder="np. Software Warszawa">
+      </div>
+      <button class="primary-button" (click)="saveSearch()">Zapisz</button>
+    </section>
+
+    <div class="chip-row">
+      <button class="chip" *ngFor="let pkd of selectedPkds" (click)="removePkd(pkd)">
+        {{ pkd.code }} <span>×</span>
+      </button>
+    </div>
+
+    <div class="error" *ngIf="error">{{ error }}</div>
+
+    <section class="data-panel">
+      <table>
+        <thead>
+          <tr>
+            <th *ngFor="let col of columns" (click)="sort(col[0])">{{ col[1] }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of companies">
+            <td>{{ row.name }}</td><td>{{ row.firstName }}</td><td>{{ row.lastName }}</td><td>{{ row.krs }}</td><td>{{ row.nip }}</td>
+            <td>{{ row.city }}</td><td>{{ row.postalCode }}</td><td>{{ row.street }}</td><td>{{ row.buildingNumber }}</td>
+            <td>{{ row.apartmentNumber }}</td><td>{{ row.phone }}</td><td>{{ row.email }}</td><td>{{ row.website }}</td><td>{{ row.startedAt | date:'yyyy-MM-dd' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <footer class="pager">
+      <button (click)="prev()" [disabled]="page === 1">Poprzednia</button>
+      <span>Strona {{ page }} · {{ total }} rekordow</span>
+      <button (click)="next()" [disabled]="page * 20 >= total">Nastepna</button>
+      <button class="primary-button" (click)="exportCsv()">Eksport CSV</button>
+    </footer>
+  </main>
+</div>
