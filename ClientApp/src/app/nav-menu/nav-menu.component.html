@@ -1,8 +1,13 @@
 <header class="topbar">
   <a class="logo" routerLink="/">ColdCall</a>
-  <nav>
-    <a routerLink="/dashboard" routerLinkActive="active">Firmy</a>
+  <nav *ngIf="showAuthenticatedMenu()">
+    <a *ngIf="api.isAdmin()" routerLink="/dashboard" routerLinkActive="active">Firmy</a>
     <a routerLink="/plans" routerLinkActive="active">Plany</a>
-    <a routerLink="/admin" routerLinkActive="active">Admin</a>
+    <a *ngIf="api.isAdmin()" routerLink="/admin" routerLinkActive="active">Admin</a>
+    <span class="user-chip" *ngIf="api.user()">
+      <img *ngIf="api.user()?.pictureUrl" [src]="api.user()?.pictureUrl" alt="">
+      <span>{{ api.user()?.displayName || api.user()?.googleEmail }}</span>
+    </span>
+    <button type="button" (click)="logout()">Wyloguj</button>
   </nav>
 </header>

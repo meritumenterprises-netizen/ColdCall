@@ -25,6 +25,8 @@ public class ColdCallDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.HasDefaultSchema("ColdCall");
+
         modelBuilder.Entity<AppUser>().HasIndex(x => x.GoogleEmail).IsUnique();
         modelBuilder.Entity<AdminEmail>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<PkdCode>().HasIndex(x => x.Code).IsUnique();
@@ -32,6 +34,7 @@ public class ColdCallDbContext : DbContext
         modelBuilder.Entity<Company>().HasIndex(x => x.Krs);
         modelBuilder.Entity<CompanyPkd>().HasKey(x => new { x.CompanyId, x.PkdCodeId });
         modelBuilder.Entity<SearchProfilePkd>().HasKey(x => new { x.SearchProfileId, x.PkdCodeId });
+        modelBuilder.Entity<PlanDefinition>().Property(x => x.DescriptionHtml).HasDefaultValue("");
         modelBuilder.Entity<PlanDefinition>().Property(x => x.Price).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<UserPlan>().Property(x => x.PricePaid).HasColumnType("decimal(18,2)");
     }

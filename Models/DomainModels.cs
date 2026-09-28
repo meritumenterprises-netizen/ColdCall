@@ -106,6 +106,7 @@ public class PlanDefinition
     public int Id { get; set; }
     public string Code { get; set; } = "";
     public int SearchLimit { get; set; }
+    public string DescriptionHtml { get; set; } = "";
     public decimal Price { get; set; }
     public string Currency { get; set; } = "PLN";
     public string? StripePriceId { get; set; }

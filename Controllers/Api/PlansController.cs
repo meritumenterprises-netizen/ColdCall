@@ -26,20 +26,32 @@ public class PlansController : ControllerBase
     public async Task<IReadOnlyList<PlanDto>> Get()
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
-        var activePlans = await _db.UserPlans
-            .Include(x => x.PlanDefinition)
+        var activePlansByDefinitionId = await _db.UserPlans
             .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
+            .GroupBy(x => x.PlanDefinitionId)
+            .Select(x => new
+            {
+                PlanDefinitionId = x.Key,
+                ActiveUntil = x.Max(p => p.ExpiresAtUtc)
+            })
+            .ToListAsync();
+        var activeUntilByDefinitionId = activePlansByDefinitionId.ToDictionary(
+            x => x.PlanDefinitionId,
+            x => (DateTime?)x.ActiveUntil);
+
+        var plans = await _db.PlanDefinitions
+            .OrderBy(x => x.SearchLimit)
             .ToListAsync();
 
-        return await _db.PlanDefinitions
-            .OrderBy(x => x.SearchLimit)
+        return plans
             .Select(x => new PlanDto(
                 x.Code,
                 x.SearchLimit,
+                x.DescriptionHtml,
                 x.Price,
                 x.Currency,
-                activePlans.Where(p => p.PlanDefinition.Code == x.Code).Max(p => (DateTime?)p.ExpiresAtUtc)))
-            .ToListAsync();
+                activeUntilByDefinitionId.TryGetValue(x.Id, out var activeUntil) ? activeUntil : null))
+            .ToList();
     }
 
     [HttpPost("checkout")]

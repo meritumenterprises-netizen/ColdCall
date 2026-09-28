@@ -3,6 +3,7 @@ using ColdCall.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace ColdCall.Controllers.Api;
 
@@ -35,7 +36,8 @@ public class AuthController : ControllerBase
         {
             user.Id,
             user.GoogleEmail,
-            user.DisplayName,
+            DisplayName = user.DisplayName ?? User.FindFirstValue("name"),
+            PictureUrl = User.FindFirstValue("picture"),
             isAdmin,
             hasActivePlan = activePlan != null,
             plan = activePlan == null ? null : new

@@ -55,7 +55,7 @@ public record SearchProfileDto(int Id, string Name, IReadOnlyList<PkdDto> PkdCod
 
 public record SaveSearchProfileDto(string Name, IReadOnlyList<int> PkdCodeIds);
 
-public record PlanDto(string Code, int SearchLimit, decimal Price, string Currency, DateTime? ActiveUntil);
+public record PlanDto(string Code, int SearchLimit, string DescriptionHtml, decimal Price, string Currency, DateTime? ActiveUntil);
 
 public record UserPlanDto(string PlanCode, DateTime PurchasedAtUtc, DateTime ExpiresAtUtc, string Source);
 

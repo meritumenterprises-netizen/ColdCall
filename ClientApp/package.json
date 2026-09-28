@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "cross-env NODE_OPTIONS=--openssl-legacy-provider ng serve",
-    "build": "cross-env NODE_OPTIONS=--openssl-legacy-provider ng build",
+    "start": "node ./node_modules/@angular/cli/bin/ng serve --host localhost --port 4200 --proxy-config proxy.conf.json",
+    "build": "node ./node_modules/@angular/cli/bin/ng build",
     "build:ssr": "ng run ColdCall:server:dev",
     "test": "ng test",
     "lint": "ng lint",
@@ -47,6 +47,7 @@
     "karma-coverage-istanbul-reporter": "~3.0.3",
     "karma-jasmine": "~4.0.1",
     "karma-jasmine-html-reporter": "~1.7.0",
+    "node": "^16.20.2",
     "typescript": "3.5.3"
   },
   "optionalDependencies": {

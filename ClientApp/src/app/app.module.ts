@@ -10,6 +10,7 @@ import { LoginComponent } from './login/login.component';
 import { UserDashboardComponent } from './user-dashboard/user-dashboard.component';
 import { AdminDashboardComponent } from './admin-dashboard/admin-dashboard.component';
 import { PlansComponent } from './plans/plans.component';
+import { AuthGuard } from './auth.guard';
 
 @NgModule({
   declarations: [
@@ -26,9 +27,9 @@ import { PlansComponent } from './plans/plans.component';
     FormsModule,
     RouterModule.forRoot([
       { path: '', component: LoginComponent, pathMatch: 'full' },
-      { path: 'dashboard', component: UserDashboardComponent },
-      { path: 'admin', component: AdminDashboardComponent },
-      { path: 'plans', component: PlansComponent },
+      { path: 'dashboard', component: UserDashboardComponent, canActivate: [AuthGuard] },
+      { path: 'admin', component: AdminDashboardComponent, canActivate: [AuthGuard] },
+      { path: 'plans', component: PlansComponent, canActivate: [AuthGuard] },
     ])
   ],
   providers: [],

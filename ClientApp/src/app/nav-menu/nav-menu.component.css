@@ -16,3 +16,24 @@ html {
 .box-shadow {
   box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05);
 }
+
+button {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+}
+
+.user-chip {
+  align-items: center;
+  display: inline-flex;
+  gap: 8px;
+}
+
+.user-chip img {
+  border-radius: 50%;
+  height: 28px;
+  width: 28px;
+}
