@@ -1,13 +1,23 @@
 namespace ColdCall.Models;
 
-public record PagedResult<T>(IReadOnlyList<T> Items, int Total, int Page, int PageSize);
+public record PagedResult<T>(
+    IReadOnlyList<T> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    IReadOnlyList<SortableColumnDto>? SortableColumns = null);
+
+public record SortableColumnDto(string Key, string Label);
 
 public record PkdDto(int Id, string Code, string Name);
+
+public record CompanyDetailsDto(CompanyDto Company, IReadOnlyList<PkdDto> PkdCodes);
 
 public record CompanyDto(
     int Id,
     string Name,
-    string BusinessType,
+    int BusinessTypeId,
+    string? BusinessTypeName,
     string? FirstName,
     string? LastName,
     string? Krs,
@@ -26,11 +36,12 @@ public record CompanyDto(
     string? Website,
     string? InstagramAccount,
     string? FacebookAccount,
-    DateTime? StartedAt);
+    DateTime? StartedAt,
+    DateTime CreatedOn);
 
 public record CompanyUpdateDto(
-    string Name,
-    BusinessType BusinessType,
+    [System.ComponentModel.DataAnnotations.StringLength(1000)] string Name,
+    int BusinessTypeId,
     string? FirstName,
     string? LastName,
     string? Krs,
@@ -64,5 +75,7 @@ public record UserDto(int Id, string GoogleEmail, string? DisplayName, IReadOnly
 public record GrantPlanDto(int UserId, string PlanCode);
 
 public record DictionaryDto(int Id, string Name);
+
+public record BusinessTypeDto(int TypDzialalnosciId, string TypDzialalnosci);
 
 public record CheckoutRequest(string PlanCode, string SuccessUrl, string CancelUrl);

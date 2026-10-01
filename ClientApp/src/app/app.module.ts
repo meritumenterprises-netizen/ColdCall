@@ -11,6 +11,7 @@ import { UserDashboardComponent } from './user-dashboard/user-dashboard.componen
 import { AdminDashboardComponent } from './admin-dashboard/admin-dashboard.component';
 import { PlansComponent } from './plans/plans.component';
 import { AuthGuard } from './auth.guard';
+import { CompanyDetailsComponent } from './company-details/company-details.component';
 
 @NgModule({
   declarations: [
@@ -19,7 +20,8 @@ import { AuthGuard } from './auth.guard';
     LoginComponent,
     UserDashboardComponent,
     AdminDashboardComponent,
-    PlansComponent
+    PlansComponent,
+    CompanyDetailsComponent
   ],
   imports: [
     BrowserModule.withServerTransition({ appId: 'ng-cli-universal' }),

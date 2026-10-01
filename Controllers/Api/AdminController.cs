@@ -26,17 +26,20 @@ public class AdminController : ControllerBase
     [HttpGet("companies")]
     public async Task<ActionResult<PagedResult<CompanyDto>>> Companies(
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20,
+        [FromQuery] int pageSize = 10,
         [FromQuery] string? sortBy = "name",
         [FromQuery] string? direction = "asc",
-        [FromQuery] string? filter = null)
+        [FromQuery] string? filter = null,
+        [FromQuery] int[]? pkdIds = null)
     {
         if (await _adminAccess.RequireAdminAsync(User) == null)
         {
             return Forbid();
         }
 
+        pageSize = 10;
         var query = _db.Companies
+            .Include(x => x.BusinessType)
             .Include(x => x.Wojewodztwo)
             .Include(x => x.Miejscowosc)
             .Include(x => x.Gmina)
@@ -53,18 +56,24 @@ public class AdminController : ControllerBase
                 (x.Phone != null && x.Phone.Contains(filter)));
         }
 
+        var selectedPkdIds = pkdIds?.Where(x => x > 0).Distinct().ToArray() ?? Array.Empty<int>();
+        if (selectedPkdIds.Length > 0)
+        {
+            query = query.Where(company => company.CompanyPkds.Any(companyPkd => selectedPkdIds.Contains(companyPkd.PkdCodeId)));
+        }
+
         var total = await query.CountAsync();
         var items = await query.ApplyCompanySort(sortBy, direction)
             .Skip((Math.Max(page, 1) - 1) * pageSize)
             .Take(pageSize)
             .Select(x => new CompanyDto(
-                x.Id, x.Name, x.BusinessType.ToString(), x.FirstName, x.LastName, x.Krs, x.Nip,
+                x.Id, x.Name, x.BusinessTypeId, x.BusinessType != null ? x.BusinessType.TypDzialalnosci : null, x.FirstName, x.LastName, x.Krs, x.Nip,
                 x.Wojewodztwo!.Name, x.Miejscowosc!.Name, x.Gmina!.Name, x.Powiat!.Name, x.PostalCode,
                 x.Street, x.BuildingNumber, x.ApartmentNumber, x.Phone, x.Email, x.GoogleEmail,
-                x.Website, x.InstagramAccount, x.FacebookAccount, x.StartedAt))
+                x.Website, x.InstagramAccount, x.FacebookAccount, x.StartedAt, x.CreatedOn))
             .ToListAsync();
 
-        return Ok(new PagedResult<CompanyDto>(items, total, page, pageSize));
+        return Ok(new PagedResult<CompanyDto>(items, total, page, pageSize, QueryableExtensions.CompanySortableColumns));
     }
 
     [HttpPut("companies/{id:int}")]
@@ -82,7 +91,12 @@ public class AdminController : ControllerBase
         }
 
         company.Name = request.Name;
-        company.BusinessType = request.BusinessType;
+        if (!await _db.BusinessTypes.AnyAsync(x => x.TypDzialalnosciId == request.BusinessTypeId))
+        {
+            return BadRequest(new { message = "Nieprawidlowy typ dzialalnosci." });
+        }
+
+        company.BusinessTypeId = request.BusinessTypeId;
         company.FirstName = request.FirstName;
         company.LastName = request.LastName;
         company.Krs = request.Krs;
@@ -125,6 +139,20 @@ public class AdminController : ControllerBase
                 x.Plans.OrderByDescending(p => p.ExpiresAtUtc)
                     .Select(p => new UserPlanDto(p.PlanDefinition.Code, p.PurchasedAtUtc, p.ExpiresAtUtc, p.Source))
                     .ToList()))
+            .ToListAsync();
+    }
+
+    [HttpGet("business-types")]
+    public async Task<ActionResult<IReadOnlyList<BusinessTypeDto>>> BusinessTypes()
+    {
+        if (await _adminAccess.RequireAdminAsync(User) == null)
+        {
+            return Forbid();
+        }
+
+        return await _db.BusinessTypes
+            .OrderBy(x => x.TypDzialalnosci)
+            .Select(x => new BusinessTypeDto(x.TypDzialalnosciId, x.TypDzialalnosci))
             .ToListAsync();
     }
 

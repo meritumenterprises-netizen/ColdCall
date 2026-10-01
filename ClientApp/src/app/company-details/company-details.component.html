@@ -1,0 +1,30 @@
+<dialog #dialog aria-labelledby="company-details-title" (cancel)="close()">
+  <header>
+    <h2 id="company-details-title">{{ details ? details.company.name : companyName }}</h2>
+    <button type="button" class="close-button" (click)="close()" aria-label="Zamknij" title="Zamknij" autofocus>&times;</button>
+  </header>
+  <div class="dialog-body" [attr.aria-busy]="loading">
+    <div *ngIf="loading" class="loading-state" role="status">
+      <span class="spinner" aria-hidden="true"></span><span>Wczytywanie danych firmy...</span>
+    </div>
+    <div *ngIf="error" class="error-state" role="alert">
+      <p>{{ error }}</p>
+      <button type="button" class="ghost-button" (click)="load()">Pon&#243;w</button>
+    </div>
+    <ng-container *ngIf="details && !loading && !error">
+      <dl class="company-fields">
+        <div *ngFor="let field of fields">
+          <dt>{{ field.label }}</dt><dd>{{ value(field.key) }}</dd>
+        </div>
+      </dl>
+      <section class="pkds">
+        <h3>Kody PKD <span>({{ details.pkdCodes.length }})</span></h3>
+        <p *ngIf="!details.pkdCodes.length">Brak przypisanych kod&#243;w PKD.</p>
+        <table *ngIf="details.pkdCodes.length">
+          <thead><tr><th scope="col">Kod</th><th scope="col">Nazwa</th></tr></thead>
+          <tbody><tr *ngFor="let pkd of details.pkdCodes"><td>{{ pkd.code }}</td><td>{{ pkd.name }}</td></tr></tbody>
+        </table>
+      </section>
+    </ng-container>
+  </div>
+</dialog>

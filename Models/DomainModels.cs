@@ -1,11 +1,5 @@
 namespace ColdCall.Models;
 
-public enum BusinessType
-{
-    Jdg = 1,
-    Company = 2
-}
-
 public class AppUser
 {
     public int Id { get; set; }
@@ -30,7 +24,8 @@ public class Company
 {
     public int Id { get; set; }
     public string Name { get; set; } = "";
-    public BusinessType BusinessType { get; set; }
+    public int BusinessTypeId { get; set; }
+    public BusinessType? BusinessType { get; set; }
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? Krs { get; set; }
@@ -54,18 +49,27 @@ public class Company
     public string? InstagramAccount { get; set; }
     public string? FacebookAccount { get; set; }
     public DateTime? StartedAt { get; set; }
+    public DateTime CreatedOn { get; set; }
     public ICollection<CompanyPkd> CompanyPkds { get; set; } = new List<CompanyPkd>();
+}
+
+public class BusinessType
+{
+    public int TypDzialalnosciId { get; set; }
+    public string TypDzialalnosci { get; set; } = "";
 }
 
 public class PkdCode
 {
     public int Id { get; set; }
     public string Code { get; set; } = "";
+    public string CodeWithoutDots { get; private set; } = "";
     public string Name { get; set; } = "";
 }
 
 public class CompanyPkd
 {
+    public int Id { get; set; }
     public int CompanyId { get; set; }
     public Company Company { get; set; } = null!;
     public int PkdCodeId { get; set; }

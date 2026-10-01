@@ -3,13 +3,25 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 
-export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; }
+export interface SortableColumn { key: string; label: string; }
+export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; }
 export interface Pkd { id: number; code: string; name: string; }
 export interface Company {
-  id: number; name: string; businessType: string; firstName?: string; lastName?: string; krs?: string; nip?: string;
+  id: number; name: string; businessTypeId: number; businessTypeName?: string; firstName?: string; lastName?: string; krs?: string; nip?: string;
   wojewodztwo?: string; city?: string; gmina?: string; powiat?: string; postalCode?: string; street?: string;
   buildingNumber?: string; apartmentNumber?: string; phone?: string; email?: string; googleEmail?: string;
-  website?: string; instagramAccount?: string; facebookAccount?: string; startedAt?: string;
+  website?: string; instagramAccount?: string; facebookAccount?: string; startedAt?: string; createdOn?: string;
+}
+export interface BusinessType { typDzialalnosciId: number; typDzialalnosci: string; }
+export interface CompanyDetails { company: Company; pkdCodes: Pkd[]; }
+export interface CompanyFilters {
+  address: string; hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
+  startedFrom?: string; startedTo?: string; recordLimit: number;
+}
+export interface CompanyShort {
+  id: number; name: string; nip?: string; fullAddress: string;
+  phone?: string; email?: string; www?: string; dataAktywnosci?: string;
+  typyDzialalnosci?: string;
 }
 export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; }
@@ -61,16 +73,30 @@ export class ApiService {
       })
     );
   }
-  pkd(term: string): Observable<Pkd[]> { return this.http.get<Pkd[]>(this.url('/api/pkd'), { ...this.headers(), params: { term } }); }
+  pkd(term: string = ''): Observable<Pkd[]> { return this.http.get<Pkd[]>(this.url('/api/pkd'), { ...this.headers(), params: { term } }); }
   searches(): Observable<SearchProfile[]> { return this.http.get<SearchProfile[]>(this.url('/api/searches'), this.headers()); }
   saveSearch(name: string, pkdCodeIds: number[]): Observable<SearchProfile> {
     return this.http.post<SearchProfile>(this.url('/api/searches'), { name, pkdCodeIds }, this.headers());
   }
 
-  companies(page: number, sortBy: string, direction: string, pkdIds: number[]): Observable<PagedResult<Company>> {
-    let params = new HttpParams().set('page', String(page)).set('pageSize', '20').set('sortBy', sortBy).set('direction', direction);
+  companies(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters): Observable<PagedResult<CompanyShort>> {
+    let params = new HttpParams().set('page', String(page)).set('pageSize', '10').set('sortBy', sortBy).set('direction', direction);
     pkdIds.forEach(id => params = params.append('pkdIds', String(id)));
-    return this.http.get<PagedResult<Company>>(this.url('/api/companies'), { ...this.headers(), params });
+    if (filters) {
+      if (filters.address.trim()) { params = params.set('address', filters.address.trim()); }
+      ['hasPhone', 'hasEmail', 'hasWebsite'].forEach(key => {
+        if (filters[key] !== null) { params = params.set(key, String(filters[key])); }
+      });
+      if (filters.startedFrom && filters.startedTo) {
+        params = params.set('startedFrom', filters.startedFrom).set('startedTo', filters.startedTo);
+      }
+      params = params.set('recordLimit', String(filters.recordLimit));
+    }
+    return this.http.get<PagedResult<CompanyShort>>(this.url('/api/companies'), { ...this.headers(), params });
+  }
+
+  companyDetails(id: number): Observable<CompanyDetails> {
+    return this.http.get<CompanyDetails>(this.url('/api/companies/' + id), this.headers());
   }
 
   exportCompanies(pkdIds: number[]) {
@@ -88,11 +114,13 @@ export class ApiService {
     }, this.headers());
   }
 
-  adminCompanies(page: number, sortBy: string, direction: string, filter: string): Observable<PagedResult<Company>> {
-    const params = { page: String(page), pageSize: '20', sortBy, direction, filter };
+  adminCompanies(page: number, sortBy: string, direction: string, filter: string, pkdIds: number[] = []): Observable<PagedResult<Company>> {
+    let params = new HttpParams().set('page', String(page)).set('pageSize', '10').set('sortBy', sortBy).set('direction', direction).set('filter', filter);
+    pkdIds.forEach(id => params = params.append('pkdIds', String(id)));
     return this.http.get<PagedResult<Company>>(this.url('/api/admin/companies'), { ...this.headers(), params });
   }
   updateCompany(company: Company) { return this.http.put(this.url('/api/admin/companies/' + company.id), company, this.headers()); }
+  businessTypes(): Observable<BusinessType[]> { return this.http.get<BusinessType[]>(this.url('/api/admin/business-types'), this.headers()); }
   users(): Observable<AppUser[]> { return this.http.get<AppUser[]>(this.url('/api/admin/users'), this.headers()); }
   grantPlan(userId: number, planCode: string) { return this.http.post(this.url('/api/admin/users/grant-plan'), { userId, planCode }, this.headers()); }
 }

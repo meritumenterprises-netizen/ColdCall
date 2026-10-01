@@ -1,0 +1,39 @@
+dialog {
+  width: 860px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  padding: 0;
+  border: 1px solid #d5dfda;
+  border-radius: 8px;
+  color: #26372e;
+  background: white;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, .22);
+  overflow: auto;
+}
+dialog::backdrop { background: rgba(15, 25, 20, .45); }
+header { display: flex; gap: 16px; align-items: flex-start; padding: 20px 24px; border-bottom: 1px solid #e1e7e3; }
+h2 { flex: 1; margin: 0; font-size: 20px; line-height: 1.4; overflow-wrap: anywhere; }
+.close-button { flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: #edf2ef; font-size: 24px; line-height: 32px; cursor: pointer; }
+.close-button:hover { background: #dde7e0; }
+.dialog-body { padding: 20px 24px; }
+.company-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; margin: 0; }
+.company-fields > div { min-width: 0; }
+dt { font-size: 12px; font-weight: 600; color: #637168; }
+dd { margin: 4px 0 0; font-size: 14px; overflow-wrap: anywhere; }
+.pkds { margin-top: 24px; border-top: 1px solid #e1e7e3; padding-top: 16px; }
+h3 { font-size: 16px; margin: 0 0 12px; }
+h3 span { color: #637168; font-weight: normal; }
+table { width: 100%; min-width: 0; table-layout: fixed; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 8px; text-align: left; border-bottom: 1px solid #e1e7e3; overflow-wrap: anywhere; white-space: normal; }
+th { position: static; cursor: default; text-transform: none; font-size: 12px; }
+th:first-child { width: 88px; }
+.loading-state { min-height: 160px; display: flex; align-items: center; justify-content: center; gap: 12px; }
+.spinner { width: 24px; height: 24px; border: 3px solid #d9e2dc; border-top-color: #087f5b; border-radius: 50%; animation: spin .8s linear infinite; }
+.error-state { color: #a32e2e; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 540px) {
+  .company-fields { grid-template-columns: minmax(0, 1fr); }
+  header, .dialog-body { padding: 16px; }
+  h2 { font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }

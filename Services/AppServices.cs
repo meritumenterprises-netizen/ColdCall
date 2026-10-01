@@ -121,15 +121,90 @@ public class SmtpEmailSender : IEmailSender
 
 public static class QueryableExtensions
 {
+    public static readonly IReadOnlyList<SortableColumnDto> CompanyShortSortableColumns = new[]
+    {
+        new SortableColumnDto("id", "Id"),
+        new SortableColumnDto("name", "Nazwa"),
+        new SortableColumnDto("nip", "NIP"),
+        new SortableColumnDto("fullAddress", "Adres"),
+        new SortableColumnDto("phone", "Telefon"),
+        new SortableColumnDto("email", "Email"),
+        new SortableColumnDto("www", "Witryna WWW"),
+        new SortableColumnDto("dataAktywnosci", "Data aktywno\u015bci"),
+        new SortableColumnDto("typyDzialalnosci", "Typ Dzia\u0142alno\u015bci")
+    };
+
+    public static IQueryable<CompanyShortDto> ApplyCompanyShortSort(
+        this IQueryable<CompanyShortDto> query, string? sortBy, string? direction)
+    {
+        System.Linq.Expressions.Expression<Func<CompanyShortDto, object?>> key =
+            (sortBy ?? "name").ToLowerInvariant() switch
+            {
+                "id" => x => x.Id,
+                "nip" => x => x.Nip,
+                "fulladdress" => x => x.FullAddress,
+                "phone" => x => x.Phone,
+                "email" => x => x.Email,
+                "www" => x => x.Www,
+                "dataaktywnosci" => x => x.DataAktywnosci,
+                "typydzialalnosci" => x => x.TypyDzialalnosci,
+                _ => x => x.Name
+            };
+        var ordered = string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase)
+            ? query.OrderByDescending(key)
+            : query.OrderBy(key);
+        return ordered.ThenBy(x => x.Id);
+    }
+
+    public static readonly IReadOnlyList<SortableColumnDto> CompanySortableColumns = new[]
+    {
+        new SortableColumnDto("name", "Nazwa firmy"),
+        new SortableColumnDto("businessTypeName", "Typ dzialalnosci"),
+        new SortableColumnDto("firstName", "Imie"),
+        new SortableColumnDto("lastName", "Nazwisko"),
+        new SortableColumnDto("krs", "KRS"),
+        new SortableColumnDto("nip", "NIP"),
+        new SortableColumnDto("wojewodztwo", "Wojewodztwo"),
+        new SortableColumnDto("city", "Miejscowosc"),
+        new SortableColumnDto("gmina", "Gmina"),
+        new SortableColumnDto("powiat", "Powiat"),
+        new SortableColumnDto("postalCode", "Kod"),
+        new SortableColumnDto("street", "Ulica"),
+        new SortableColumnDto("buildingNumber", "Budynek"),
+        new SortableColumnDto("apartmentNumber", "Lokal"),
+        new SortableColumnDto("phone", "Telefon"),
+        new SortableColumnDto("email", "Email"),
+        new SortableColumnDto("googleEmail", "Google Email"),
+        new SortableColumnDto("website", "WWW"),
+        new SortableColumnDto("instagramAccount", "Instagram"),
+        new SortableColumnDto("facebookAccount", "Facebook"),
+        new SortableColumnDto("startedAt", "Start")
+    };
+
     public static IQueryable<Company> ApplyCompanySort(this IQueryable<Company> query, string? sortBy, string? direction)
     {
         var desc = string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase);
         return (sortBy ?? "name").ToLowerInvariant() switch
         {
+            "firstname" => desc ? query.OrderByDescending(x => x.FirstName) : query.OrderBy(x => x.FirstName),
+            "lastname" => desc ? query.OrderByDescending(x => x.LastName) : query.OrderBy(x => x.LastName),
             "nip" => desc ? query.OrderByDescending(x => x.Nip) : query.OrderBy(x => x.Nip),
             "krs" => desc ? query.OrderByDescending(x => x.Krs) : query.OrderBy(x => x.Krs),
+            "businesstype" or "businesstypeid" or "businesstypename" => desc ? query.OrderByDescending(x => x.BusinessType!.TypDzialalnosci) : query.OrderBy(x => x.BusinessType!.TypDzialalnosci),
+            "wojewodztwo" => desc ? query.OrderByDescending(x => x.Wojewodztwo!.Name) : query.OrderBy(x => x.Wojewodztwo!.Name),
             "city" => desc ? query.OrderByDescending(x => x.Miejscowosc!.Name) : query.OrderBy(x => x.Miejscowosc!.Name),
+            "gmina" => desc ? query.OrderByDescending(x => x.Gmina!.Name) : query.OrderBy(x => x.Gmina!.Name),
+            "powiat" => desc ? query.OrderByDescending(x => x.Powiat!.Name) : query.OrderBy(x => x.Powiat!.Name),
             "postalcode" => desc ? query.OrderByDescending(x => x.PostalCode) : query.OrderBy(x => x.PostalCode),
+            "street" => desc ? query.OrderByDescending(x => x.Street) : query.OrderBy(x => x.Street),
+            "buildingnumber" => desc ? query.OrderByDescending(x => x.BuildingNumber) : query.OrderBy(x => x.BuildingNumber),
+            "apartmentnumber" => desc ? query.OrderByDescending(x => x.ApartmentNumber) : query.OrderBy(x => x.ApartmentNumber),
+            "phone" => desc ? query.OrderByDescending(x => x.Phone) : query.OrderBy(x => x.Phone),
+            "email" => desc ? query.OrderByDescending(x => x.Email) : query.OrderBy(x => x.Email),
+            "googleemail" => desc ? query.OrderByDescending(x => x.GoogleEmail) : query.OrderBy(x => x.GoogleEmail),
+            "website" => desc ? query.OrderByDescending(x => x.Website) : query.OrderBy(x => x.Website),
+            "instagramaccount" => desc ? query.OrderByDescending(x => x.InstagramAccount) : query.OrderBy(x => x.InstagramAccount),
+            "facebookaccount" => desc ? query.OrderByDescending(x => x.FacebookAccount) : query.OrderBy(x => x.FacebookAccount),
             "startedat" => desc ? query.OrderByDescending(x => x.StartedAt) : query.OrderBy(x => x.StartedAt),
             _ => desc ? query.OrderByDescending(x => x.Name) : query.OrderBy(x => x.Name)
         };

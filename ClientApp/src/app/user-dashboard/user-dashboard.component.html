@@ -10,58 +10,166 @@
   <main class="workspace">
     <header class="workspace-head">
       <div>
-        <h1>Firmy wedlug PKD</h1>
+        <h1>Jednoosobowe dzia&#322;alno&#347;ci gospodarcze z filtrami</h1>
       </div>
-      <button class="ghost-button" routerLink="/plans">Plany</button>
     </header>
 
     <section class="toolbar">
-      <div class="pkd-picker">
-        <label>PKD</label>
-        <input name="pkdTerm" [(ngModel)]="pkdTerm" (input)="findPkd()" placeholder="Wpisz min. 2 znaki">
-        <div class="suggestions" *ngIf="pkdSuggestions.length">
-          <button *ngFor="let pkd of pkdSuggestions" (click)="addPkd(pkd)">
-            <strong>{{ pkd.code }}</strong> {{ pkd.name }}
-          </button>
-        </div>
-      </div>
       <div class="save-search">
-        <label>Nazwa zbiorcza</label>
-        <input name="searchName" [(ngModel)]="searchName" placeholder="np. Software Warszawa">
+        <label>Nazwa wyszukiwania</label>
+        <input name="searchName" [(ngModel)]="searchName" placeholder="typ dzia&#322;alno&#347;ci albo s&#322;owa kluczowe">
       </div>
       <button class="primary-button" (click)="saveSearch()">Zapisz</button>
     </section>
 
-    <div class="chip-row">
-      <button class="chip" *ngFor="let pkd of selectedPkds" (click)="removePkd(pkd)">
-        {{ pkd.code }} <span>×</span>
-      </button>
+    <div class="filters-layout">
+    <section class="pkd-filter-panel">
+      <div class="pkd-filter-search">
+        <label>PKD</label>
+        <input name="pkdTerm" [(ngModel)]="pkdTerm" (input)="findPkd()" placeholder="Wpisz tekst">
+      </div>
+
+      <div class="pkd-transfer">
+        <div class="pkd-listbox">
+          <label>Znalezione PKD</label>
+          <div class="pkd-options" role="listbox" aria-label="Znalezione PKD" tabindex="0"
+               [attr.aria-activedescendant]="foundPkdId ? 'found-pkd-' + foundPkdId : null"
+               (keydown)="navigatePkd($event, false)" (scroll)="pkdHint = null" (mouseleave)="hidePkdHint($event)">
+            <div *ngFor="let pkd of pkdSuggestions" class="pkd-option" role="option" [id]="'found-pkd-' + pkd.id"
+                 [attr.aria-selected]="foundPkdId === pkd.id" [class.active]="foundPkdId === pkd.id"
+                 (click)="foundPkdId = pkd.id" (mouseenter)="showPkdHint($event, pkd)"
+                 [attr.aria-describedby]="pkdHint ? 'pkd-full-name' : null">{{ pkdLabel(pkd) }}</div>
+          </div>
+        </div>
+
+        <div class="pkd-transfer-actions">
+          <button class="ghost-button compact" [disabled]="loading || !foundPkdId || selectedPkds.length >= maxSelectedPkds" (click)="addSelectedFoundPkd()">&gt;</button>
+          <button class="ghost-button compact" [disabled]="loading || !selectedPkdId" (click)="removeSelectedPkd()">&lt;</button>
+          <button class="ghost-button compact" [disabled]="loading || !selectedPkds.length" (click)="clearPkds()">Wyczy&#347;&#263;</button>
+        </div>
+
+        <div class="pkd-listbox">
+          <label>Wybrane PKD (max.10)</label>
+          <div class="pkd-options" role="listbox" aria-label="Wybrane PKD" tabindex="0"
+               [attr.aria-activedescendant]="selectedPkdId ? 'selected-pkd-' + selectedPkdId : null"
+               (keydown)="navigatePkd($event, true)" (scroll)="pkdHint = null" (mouseleave)="hidePkdHint($event)">
+            <div *ngFor="let pkd of selectedPkds" class="pkd-option" role="option" [id]="'selected-pkd-' + pkd.id"
+                 [attr.aria-selected]="selectedPkdId === pkd.id" [class.active]="selectedPkdId === pkd.id"
+                 (click)="selectedPkdId = pkd.id" (mouseenter)="showPkdHint($event, pkd)"
+                 [attr.aria-describedby]="pkdHint ? 'pkd-full-name' : null">{{ pkdLabel(pkd) }}</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <form class="company-filter-panel" (ngSubmit)="updateFilters()">
+      <div class="address-filter">
+        <label for="company-address">Adres</label>
+        <input id="company-address" name="address" [(ngModel)]="filterDraft.address">
+      </div>
+      <div class="presence-filter">
+        <input id="has-phone" type="checkbox" [checked]="filterDraft.hasPhone === true"
+               [indeterminate]="filterDraft.hasPhone === null" [class.neutral]="filterDraft.hasPhone === null"
+               [attr.aria-checked]="filterDraft.hasPhone === null ? 'mixed' : filterDraft.hasPhone"
+               (change)="cyclePresence('hasPhone', $event)">
+        <label for="has-phone">Telefon</label>
+        <span>{{ presenceLabel(filterDraft.hasPhone) }}</span>
+      </div>
+      <div class="presence-filter">
+        <input id="has-email" type="checkbox" [checked]="filterDraft.hasEmail === true"
+               [indeterminate]="filterDraft.hasEmail === null" [class.neutral]="filterDraft.hasEmail === null"
+               [attr.aria-checked]="filterDraft.hasEmail === null ? 'mixed' : filterDraft.hasEmail"
+               (change)="cyclePresence('hasEmail', $event)">
+        <label for="has-email">Email</label>
+        <span>{{ presenceLabel(filterDraft.hasEmail) }}</span>
+      </div>
+      <div class="presence-filter">
+        <input id="has-website" type="checkbox" [checked]="filterDraft.hasWebsite === true"
+               [indeterminate]="filterDraft.hasWebsite === null" [class.neutral]="filterDraft.hasWebsite === null"
+               [attr.aria-checked]="filterDraft.hasWebsite === null ? 'mixed' : filterDraft.hasWebsite"
+               (change)="cyclePresence('hasWebsite', $event)">
+        <label for="has-website">Witryna WWW</label>
+        <span>{{ presenceLabel(filterDraft.hasWebsite) }}</span>
+      </div>
+      <div class="date-filter">
+        <div class="presence-filter">
+          <input id="date-range" name="dateRangeEnabled" type="checkbox" [ngModel]="dateRangeEnabled"
+                 (ngModelChange)="setDateRangeEnabled($event)">
+          <label for="date-range">Data aktywno&#347;ci</label>
+        </div>
+        <div class="date-range">
+          <div><label for="started-from">Od</label>
+            <input id="started-from" name="dateFrom" [(ngModel)]="dateFrom" [disabled]="!dateRangeEnabled"
+                   placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"></div>
+          <div><label for="started-to">Do</label>
+            <input id="started-to" name="dateTo" [(ngModel)]="dateTo" [disabled]="!dateRangeEnabled"
+                   placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"></div>
+        </div>
+      </div>
+      <div class="record-limit-filter">
+        <label for="record-limit">Liczba rekord&#243;w</label>
+        <input id="record-limit" name="recordLimit" list="record-limit-options" inputmode="numeric"
+               [ngModel]="filterDraft.recordLimit" (ngModelChange)="setRecordLimit($event)" autocomplete="off"
+               [attr.aria-invalid]="!!recordLimitError" [attr.aria-describedby]="recordLimitError ? 'record-limit-error' : null">
+        <datalist id="record-limit-options">
+          <option value="100"></option><option value="1000"></option><option value="5000"></option><option value="10000"></option>
+        </datalist>
+        <div *ngIf="recordLimitError" id="record-limit-error" class="filter-error" role="alert">{{ recordLimitError }}</div>
+      </div>
+      <div *ngIf="filterError" class="filter-error" role="alert">{{ filterError }}</div>
+      <button type="submit" class="primary-button update-filters" [disabled]="loading || !filtersChanged">Aktualizuj</button>
+    </form>
     </div>
+
+    <div *ngIf="pkdHint" id="pkd-full-name" class="pkd-tooltip" role="tooltip"
+         [style.left.px]="pkdHint.left" [style.top.px]="pkdHint.top" [style.bottom.px]="pkdHint.bottom"
+         (mouseleave)="pkdHint = null">{{ pkdHint.text }}</div>
 
     <div class="error" *ngIf="error">{{ error }}</div>
 
-    <section class="data-panel">
+    <section class="companies-grid-panel" [attr.aria-busy]="loading">
+      <div class="data-panel companies-grid-table">
       <table>
         <thead>
           <tr>
-            <th *ngFor="let col of columns" (click)="sort(col[0])">{{ col[1] }}</th>
+            <th hidden>Id</th>
+            <th scope="col">Lp.</th>
+            <th *ngFor="let col of columns" [class.sort-disabled]="!selectedPkds.length || loading"
+                [attr.aria-disabled]="!selectedPkds.length || loading" (click)="sort(col.key)">{{ col.label }}</th>
           </tr>
         </thead>
-        <tbody>
-          <tr *ngFor="let row of companies">
-            <td>{{ row.name }}</td><td>{{ row.firstName }}</td><td>{{ row.lastName }}</td><td>{{ row.krs }}</td><td>{{ row.nip }}</td>
-            <td>{{ row.city }}</td><td>{{ row.postalCode }}</td><td>{{ row.street }}</td><td>{{ row.buildingNumber }}</td>
-            <td>{{ row.apartmentNumber }}</td><td>{{ row.phone }}</td><td>{{ row.email }}</td><td>{{ row.website }}</td><td>{{ row.startedAt | date:'yyyy-MM-dd' }}</td>
+        <tbody *ngIf="loading" aria-hidden="true">
+          <tr *ngFor="let placeholder of loadingRows">
+            <td hidden></td><td>&nbsp;</td><td *ngFor="let col of columns">&nbsp;</td>
+          </tr>
+        </tbody>
+        <tbody *ngIf="!loading">
+          <tr *ngFor="let row of companies; let rowIndex = index" [attr.data-company-id]="row.id"
+              class="company-row" [class.selected-company]="selectedCompanyId === row.id" [attr.title]="row.name"
+              [attr.aria-selected]="selectedCompanyId === row.id" tabindex="0"
+              (click)="selectedCompanyId = row.id" (focus)="selectedCompanyId = row.id"
+              (dblclick)="openCompany(row)" (keydown.enter)="$event.preventDefault(); openCompany(row)">
+            <td>{{ formatNumber((page - 1) * pageSize + rowIndex + 1) }}</td>
+            <td hidden>{{ row.id }}</td><td>{{ row.name.length > 50 ? (row.name | slice:0:50) + '...' : row.name }}</td><td>{{ row.nip }}</td>
+            <td>{{ row.fullAddress }}</td><td>{{ row.phone }}</td><td>{{ row.email }}</td>
+            <td>{{ row.www }}</td><td>{{ row.dataAktywnosci | date:'yyyy-MM-dd' }}</td>
+            <td>{{ row.typyDzialalnosci }}</td>
           </tr>
         </tbody>
       </table>
+      </div>
+      <div class="grid-loading" *ngIf="loading" role="status" aria-label="Ladowanie firm">
+        <span class="grid-spinner" aria-hidden="true"></span>
+      </div>
     </section>
 
     <footer class="pager">
-      <button (click)="prev()" [disabled]="page === 1">Poprzednia</button>
-      <span>Strona {{ page }} · {{ total }} rekordow</span>
-      <button (click)="next()" [disabled]="page * 20 >= total">Nastepna</button>
-      <button class="primary-button" (click)="exportCsv()">Eksport CSV</button>
+      <span>{{ formatNumber(total) }} rekord&#243;w</span>
+      <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>
+      <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
+      <button (click)="next()" [disabled]="loading || page >= totalPages()">Nast&#281;pna</button>
     </footer>
   </main>
 </div>
+<app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name"
+                     (closed)="detailsCompany = null"></app-company-details>

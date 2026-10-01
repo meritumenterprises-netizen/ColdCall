@@ -181,12 +181,112 @@ static async Task EnsureDatabaseSchemaAsync(ColdCallDbContext db)
                 "Baza Firmy_temp zawiera czesc tabel aplikacji ColdCall, ale nie caly schemat. Uzupelnij schemat migracja EF albo usun tylko tabele ColdCall.");
         }
 
+        await EnsureBusinessTypeTableAsync(connection);
+        await EnsurePkdCodeWithoutDotsColumnAsync(connection);
+        await EnsureCompanyCreatedOnColumnAsync(connection);
         await EnsurePlanDefinitionsDescriptionHtmlColumnAsync(connection);
     }
     finally
     {
         await connection.CloseAsync();
     }
+}
+
+static async Task EnsureBusinessTypeTableAsync(System.Data.Common.DbConnection connection)
+{
+    await using var command = connection.CreateCommand();
+    command.CommandText = """
+        IF OBJECT_ID(N'ColdCall.BusinessType', N'U') IS NULL
+        BEGIN
+            CREATE TABLE [ColdCall].[BusinessType]
+            (
+                [TypDzialalnosciId] int NOT NULL,
+                [TypDzialalnosci] varchar(512) NOT NULL,
+                CONSTRAINT [PK_BusinessType] PRIMARY KEY ([TypDzialalnosciId])
+            )
+        END
+
+        IF NOT EXISTS (SELECT 1 FROM [ColdCall].[BusinessType] WHERE [TypDzialalnosciId] = 1)
+        BEGIN
+            INSERT INTO [ColdCall].[BusinessType] ([TypDzialalnosciId], [TypDzialalnosci])
+            VALUES (1, N'Jednoosobowa działalność gospodarcza')
+        END
+
+        INSERT INTO [ColdCall].[BusinessType] ([TypDzialalnosciId], [TypDzialalnosci])
+        SELECT DISTINCT c.[BusinessType], CONVERT(varchar(512), CONCAT(N'Typ działalności ', c.[BusinessType]))
+        FROM [ColdCall].[Companies] c
+        WHERE c.[BusinessType] IS NOT NULL
+          AND NOT EXISTS
+          (
+              SELECT 1
+              FROM [ColdCall].[BusinessType] bt
+              WHERE bt.[TypDzialalnosciId] = c.[BusinessType]
+          )
+
+        IF NOT EXISTS
+        (
+            SELECT 1
+            FROM sys.foreign_keys
+            WHERE name = N'FK_Companies_BusinessType_BusinessType'
+              AND parent_object_id = OBJECT_ID(N'ColdCall.Companies')
+        )
+        BEGIN
+            ALTER TABLE [ColdCall].[Companies] WITH CHECK
+            ADD CONSTRAINT [FK_Companies_BusinessType_BusinessType]
+            FOREIGN KEY ([BusinessType])
+            REFERENCES [ColdCall].[BusinessType] ([TypDzialalnosciId])
+        END
+        """;
+    await command.ExecuteNonQueryAsync();
+}
+
+static async Task EnsurePkdCodeWithoutDotsColumnAsync(System.Data.Common.DbConnection connection)
+{
+    await using var command = connection.CreateCommand();
+    command.CommandText = """
+        SET ANSI_NULLS ON;
+        SET QUOTED_IDENTIFIER ON;
+        SET ANSI_PADDING ON;
+        SET ANSI_WARNINGS ON;
+        SET ARITHABORT ON;
+        SET CONCAT_NULL_YIELDS_NULL ON;
+        SET NUMERIC_ROUNDABORT OFF;
+
+        IF COL_LENGTH(N'ColdCall.PkdCodes', N'CodeWithoutDots') IS NULL
+        BEGIN
+            ALTER TABLE [ColdCall].[PkdCodes]
+            ADD [CodeWithoutDots] AS REPLACE([Code], N'.', N'') PERSISTED;
+        END
+        """;
+    await command.ExecuteNonQueryAsync();
+}
+
+static async Task EnsureCompanyCreatedOnColumnAsync(System.Data.Common.DbConnection connection)
+{
+    await using var command = connection.CreateCommand();
+    command.CommandTimeout = 600;
+    command.CommandText = """
+        SET XACT_ABORT ON;
+        BEGIN TRY
+            BEGIN TRANSACTION;
+            IF COL_LENGTH(N'ColdCall.Companies', N'CreatedOn') IS NULL
+            BEGIN
+                ALTER TABLE [ColdCall].[Companies]
+                ADD [CreatedOn] datetime NOT NULL
+                    CONSTRAINT [DF_Companies_CreatedOn] DEFAULT (DATEADD(day, -1, GETDATE())) WITH VALUES;
+
+                ALTER TABLE [ColdCall].[Companies] DROP CONSTRAINT [DF_Companies_CreatedOn];
+                ALTER TABLE [ColdCall].[Companies]
+                ADD CONSTRAINT [DF_Companies_CreatedOn] DEFAULT (GETDATE()) FOR [CreatedOn];
+            END;
+            COMMIT TRANSACTION;
+        END TRY
+        BEGIN CATCH
+            IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+            THROW;
+        END CATCH;
+        """;
+    await command.ExecuteNonQueryAsync();
 }
 
 static async Task EnsurePlanDefinitionsDescriptionHtmlColumnAsync(System.Data.Common.DbConnection connection)

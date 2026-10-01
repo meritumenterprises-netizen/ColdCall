@@ -19,18 +19,19 @@ public class PkdController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IReadOnlyList<PkdDto>> Search([FromQuery] string term)
+    public async Task<IReadOnlyList<PkdDto>> Search([FromQuery] string? term = null)
     {
-        term = term.Trim();
-        if (term.Length < 2)
+        term = term?.Trim();
+
+        var query = _db.PkdCodes.AsQueryable();
+        if (!string.IsNullOrWhiteSpace(term))
         {
-            return Array.Empty<PkdDto>();
+            query = query.Where(x => x.Code.Contains(term) || x.Name.Contains(term));
         }
 
-        return await _db.PkdCodes
-            .Where(x => x.Code.Contains(term) || x.Name.Contains(term))
+        return await query
             .OrderBy(x => x.Code)
-            .Take(20)
+            .ThenBy(x => x.Name)
             .Select(x => new PkdDto(x.Id, x.Code, x.Name))
             .ToListAsync();
     }
