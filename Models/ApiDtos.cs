@@ -62,9 +62,9 @@ public record CompanyUpdateDto(
     string? FacebookAccount,
     DateTime? StartedAt);
 
-public record SearchProfileDto(int Id, string Name, IReadOnlyList<PkdDto> PkdCodes);
+public record SearchProfileDto(int Id, string Name, IReadOnlyList<PkdDto> PkdCodes, SearchProfileCriteriaDto? Criteria = null);
 
-public record SaveSearchProfileDto(string Name, IReadOnlyList<int> PkdCodeIds);
+public record SaveSearchProfileDto(string Name, IReadOnlyList<int> PkdCodeIds, SearchProfileCriteriaDto? Criteria = null);
 
 public record PlanDto(string Code, int SearchLimit, string DescriptionHtml, decimal Price, string Currency, DateTime? ActiveUntil);
 

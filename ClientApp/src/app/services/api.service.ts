@@ -23,7 +23,12 @@ export interface CompanyShort {
   phone?: string; email?: string; www?: string; dataAktywnosci?: string;
   typyDzialalnosci?: string;
 }
-export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; }
+export interface SearchCriteria {
+  sortColumn: string; sortDirection: string; address: string;
+  hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
+  dateRangeEnabled: boolean; dateFrom: string | null; dateTo: string | null; recordLimit: number;
+}
+export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; }
 export interface Me { id: number; googleEmail: string; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; plan?: any; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string; }
@@ -75,8 +80,8 @@ export class ApiService {
   }
   pkd(term: string = ''): Observable<Pkd[]> { return this.http.get<Pkd[]>(this.url('/api/pkd'), { ...this.headers(), params: { term } }); }
   searches(): Observable<SearchProfile[]> { return this.http.get<SearchProfile[]>(this.url('/api/searches'), this.headers()); }
-  saveSearch(name: string, pkdCodeIds: number[]): Observable<SearchProfile> {
-    return this.http.post<SearchProfile>(this.url('/api/searches'), { name, pkdCodeIds }, this.headers());
+  saveSearch(name: string, pkdCodeIds: number[], criteria?: SearchCriteria): Observable<SearchProfile> {
+    return this.http.post<SearchProfile>(this.url('/api/searches'), { name, pkdCodeIds, criteria }, this.headers());
   }
 
   companies(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters): Observable<PagedResult<CompanyShort>> {
