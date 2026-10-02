@@ -10,6 +10,7 @@ public class CompanyShortView
     public string? Email { get; set; }
     public string? Www { get; set; }
     public DateTime? DataAktywnosci { get; set; }
+    public string? StatusDzialalnosci { get; set; }
     public string? TypDzialalnosci { get; set; }
 }
 

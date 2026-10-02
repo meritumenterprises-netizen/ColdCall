@@ -18,9 +18,10 @@ SELECT
     c.[Email],
     c.[Website] AS [Www],
     c.[StartedAt] AS [DataAktywnosci],
-    c.[StatusDzialalnosci],
+    s.[Nazwa] AS [StatusDzialalnosci],
     b.[TypDzialalnosci] AS [TypDzialalnosci]
 FROM [ColdCall].[Companies] AS c
+LEFT JOIN [ColdCall].[CompanyStatus] AS s ON s.[StatusId] = c.[StatusDzialalnosciId]
 LEFT JOIN [ColdCall].[Wojewodztwa] AS w ON w.[Id] = c.[WojewodztwoId]
 LEFT JOIN [ColdCall].[Miejscowosci] AS m ON m.[Id] = c.[MiejscowoscId]
 LEFT JOIN [ColdCall].[BusinessType] AS b ON b.[TypDzialalnosciId] = c.[BusinessType]

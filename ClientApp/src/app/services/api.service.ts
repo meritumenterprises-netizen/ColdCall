@@ -15,6 +15,7 @@ export interface Company {
 export interface BusinessType { typDzialalnosciId: number; typDzialalnosci: string; }
 export interface CompanyDetails { company: Company; pkdCodes: Pkd[]; }
 export interface CompanyFilters {
+  companyName?: string;
   address: string; hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
   startedFrom?: string; startedTo?: string; recordLimit: number;
 }
@@ -24,6 +25,7 @@ export interface CompanyShort {
   typyDzialalnosci?: string;
 }
 export interface SearchCriteria {
+  companyName?: string;
   sortColumn: string; sortDirection: string; address: string;
   hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
   dateRangeEnabled: boolean; dateFrom: string | null; dateTo: string | null; recordLimit: number;
@@ -88,6 +90,7 @@ export class ApiService {
     let params = new HttpParams().set('page', String(page)).set('pageSize', '10').set('sortBy', sortBy).set('direction', direction);
     pkdIds.forEach(id => params = params.append('pkdIds', String(id)));
     if (filters) {
+      if (filters.companyName && filters.companyName.trim()) { params = params.set('companyName', filters.companyName.trim()); }
       if (filters.address.trim()) { params = params.set('address', filters.address.trim()); }
       ['hasPhone', 'hasEmail', 'hasWebsite'].forEach(key => {
         if (filters[key] !== null) { params = params.set(key, String(filters[key])); }

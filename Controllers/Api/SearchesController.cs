@@ -69,7 +69,7 @@ public class SearchesController : ControllerBase
             Criteria = new SearchProfileCriteria
             {
                 SortColumn = criteria.SortColumn, SortDirection = criteria.SortDirection,
-                Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
+                CompanyName = criteria.CompanyName, Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
                 HasWebsite = criteria.HasWebsite, DateRangeEnabled = criteria.DateRangeEnabled,
                 DateFrom = criteria.DateFrom, DateTo = criteria.DateTo, RecordLimit = criteria.RecordLimit
             }
@@ -94,7 +94,7 @@ public class SearchesController : ControllerBase
         criteria == null ? new SearchProfileCriteriaDto() : new SearchProfileCriteriaDto
         {
             SortColumn = criteria.SortColumn, SortDirection = criteria.SortDirection,
-            Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
+            CompanyName = criteria.CompanyName, Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
             HasWebsite = criteria.HasWebsite, DateRangeEnabled = criteria.DateRangeEnabled,
             DateFrom = criteria.DateFrom, DateTo = criteria.DateTo, RecordLimit = criteria.RecordLimit
         };

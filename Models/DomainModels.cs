@@ -22,6 +22,8 @@ public class AdminEmail
 
 public class Company
 {
+    public byte StatusDzialalnosciId { get; set; } = 1;
+    public CompanyStatus? StatusDzialalnosci { get; set; }
     public int Id { get; set; }
     public string Name { get; set; } = "";
     public int BusinessTypeId { get; set; }
@@ -30,6 +32,8 @@ public class Company
     public string? LastName { get; set; }
     public string? Krs { get; set; }
     public string? Nip { get; set; }
+    public string? Regon { get; set; }
+    public bool? AddressIsMissing { get; set; }
     public int? WojewodztwoId { get; set; }
     public Wojewodztwo? Wojewodztwo { get; set; }
     public int? MiejscowoscId { get; set; }
@@ -53,6 +57,12 @@ public class Company
     public ICollection<CompanyPkd> CompanyPkds { get; set; } = new List<CompanyPkd>();
 }
 
+public class CompanyStatus
+{
+    public byte StatusId { get; set; }
+    public string Nazwa { get; set; } = "";
+}
+
 public class BusinessType
 {
     public int TypDzialalnosciId { get; set; }
@@ -63,7 +73,7 @@ public class PkdCode
 {
     public int Id { get; set; }
     public string Code { get; set; } = "";
-    public string CodeWithoutDots { get; private set; } = "";
+    public string? CodeWithoutDots { get; private set; }
     public string Name { get; set; } = "";
 }
 
@@ -89,6 +99,8 @@ public class SearchProfile
 
 public class SearchProfileCriteria
 {
+    public string Name { get; set; } = "";
+    public string CompanyName { get; set; } = "";
     public int Id { get; set; }
     public int SearchProfileId { get; set; }
     public SearchProfile SearchProfile { get; set; } = null!;
@@ -167,5 +179,7 @@ public class Powiat : DictionaryEntity
 public abstract class DictionaryEntity
 {
     public int Id { get; set; }
+    [System.ComponentModel.DataAnnotations.Required]
+    [System.ComponentModel.DataAnnotations.MaxLength(250)]
     public string Name { get; set; } = "";
 }

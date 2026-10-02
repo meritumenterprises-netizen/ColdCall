@@ -13,6 +13,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   allPkds: Pkd[] = [];
   selectedPkds: Pkd[] = [];
   pkdTerm = '';
+  activeFilterTab: 'pkd' | 'criteria' = 'pkd';
   pkdSuggestions: Pkd[] = [];
   maxSelectedPkds = 10;
   foundPkdId: number | null = null;
@@ -33,7 +34,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   error = '';
   filterError = '';
   recordLimitError = '';
-  filterDraft: CompanyFilters = { address: '', hasPhone: null, hasEmail: null, hasWebsite: null, recordLimit: 1000 };
+  filterDraft: CompanyFilters = { companyName: '', address: '', hasPhone: null, hasEmail: null, hasWebsite: null, recordLimit: 1000 };
   appliedFilters: CompanyFilters = { ...this.filterDraft };
   private lastUpdatedFilterState: string | null = null;
   dateRangeEnabled = false;
@@ -62,6 +63,21 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   loadSearches() { this.api.searches().subscribe(x => this.searches = x); }
+
+  selectFilterTab(tab: 'pkd' | 'criteria') {
+    this.activeFilterTab = tab;
+    this.pkdHint = null;
+  }
+
+  navigateFilterTabs(event: KeyboardEvent) {
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) === -1) { return; }
+    event.preventDefault();
+    const tab = event.key === 'Home' ? 'pkd' : event.key === 'End' ? 'criteria' :
+      this.activeFilterTab === 'pkd' ? 'criteria' : 'pkd';
+    this.selectFilterTab(tab);
+    const buttons = (event.currentTarget as HTMLElement).parentElement.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    buttons[tab === 'pkd' ? 0 : 1].focus();
+  }
 
   loadPkds() {
     this.api.pkd().subscribe(x => {
@@ -132,7 +148,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private filterState() {
     return JSON.stringify({
       pkdIds: this.selectedPkds.map(pkd => pkd.id).sort((a, b) => a - b),
-      address: this.filterDraft.address,
+      companyName: this.filterDraft.companyName || '',
       hasPhone: this.filterDraft.hasPhone,
       hasEmail: this.filterDraft.hasEmail,
       hasWebsite: this.filterDraft.hasWebsite,
@@ -148,7 +164,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (!this.validateFilters()) { return; }
     const limit = Number(this.filterDraft.recordLimit);
     this.appliedFilters = {
-      ...this.filterDraft, address: this.filterDraft.address.trim(), recordLimit: limit,
+      ...this.filterDraft, companyName: (this.filterDraft.companyName || '').trim(), address: '', recordLimit: limit,
       startedFrom: this.dateRangeEnabled ? this.dateFrom : undefined,
       startedTo: this.dateRangeEnabled ? this.dateTo : undefined
     };
@@ -281,7 +297,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.sortBy = criteria ? criteria.sortColumn : 'dataAktywnosci';
     this.direction = criteria ? criteria.sortDirection : 'desc';
     this.filterDraft = {
-      address: criteria ? criteria.address : '',
+      companyName: criteria ? criteria.companyName || '' : '',
+      address: '',
       hasPhone: criteria ? criteria.hasPhone : null,
       hasEmail: criteria ? criteria.hasEmail : null,
       hasWebsite: criteria ? criteria.hasWebsite : null,
@@ -307,7 +324,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   saveSearch() {
     if (!this.searchName.trim() || !this.validateFilters()) { return; }
     const criteria = {
-      sortColumn: this.sortBy, sortDirection: this.direction, address: this.filterDraft.address,
+      sortColumn: this.sortBy, sortDirection: this.direction, companyName: this.filterDraft.companyName || '', address: '',
       hasPhone: this.filterDraft.hasPhone, hasEmail: this.filterDraft.hasEmail, hasWebsite: this.filterDraft.hasWebsite,
       dateRangeEnabled: this.dateRangeEnabled, dateFrom: this.dateRangeEnabled ? this.dateFrom : null,
       dateTo: this.dateRangeEnabled ? this.dateTo : null, recordLimit: Number(this.filterDraft.recordLimit)

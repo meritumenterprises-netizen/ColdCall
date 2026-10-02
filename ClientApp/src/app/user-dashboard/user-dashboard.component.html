@@ -23,7 +23,15 @@
     </section>
 
     <div class="filters-layout">
-    <section class="pkd-filter-panel">
+    <div class="filter-tabs" role="tablist" aria-label="Filtry firm">
+      <button type="button" id="pkd-tab" role="tab" aria-controls="pkd-panel"
+              [attr.aria-selected]="activeFilterTab === 'pkd'" [attr.tabindex]="activeFilterTab === 'pkd' ? 0 : -1"
+              (click)="selectFilterTab('pkd')" (keydown)="navigateFilterTabs($event)">PKD</button>
+      <button type="button" id="criteria-tab" role="tab" aria-controls="criteria-panel"
+              [attr.aria-selected]="activeFilterTab === 'criteria'" [attr.tabindex]="activeFilterTab === 'criteria' ? 0 : -1"
+              (click)="selectFilterTab('criteria')" (keydown)="navigateFilterTabs($event)">Kryteria</button>
+    </div>
+    <section class="pkd-filter-panel" id="pkd-panel" role="tabpanel" aria-labelledby="pkd-tab" [hidden]="activeFilterTab !== 'pkd'">
       <div class="pkd-filter-search">
         <label>PKD</label>
         <input name="pkdTerm" [(ngModel)]="pkdTerm" (input)="findPkd()" placeholder="Wpisz tekst">
@@ -62,10 +70,11 @@
       </div>
     </section>
 
-    <form class="company-filter-panel" (ngSubmit)="updateFilters()">
-      <div class="address-filter">
-        <label for="company-address">Adres</label>
-        <input id="company-address" name="address" [(ngModel)]="filterDraft.address" maxlength="1000">
+    <form class="company-filter-panel" id="criteria-panel" role="tabpanel" aria-labelledby="criteria-tab"
+          [hidden]="activeFilterTab !== 'criteria'" (ngSubmit)="updateFilters()">
+      <div class="company-name-filter">
+        <label for="company-name">Nazwa firmy</label>
+        <input id="company-name" name="companyName" [(ngModel)]="filterDraft.companyName" maxlength="1000">
       </div>
       <div class="presence-filter">
         <input id="has-phone" type="checkbox" [checked]="filterDraft.hasPhone === true"
@@ -106,19 +115,22 @@
                    placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"></div>
         </div>
       </div>
+    </form>
+    <div class="filter-actions">
       <div class="record-limit-filter">
         <label for="record-limit">Liczba rekord&#243;w</label>
         <input id="record-limit" name="recordLimit" list="record-limit-options" inputmode="numeric"
                [ngModel]="filterDraft.recordLimit" (ngModelChange)="setRecordLimit($event)" autocomplete="off"
+               (keydown.enter)="$event.preventDefault(); updateFilters()" [attr.title]="filterDraft.recordLimit"
                [attr.aria-invalid]="!!recordLimitError" [attr.aria-describedby]="recordLimitError ? 'record-limit-error' : null">
         <datalist id="record-limit-options">
           <option value="100"></option><option value="1000"></option><option value="5000"></option><option value="10000"></option>
         </datalist>
-        <div *ngIf="recordLimitError" id="record-limit-error" class="filter-error" role="alert">{{ recordLimitError }}</div>
       </div>
-      <div *ngIf="filterError" class="filter-error" role="alert">{{ filterError }}</div>
-      <button type="submit" class="primary-button update-filters" [disabled]="loading || !filtersChanged">Aktualizuj</button>
-    </form>
+      <button type="button" class="primary-button update-filters" (click)="updateFilters()" [disabled]="loading || !filtersChanged">Aktualizuj</button>
+    </div>
+    <div *ngIf="recordLimitError" id="record-limit-error" class="filter-error" role="alert">{{ recordLimitError }}</div>
+    <div *ngIf="filterError" class="filter-error" role="alert">{{ filterError }}</div>
     </div>
 
     <div *ngIf="pkdHint" id="pkd-full-name" class="pkd-tooltip" role="tooltip"
