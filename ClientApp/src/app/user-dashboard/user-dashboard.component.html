@@ -65,7 +65,7 @@
     <form class="company-filter-panel" (ngSubmit)="updateFilters()">
       <div class="address-filter">
         <label for="company-address">Adres</label>
-        <input id="company-address" name="address" [(ngModel)]="filterDraft.address">
+        <input id="company-address" name="address" [(ngModel)]="filterDraft.address" maxlength="1000">
       </div>
       <div class="presence-filter">
         <input id="has-phone" type="checkbox" [checked]="filterDraft.hasPhone === true"
@@ -134,8 +134,13 @@
           <tr>
             <th hidden>Id</th>
             <th scope="col">Lp.</th>
-            <th *ngFor="let col of columns" [class.sort-disabled]="!selectedPkds.length || loading"
-                [attr.aria-disabled]="!selectedPkds.length || loading" (click)="sort(col.key)">{{ col.label }}</th>
+            <th *ngFor="let col of columns" [class.sort-disabled]="col.key === 'details' || !selectedPkds.length || loading"
+                [attr.aria-disabled]="col.key === 'details' || !selectedPkds.length || loading"
+                [attr.aria-sort]="col.key === 'details' ? null : sortBy === col.key ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'"
+                (click)="sort(col.key)">
+              <span class="column-heading">{{ col.label }}<span *ngIf="col.key !== 'details'" class="sort-indicator"
+                    [class.sort-active]="sortBy === col.key" aria-hidden="true"><ng-container *ngIf="direction === 'asc'">&#9650;</ng-container><ng-container *ngIf="direction !== 'asc'">&#9660;</ng-container></span></span>
+            </th>
           </tr>
         </thead>
         <tbody *ngIf="loading" aria-hidden="true">
@@ -153,7 +158,13 @@
             <td hidden>{{ row.id }}</td><td>{{ row.name.length > 50 ? (row.name | slice:0:50) + '...' : row.name }}</td><td>{{ row.nip }}</td>
             <td>{{ row.fullAddress }}</td><td>{{ row.phone }}</td><td>{{ row.email }}</td>
             <td>{{ row.www }}</td><td>{{ row.dataAktywnosci | date:'yyyy-MM-dd' }}</td>
-            <td>{{ row.typyDzialalnosci }}</td>
+            <td class="company-details-cell">
+              <button type="button" class="company-details-button" aria-label="Szczeg&#243;&#322;y firmy" title="Szczeg&#243;&#322;y firmy"
+                      (click)="$event.stopPropagation(); openCompany(row)" (dblclick)="$event.stopPropagation()"
+                      (keydown.enter)="$event.stopPropagation()">
+                <img src="assets/list-collapse.svg" width="20" height="20" alt="">
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>

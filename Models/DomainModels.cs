@@ -84,6 +84,24 @@ public class SearchProfile
     public string Name { get; set; } = "";
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public ICollection<SearchProfilePkd> PkdCodes { get; set; } = new List<SearchProfilePkd>();
+    public SearchProfileCriteria? Criteria { get; set; }
+}
+
+public class SearchProfileCriteria
+{
+    public int Id { get; set; }
+    public int SearchProfileId { get; set; }
+    public SearchProfile SearchProfile { get; set; } = null!;
+    public string SortColumn { get; set; } = "dataAktywnosci";
+    public string SortDirection { get; set; } = "desc";
+    public string Address { get; set; } = "";
+    public bool? HasPhone { get; set; }
+    public bool? HasEmail { get; set; }
+    public bool? HasWebsite { get; set; }
+    public bool DateRangeEnabled { get; set; }
+    public DateOnly? DateFrom { get; set; }
+    public DateOnly? DateTo { get; set; }
+    public int RecordLimit { get; set; } = 1000;
 }
 
 public class SearchProfilePkd

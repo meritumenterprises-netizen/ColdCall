@@ -49,7 +49,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     { key: 'email', label: 'Email' },
     { key: 'www', label: 'Witryna WWW' },
     { key: 'dataAktywnosci', label: 'Data aktywno\u015bci' },
-    { key: 'typyDzialalnosci', label: 'Typ Dzia\u0142alno\u015bci' }
+    { key: 'details', label: 'Szczeg\u00f3\u0142y' }
   ];
 
   constructor(private api: ApiService) {}
@@ -71,10 +71,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   loadCompanies() {
-    if (!this.selectedPkds.length) {
-      this.sortBy = 'dataAktywnosci';
-      this.direction = 'desc';
-    }
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     this.error = '';
     this.loading = true;
@@ -86,7 +82,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.total = result.total;
       this.page = result.page;
       if (result.sortableColumns && result.sortableColumns.length) {
-        this.columns = result.sortableColumns.filter(column => column.key !== 'id');
+        this.columns = result.sortableColumns.filter(column => column.key !== 'id')
+          .map(column => column.key === 'typyDzialalnosci' ? { key: 'details', label: 'Szczeg\u00f3\u0142y' } : column);
       }
     }, err => {
       this.companies = [];
@@ -148,13 +145,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   updateFilters() {
     if (this.loading || !this.filtersChanged) { return; }
-    this.filterError = '';
-    if (!this.validateRecordLimit()) { return; }
+    if (!this.validateFilters()) { return; }
     const limit = Number(this.filterDraft.recordLimit);
-    if (this.dateRangeEnabled && (!this.validDate(this.dateFrom) || !this.validDate(this.dateTo) || this.dateTo <= this.dateFrom)) {
-      this.filterError = 'Podaj poprawne daty YYYY-MM-DD. Data do musi by\u0107 p\u00f3\u017aniejsza ni\u017c data od.';
-      return;
-    }
     this.appliedFilters = {
       ...this.filterDraft, address: this.filterDraft.address.trim(), recordLimit: limit,
       startedFrom: this.dateRangeEnabled ? this.dateFrom : undefined,
@@ -169,6 +161,16 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value) || value.substring(0, 4) === '0000') { return false; }
     const date = new Date(value + 'T00:00:00Z');
     return !isNaN(date.getTime()) && date.toISOString().substring(0, 10) === value;
+  }
+
+  private validateFilters() {
+    this.filterError = '';
+    if (!this.validateRecordLimit()) { return false; }
+    if (this.dateRangeEnabled && (!this.validDate(this.dateFrom) || !this.validDate(this.dateTo) || this.dateTo <= this.dateFrom)) {
+      this.filterError = 'Podaj poprawne daty YYYY-MM-DD. Data do musi by\u0107 p\u00f3\u017aniejsza ni\u017c data od.';
+      return false;
+    }
+    return true;
   }
 
   setRecordLimit(value: number) {
@@ -275,20 +277,48 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.searchName = profile.name;
     this.selectedPkds = this.sortPkds(profile.pkdCodes.slice());
     this.selectedPkdId = this.selectedPkds.length ? this.selectedPkds[0].id : null;
+    const criteria = profile.criteria;
+    this.sortBy = criteria ? criteria.sortColumn : 'dataAktywnosci';
+    this.direction = criteria ? criteria.sortDirection : 'desc';
+    this.filterDraft = {
+      address: criteria ? criteria.address : '',
+      hasPhone: criteria ? criteria.hasPhone : null,
+      hasEmail: criteria ? criteria.hasEmail : null,
+      hasWebsite: criteria ? criteria.hasWebsite : null,
+      recordLimit: criteria ? criteria.recordLimit : 1000
+    };
+    this.dateRangeEnabled = criteria ? criteria.dateRangeEnabled : false;
+    this.dateFrom = criteria && criteria.dateRangeEnabled ? criteria.dateFrom || '' : '';
+    this.dateTo = criteria && criteria.dateRangeEnabled ? criteria.dateTo || '' : '';
+    this.appliedFilters = {
+      ...this.filterDraft,
+      startedFrom: this.dateRangeEnabled ? this.dateFrom : undefined,
+      startedTo: this.dateRangeEnabled ? this.dateTo : undefined
+    };
+    this.filterError = '';
+    this.recordLimitError = '';
+    this.pkdHint = null;
+    this.lastUpdatedFilterState = this.filterState();
     this.page = 1;
     this.loadCompanies();
     this.updatePkdSuggestions();
   }
 
   saveSearch() {
-    if (!this.searchName.trim() || this.selectedPkds.length === 0) { return; }
-    this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id)).subscribe(profile => {
+    if (!this.searchName.trim() || !this.validateFilters()) { return; }
+    const criteria = {
+      sortColumn: this.sortBy, sortDirection: this.direction, address: this.filterDraft.address,
+      hasPhone: this.filterDraft.hasPhone, hasEmail: this.filterDraft.hasEmail, hasWebsite: this.filterDraft.hasWebsite,
+      dateRangeEnabled: this.dateRangeEnabled, dateFrom: this.dateRangeEnabled ? this.dateFrom : null,
+      dateTo: this.dateRangeEnabled ? this.dateTo : null, recordLimit: Number(this.filterDraft.recordLimit)
+    };
+    this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id), criteria).subscribe(profile => {
       this.searches.push(profile);
     }, err => this.error = err.error && err.error.message ? err.error.message : 'Nie udalo sie zapisac wyszukiwania.');
   }
 
   sort(column: string) {
-    if (!this.selectedPkds.length || this.loading) { return; }
+    if (column === 'details' || !this.selectedPkds.length || this.loading) { return; }
     this.direction = this.sortBy === column && this.direction === 'asc' ? 'desc' : 'asc';
     this.sortBy = column;
     this.page = 1;

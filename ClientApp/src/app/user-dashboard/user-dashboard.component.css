@@ -84,6 +84,12 @@
 .company-row.selected-company td { background: #d9eee5; }
 .company-row:focus { outline: 2px solid #087f5b; outline-offset: -2px; }
 
+.company-details-cell { text-align: center; }
+.company-details-button { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; cursor: pointer; }
+.company-details-button:hover { background: #e7f3ed; border-color: #087f5b; }
+.company-details-button:focus-visible { outline: 2px solid #087f5b; outline-offset: 2px; }
+.company-details-button img { width: 20px; height: 20px; }
+
 .companies-grid-table {
   height: 486px;
   max-height: none;
@@ -96,6 +102,9 @@
 }
 
 .companies-grid-table th.sort-disabled { cursor: default; }
+.column-heading { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.sort-indicator { display: inline-block; width: 10px; flex: 0 0 10px; font-size: 10px; line-height: 1; visibility: hidden; }
+.sort-indicator.sort-active { visibility: visible; }
 
 .companies-grid-table th,
 .companies-grid-table td {

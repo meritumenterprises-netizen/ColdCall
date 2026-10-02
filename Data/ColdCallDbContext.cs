@@ -17,6 +17,7 @@ public class ColdCallDbContext : DbContext
     public DbSet<PkdCode> PkdCodes => Set<PkdCode>();
     public DbSet<CompanyPkd> CompanyPkds => Set<CompanyPkd>();
     public DbSet<SearchProfile> SearchProfiles => Set<SearchProfile>();
+    public DbSet<SearchProfileCriteria> SearchProfileCriteria => Set<SearchProfileCriteria>();
     public DbSet<SearchProfilePkd> SearchProfilePkds => Set<SearchProfilePkd>();
     public DbSet<PlanDefinition> PlanDefinitions => Set<PlanDefinition>();
     public DbSet<UserPlan> UserPlans => Set<UserPlan>();
@@ -75,6 +76,27 @@ public class ColdCallDbContext : DbContext
             .IsUnique()
             .IsDescending(false, false);
         modelBuilder.Entity<SearchProfilePkd>().HasKey(x => new { x.SearchProfileId, x.PkdCodeId });
+        modelBuilder.Entity<SearchProfileCriteria>(entity =>
+        {
+            entity.ToTable("SearchProfileCriteria", table =>
+            {
+                table.HasCheckConstraint("CK_SearchProfileCriteria_SortColumn", "[SortColumn] IN (N'name',N'nip',N'fullAddress',N'phone',N'email',N'www',N'dataAktywnosci')");
+                table.HasCheckConstraint("CK_SearchProfileCriteria_SortDirection", "[SortDirection] IN ('asc','desc')");
+                table.HasCheckConstraint("CK_SearchProfileCriteria_RecordLimit", "[RecordLimit] BETWEEN 1 AND 10000");
+                table.HasCheckConstraint("CK_SearchProfileCriteria_Dates", "([DateRangeEnabled] = 0 AND [DateFrom] IS NULL AND [DateTo] IS NULL) OR ([DateRangeEnabled] = 1 AND [DateFrom] IS NOT NULL AND [DateTo] IS NOT NULL AND [DateTo] > [DateFrom])");
+            });
+            entity.Property(x => x.Id).UseIdentityColumn();
+            entity.Property(x => x.SortColumn).HasMaxLength(32).HasDefaultValue("dataAktywnosci");
+            entity.Property(x => x.SortDirection).HasColumnType("varchar(4)").HasDefaultValue("desc");
+            entity.Property(x => x.Address).HasMaxLength(1000).HasDefaultValue("");
+            entity.Property(x => x.DateFrom).HasColumnType("date");
+            entity.Property(x => x.DateTo).HasColumnType("date");
+            entity.Property(x => x.DateRangeEnabled).HasDefaultValue(false);
+            entity.Property(x => x.RecordLimit).HasDefaultValue(1000);
+            entity.HasIndex(x => x.SearchProfileId).IsUnique();
+            entity.HasOne(x => x.SearchProfile).WithOne(x => x.Criteria)
+                .HasForeignKey<SearchProfileCriteria>(x => x.SearchProfileId).OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<PlanDefinition>().Property(x => x.DescriptionHtml).HasDefaultValue("");
         modelBuilder.Entity<PlanDefinition>().Property(x => x.Price).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<UserPlan>().Property(x => x.PricePaid).HasColumnType("decimal(18,2)");

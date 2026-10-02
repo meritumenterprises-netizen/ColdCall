@@ -1,0 +1,168 @@
+﻿nie chcę robić automatycznego cold emaila, SMSa ani calla z ofertą, ale chcę eksportować dla klientów te dane i mogę ich powiadomić o obowiązkach RODO. czy to wystarczy?
+Samo poinformowanie klientów o obowiązkach RODO nie wystarczy, ale przy odpowiednim zaprojektowaniu usługi możesz eksportować klientom dane z CEIDG. Najważniejsze jest to, że przy danych JDG występują potencjalnie dwaj niezależni administratorzy danych: Ty oraz klient otrzymujący eksport.
+
+Jak wygląda odpowiedzialność
+Przykładowo klient wybiera:
+
+PKD: 96.03.Z
+Województwo: kujawsko-pomorskie
+Status: aktywny
+i pobiera:
+
+NIP,Nazwa,Imie,Nazwisko,Adres,Telefon,Email,WWW
+...
+Jeżeli zawiera to dane identyfikujące osoby prowadzące JDG, są to dane osobowe. RODO wymaga podstawy prawnej dla ich przetwarzania. Art. 6 ust. 1 lit. f pozwala potencjalnie oprzeć przetwarzanie na prawnie uzasadnionym interesie administratora lub strony trzeciej, ale wymaga oceny interesu, niezbędności i wyważenia praw osoby. UODO podkreśla właśnie te trzy elementy.
+
+W praktyce:
+
+CEIDG
+  ↓
+TY
+administrator nr 1
+  ↓
+eksport CSV
+  ↓
+KLIENT
+administrator nr 2
+Klient nie staje się automatycznie Twoim „podmiotem przetwarzającym”. Jeżeli dostaje dane i sam ustala, po co będzie ich używał, co do zasady sam odpowiada za własną podstawę prawną i dalsze przetwarzanie.
+
+Ale Ty również musisz mieć podstawę do przekazania danych
+To jest element, którego nie załatwia komunikat:
+
+„Klient odpowiada za zgodność z RODO”.
+
+Ty wykonujesz operację:
+
+ujawnienie danych osobowych klientowi.
+
+To również jest przetwarzanie danych w rozumieniu RODO.
+
+Dlatego powinieneś udokumentować swoją podstawę prawną, np. jeśli opierasz się na art. 6 ust. 1 lit. f — przeprowadzić test uzasadnionego interesu (LIA) obejmujący również udostępnianie danych użytkownikom serwisu. UODO wskazuje, że samo istnienie interesu nie wystarcza; trzeba zbadać niezbędność oraz prawa i uzasadnione oczekiwania osób.
+
+Bardzo ważne: art. 14 RODO
+Ponieważ przedsiębiorcy nie przekazali danych Tobie bezpośrednio, lecz pobierasz je z CEIDG, trzeba przeanalizować obowiązek informacyjny z art. 14 RODO.
+
+RODO wymaga m.in. informacji o:
+
+administratorze,
+celu i podstawie przetwarzania,
+kategoriach danych,
+źródle danych,
+odbiorcach lub kategoriach odbiorców,
+okresie przechowywania,
+przysługujących prawach.
+Istnieją wyjątki od indywidualnego informowania, m.in. w art. 14 ust. 5, ale nie zakładałbym bez analizy, że publiczne pochodzenie danych z CEIDG automatycznie zwalnia komercyjnego agregatora z art. 14. UODO również podkreśla, że art. 14 zasadniczo dotyczy danych pozyskiwanych z innych źródeł.
+
+Co powinieneś zrobić w aplikacji
+Samo ostrzeżenie o RODO zamieniłbym w cały mechanizm compliance. Minimalny sensowny zestaw to:
+
+Element	Zalecenie
+Regulamin serwisu	tak
+Polityka prywatności	tak
+Udokumentowana podstawa przetwarzania	tak
+Test LIA, jeśli korzystasz z art. 6(1)(f)	tak
+Analiza art. 14	tak
+Informacja, że dane pochodzą z CEIDG	tak
+Data pozyskania/aktualizacji	tak
+Procedura sprostowania/sprzeciwu	tak
+Rejestr źródła danych	tak
+Zabezpieczenie eksportów	tak
+Regulamin dopuszczalnego wykorzystania	tak
+Informacja klienta o jego własnych obowiązkach RODO	tak
+Twierdzenie „te dane można wykorzystać marketingowo”	nie
+W regulaminie szczególnie rozdzieliłbym te dwie rzeczy
+Możesz informować użytkownika, że dane pochodzą z publicznych źródeł i są udostępniane w ramach funkcji informacyjnych/analitycznych serwisu.
+
+Jednocześnie powinieneś jasno zaznaczyć, że udostępnienie telefonu lub adresu e-mail przez Twój serwis nie oznacza, że przedsiębiorca wyraził zgodę na otrzymywanie informacji handlowych lub marketingu bezpośredniego.
+
+To jest szczególnie istotne, jeżeli eksportujesz Email i Telefon.
+
+Możesz też ograniczyć swoje ryzyko technicznie
+Zamiast sprzedawać:
+
+„100 000 leadów sprzedażowych”
+
+pozycjonowałbym usługę jako wyszukiwarkę/komercyjną bazę informacji o przedsiębiorcach.
+
+Użytkownik sam określa kryteria:
+
+PKD
+województwo
+powiat
+gmina
+miejscowość
+status
+data rozpoczęcia
+a następnie eksportuje znalezione informacje.
+
+To lepiej odpowiada rzeczywistej funkcji serwisu niż produkt projektowany bezpośrednio jako baza kontaktów marketingowych.
+
+Dodatkowo można wprowadzić rozsądne limity eksportu, logowanie operacji:
+
+Export
+------------------------
+UserId
+Date
+Filters
+RecordCount
+Purpose
+oraz procedurę blokowania danych osoby, która skutecznie skorzystała z przysługujących jej praw.
+
+I jedna ważna rzecz dotycząca klienta
+Nie próbowałbym przerzucać całej odpowiedzialności zapisem:
+
+„Za wszelkie wykorzystanie danych odpowiada wyłącznie użytkownik.”
+
+Taki zapis nie usuwa Twoich własnych obowiązków jako administratora.
+
+Możesz natomiast określić, że po otrzymaniu danych klient odpowiada jako odrębny administrator za podstawę prawną i zgodność swojego dalszego przetwarzania, stosownie do tego, co faktycznie z danymi robi. Samo RODO przewiduje różne podstawy przetwarzania, a zgoda jest tylko jedną z nich.
+
+Wniosek dla Twojego projektu
+Tak — ten model jest realny, ale komunikat „pamiętaj o RODO” nie jest sam w sobie zabezpieczeniem prawnym.
+
+Docelowo zrobiłbym to jako:
+
+        CEIDG
+           ↓
+    Twoja baza firm
+           ↓
+   wyszukiwarka / API
+           ↓
+      klient wybiera
+        kryteria
+           ↓
+       eksport CSV
+           ↓
+ klient = odrębny administrator
+ dalszego wykorzystania danych
+Ty odpowiadasz za legalność pozyskania, przechowywania i udostępnienia danych. Klient odpowiada za legalność swojego dalszego wykorzystania. Przy czym dla Ciebie najważniejszymi punktami do prawnego dopracowania są art. 6, 14 i 21 RODO, test LIA oraz zakres i sposób udostępniania danych.
+
+W Twoim przypadku przed uruchomieniem płatnych eksportów zdecydowanie warto, aby prawnik specjalizujący się w RODO sprawdził konkretny model danych, regulamin i LIA — szczególnie jeśli eksport ma obejmować imię, nazwisko, adres, telefon i e-mail JDG, a nie wyłącznie dane stricte gospodarcze.
+
+gdzie mogę znaleźć takiego prawnika za niewielką opłatą?
+Use two fingers to move the mapUse ctrl + scroll to zoom the map
+Tak. W Twojej sytuacji najpierw spróbowałbym bezpłatnej porady, zanim zapłacisz kancelarii kilkaset złotych.
+
+Najciekawsza opcja to państwowy system Nieodpłatnej Pomocy Prawnej (NPP). Pomoc jest całkowicie bezpłatna i może być udzielona stacjonarnie albo zdalnie. Jest przeznaczona dla osób, które deklarują, że nie są w stanie ponieść kosztów odpłatnej pomocy prawnej. Co istotne, system dopuszcza także samozatrudnionych przedsiębiorców, pod pewnymi dodatkowymi warunkami.
+
+Umów bezpłatną poradę prawną – oficjalny system Ministerstwa Sprawiedliwości
+
+Nie musisz korzystać z punktu właściwego dla miejsca zamieszkania — można wybrać punkt w całej Polsce, a dostępnych jest około 1500 punktów.
+
+Przy zapisie podałbym temat mniej więcej jako: „RODO / ochrona danych osobowych / komercyjne ponowne wykorzystanie danych CEIDG”. Potrzebujesz kogoś, kto zna nie tylko RODO, ale również ponowne wykorzystywanie informacji sektora publicznego.
+
+Jeżeli bezpłatna porada okaże się zbyt ogólna, drugą opcją jest radca prawny specjalizujący się w RODO. Okręgowa Izba Radców Prawnych w Bydgoszczy prowadzi oficjalny wykaz kancelarii.
+
+OIRP Bydgoszcz – wykaz kancelarii radców prawnych
+
+Nie zamawiałbym od razu „pełnej obsługi RODO”. Na początek poproś o jednorazową konsultację 30–60 minut dotyczącą bardzo konkretnego modelu:
+
+Pobieram publiczne dane JDG z Hurtowni Danych CEIDG do własnej bazy. Użytkownik płatnego serwisu wyszukuje przedsiębiorców według PKD i lokalizacji i może wyeksportować dane do CSV, w tym NIP, nazwę, imię i nazwisko, adres, telefon, e-mail i WWW. Nie wysyłam sam marketingu i nie wykonuję cold callingu. Chcę ustalić podstawę prawną mojego przetwarzania i udostępniania danych, obowiązki z art. 14 RODO, potrzebę LIA oraz zakres odpowiedzialności użytkownika po eksporcie.
+
+To pozwoli prawnikowi odpowiedzieć dokładnie na problem, zamiast poświęcić połowę płatnej godziny na ustalanie, jak działa Twoja aplikacja.
+
+Z konkretnych wyspecjalizowanych podmiotów wyszukiwarka pokazuje np. RK Rodo sp. z o.o. w Warszawie, ale nie mam wiarygodnego aktualnego cennika, więc nie twierdzę, że będzie tania.
+
+Ja zacząłbym od NPP za 0 zł. Jeżeli dostaniesz tam odpowiedź, że sprawa jest zbyt specjalistyczna, wtedy szukałbym radcy prawnego od RODO i zamówił tylko godzinę konsultacji oraz ewentualnie później LIA + klauzulę informacyjną + odpowiednie zapisy regulaminu, zamiast kupować cały pakiet „wdrożenia RODO”.
+
+Mogę też wyszukać Ci 5 konkretnych prawników/kancelarii specjalizujących się w RODO, którzy oferują konsultacje online za maksymalnie np. 200–300 zł, i porównać ceny.

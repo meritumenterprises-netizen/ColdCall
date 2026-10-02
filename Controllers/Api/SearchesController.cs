@@ -25,19 +25,27 @@ public class SearchesController : ControllerBase
     public async Task<IReadOnlyList<SearchProfileDto>> Get()
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
-        return await _db.SearchProfiles
+        var profiles = await _db.SearchProfiles.AsNoTracking()
             .Where(x => x.AppUserId == user.Id)
             .OrderBy(x => x.Name)
-            .Select(x => new SearchProfileDto(
-                x.Id,
-                x.Name,
-                x.PkdCodes.Select(p => new PkdDto(p.PkdCode.Id, p.PkdCode.Code, p.PkdCode.Name)).ToList()))
+            .Include(x => x.Criteria)
+            .Include(x => x.PkdCodes).ThenInclude(x => x.PkdCode)
+            .AsSplitQuery()
             .ToListAsync();
+        return profiles.Select(x => new SearchProfileDto(x.Id, x.Name,
+            x.PkdCodes.Select(p => new PkdDto(p.PkdCode.Id, p.PkdCode.Code, p.PkdCode.Name)).OrderBy(p => p.Code).ToList(),
+            ToCriteriaDto(x.Criteria))).ToList();
     }
 
     [HttpPost]
     public async Task<ActionResult<SearchProfileDto>> Save(SaveSearchProfileDto request)
     {
+        var criteria = request.Criteria ?? new SearchProfileCriteriaDto();
+        var validation = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
+        if (!System.ComponentModel.DataAnnotations.Validator.TryValidateObject(criteria,
+            new System.ComponentModel.DataAnnotations.ValidationContext(criteria), validation, true))
+            return BadRequest(new { message = string.Join(" ", validation.Select(x => x.ErrorMessage)) });
+        if (!criteria.DateRangeEnabled) { criteria.DateFrom = null; criteria.DateTo = null; }
         var user = await _currentUserService.GetOrCreateAsync(User);
         var activePlan = await _db.UserPlans
             .Include(x => x.PlanDefinition)
@@ -55,7 +63,17 @@ public class SearchesController : ControllerBase
             return BadRequest(new { message = $"Limit planu {activePlan.PlanDefinition.Code} to {activePlan.PlanDefinition.SearchLimit} zapisanych wyszukan." });
         }
 
-        var profile = new SearchProfile { AppUserId = user.Id, Name = request.Name };
+        var profile = new SearchProfile
+        {
+            AppUserId = user.Id, Name = request.Name,
+            Criteria = new SearchProfileCriteria
+            {
+                SortColumn = criteria.SortColumn, SortDirection = criteria.SortDirection,
+                Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
+                HasWebsite = criteria.HasWebsite, DateRangeEnabled = criteria.DateRangeEnabled,
+                DateFrom = criteria.DateFrom, DateTo = criteria.DateTo, RecordLimit = criteria.RecordLimit
+            }
+        };
         foreach (var pkdId in request.PkdCodeIds.Distinct())
         {
             profile.PkdCodes.Add(new SearchProfilePkd { PkdCodeId = pkdId });
@@ -69,6 +87,15 @@ public class SearchesController : ControllerBase
             .Select(x => new PkdDto(x.Id, x.Code, x.Name))
             .ToListAsync();
 
-        return Ok(new SearchProfileDto(profile.Id, profile.Name, pkds));
+        return Ok(new SearchProfileDto(profile.Id, profile.Name, pkds, ToCriteriaDto(profile.Criteria)));
     }
+
+    private static SearchProfileCriteriaDto ToCriteriaDto(SearchProfileCriteria? criteria) =>
+        criteria == null ? new SearchProfileCriteriaDto() : new SearchProfileCriteriaDto
+        {
+            SortColumn = criteria.SortColumn, SortDirection = criteria.SortDirection,
+            Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
+            HasWebsite = criteria.HasWebsite, DateRangeEnabled = criteria.DateRangeEnabled,
+            DateFrom = criteria.DateFrom, DateTo = criteria.DateTo, RecordLimit = criteria.RecordLimit
+        };
 }
