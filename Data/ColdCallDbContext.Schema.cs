@@ -1,0 +1,150 @@
+using ColdCall.Models;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata.Conventions;
+
+namespace ColdCall.Data;
+
+public partial class ColdCallDbContext
+{
+    public DbSet<Adres> Adresy => Set<Adres>();
+    public DbSet<AdresImportStage> AdresyImportStage => Set<AdresImportStage>();
+    public DbSet<CompanyAddress> CompanyAddresses => Set<CompanyAddress>();
+    public DbSet<AdresView> AddressView => Set<AdresView>();
+    public DbSet<CompanyAddressView> CompanyAddressesView => Set<CompanyAddressView>();
+    public DbSet<CompanyView> CompaniesView => Set<CompanyView>();
+    public DbSet<CompanyWithPkdsView> CompaniesWithPkdsView => Set<CompanyWithPkdsView>();
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
+    {
+        // Keep only the indexes that actually exist in the database.
+        configurationBuilder.Conventions.Remove(typeof(ForeignKeyIndexConvention));
+    }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        optionsBuilder.UseSqlServer(options => options.UseNetTopologySuite());
+    }
+
+    private static void ConfigureDatabaseSchema(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<AppUser>().Property(x => x.GoogleEmail).HasMaxLength(450);
+        modelBuilder.Entity<AdminEmail>().Property(x => x.Email).HasMaxLength(450);
+        modelBuilder.Entity<BusinessType>().Property(x => x.TypDzialalnosciId).ValueGeneratedNever();
+        modelBuilder.Entity<Company>(entity =>
+        {
+            entity.Property(x => x.Krs).HasMaxLength(450);
+            entity.Property(x => x.Nip).HasMaxLength(450);
+            entity.Property(x => x.Regon).HasMaxLength(50);
+            entity.HasIndex(x => x.StatusDzialalnosciId);
+            entity.HasOne(x => x.BusinessType).WithMany().HasForeignKey(x => x.BusinessTypeId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.Wojewodztwo).WithMany().HasForeignKey(x => x.WojewodztwoId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.Powiat).WithMany().HasForeignKey(x => x.PowiatId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.Gmina).WithMany().HasForeignKey(x => x.GminaId)
+                .OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.Miejscowosc).WithMany().HasForeignKey(x => x.MiejscowoscId)
+                .OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<PkdCode>().Property(x => x.Code).HasMaxLength(450);
+        modelBuilder.Entity<PkdCode>().Property(x => x.CodeWithoutDots).HasMaxLength(4000).IsRequired(false);
+        modelBuilder.Entity<CompanyPkd>().HasIndex(x => x.PkdCodeId);
+        modelBuilder.Entity<SearchProfilePkd>().HasIndex(x => x.PkdCodeId);
+        modelBuilder.Entity<SearchProfile>().HasIndex(x => x.AppUserId);
+        modelBuilder.Entity<UserPlan>().HasIndex(x => x.AppUserId);
+        modelBuilder.Entity<UserPlan>().HasIndex(x => x.PlanDefinitionId);
+        modelBuilder.Entity<Adres>(entity =>
+        {
+            entity.ToTable("Adresy");
+            entity.Property(x => x.Ulica).HasMaxLength(200);
+            entity.Property(x => x.NrUlicy).HasMaxLength(50);
+            entity.Property(x => x.Rodzaj).HasMaxLength(200);
+            entity.Property(x => x.PrngId).HasMaxLength(50).IsUnicode(false);
+            entity.Property(x => x.Latitude).HasPrecision(9, 6);
+            entity.Property(x => x.Longitude).HasPrecision(9, 6);
+            entity.Property(x => x.Location).HasColumnType("geography").IsRequired();
+            entity.HasIndex(x => x.PrngId).HasDatabaseName("UX_Adresy_PrngId")
+                .IsUnique().HasFilter("[PrngId] IS NOT NULL");
+            entity.HasOne(x => x.Wojewodztwo).WithMany().HasForeignKey(x => x.WojewodztwoId)
+                .HasConstraintName("FK_Adresy_Wojewodztwa").OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.Powiat).WithMany().HasForeignKey(x => x.PowiatId)
+                .HasConstraintName("FK_Adresy_Powiaty").OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.Gmina).WithMany().HasForeignKey(x => x.GminaId)
+                .HasConstraintName("FK_Adresy_Gminy").OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.Miejscowosc).WithMany().HasForeignKey(x => x.MiejscowoscId)
+                .HasConstraintName("FK_Adresy_Miejscowosci").OnDelete(DeleteBehavior.NoAction);
+        });
+        modelBuilder.Entity<AdresImportStage>(entity =>
+        {
+            entity.HasNoKey().ToTable("AdresyImportStage");
+            entity.Property(x => x.PrngId).HasMaxLength(50).IsUnicode(false);
+            entity.Property(x => x.Nazwa).HasMaxLength(250);
+            entity.Property(x => x.Rodzaj).HasMaxLength(200);
+            entity.Property(x => x.Wojewodztwo).HasMaxLength(250);
+            entity.Property(x => x.Powiat).HasMaxLength(250);
+            entity.Property(x => x.Gmina).HasMaxLength(250);
+            entity.Property(x => x.Latitude).HasPrecision(9, 6);
+            entity.Property(x => x.Longitude).HasPrecision(9, 6);
+        });
+        modelBuilder.Entity<CompanyAddress>(entity =>
+        {
+            entity.ToTable("CompanyAddress");
+            entity.HasKey(x => x.CompanyAdresId).HasName("PK_ColdCall.CompanyAddress");
+            entity.Property(x => x.CompanyAdresId).UseIdentityColumn();
+        });
+        modelBuilder.Entity<CompanyShortView>(entity =>
+        {
+            entity.Property(x => x.Name).HasMaxLength(1000);
+            entity.Property(x => x.Nip).HasMaxLength(450);
+            entity.Property(x => x.StatusDzialalnosci).HasMaxLength(100);
+            entity.Property(x => x.TypDzialalnosci).HasMaxLength(512).IsUnicode(false);
+        });
+        modelBuilder.Entity<AdresView>(entity =>
+        {
+            entity.HasNoKey().ToView("viewAdresy", "dbo");
+            entity.Property(x => x.Location).HasColumnType("geography");
+            entity.Property(x => x.Latitude).HasPrecision(9, 6);
+            entity.Property(x => x.Longitude).HasPrecision(9, 6);
+            entity.Property(x => x.Wojewodztwo).HasMaxLength(250);
+            entity.Property(x => x.Powiat).HasMaxLength(250);
+            entity.Property(x => x.Gmina).HasMaxLength(250);
+            entity.Property(x => x.Miejscowosc).HasMaxLength(250);
+        });
+        modelBuilder.Entity<CompanyAddressView>(entity =>
+        {
+            entity.HasNoKey().ToView("viewCompaniesAdresy", "dbo");
+            entity.Property(x => x.Company).HasMaxLength(1000);
+            entity.Property(x => x.MiejscowoscId).HasColumnName("MiejscowoscID");
+            entity.Property(x => x.Wojewodztwo).HasMaxLength(250);
+            entity.Property(x => x.Powiat).HasMaxLength(250);
+            entity.Property(x => x.Gmina).HasMaxLength(250);
+            entity.Property(x => x.Miejscowosc).HasMaxLength(250);
+        });
+        modelBuilder.Entity<CompanyView>(entity =>
+        {
+            entity.HasNoKey().ToView("viewCompanies", "dbo");
+            entity.Property(x => x.Name).HasMaxLength(1000);
+            entity.Property(x => x.TypDzialalnosci).HasMaxLength(512).IsUnicode(false);
+            entity.Property(x => x.Krs).HasMaxLength(450);
+            entity.Property(x => x.Nip).HasMaxLength(450);
+            entity.Property(x => x.Regon).HasMaxLength(50);
+            entity.Property(x => x.StatusDzialalnosci).HasMaxLength(100);
+            entity.Property(x => x.Wojewodztwo).HasColumnName("Wojew\u00f3dztwo");
+            entity.Property(x => x.Miejscowosc).HasColumnName("Miejscowo\u015b\u0107");
+        });
+        modelBuilder.Entity<CompanyWithPkdsView>(entity =>
+        {
+            entity.HasNoKey().ToView("viewCompaniesWithPKDs", "dbo");
+            entity.Property(x => x.Name).HasMaxLength(1000);
+            entity.Property(x => x.TypDzialalnosci).HasMaxLength(512).IsUnicode(false);
+            entity.Property(x => x.Nip).HasMaxLength(450);
+            entity.Property(x => x.Regon).HasMaxLength(50);
+            entity.Property(x => x.StatusDzialalnosci).HasMaxLength(100);
+            entity.Property(x => x.PkdCode).HasColumnName("PKDCode").HasMaxLength(450);
+            entity.Property(x => x.PkdOpis).HasColumnName("PKDOpis");
+            entity.Property(x => x.Wojewodztwo).HasColumnName("Wojew\u00f3dztwo");
+            entity.Property(x => x.Miejscowosc).HasColumnName("Miejscowo\u015b\u0107");
+        });
+    }
+}

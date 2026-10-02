@@ -34,7 +34,8 @@ public class CompaniesController : ControllerBase
         [FromQuery] bool? hasWebsite = null,
         [FromQuery] DateOnly? startedFrom = null,
         [FromQuery] DateOnly? startedTo = null,
-        [FromQuery] int? recordLimit = 1000)
+        [FromQuery] int? recordLimit = 1000,
+        [FromQuery] string? companyName = null)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         var hasActivePlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow);
@@ -52,6 +53,8 @@ public class CompaniesController : ControllerBase
             return BadRequest(new { message = "Both dates are required and the end date must be later than the start date." });
         var query = ApplyDetailFilters(ApplyPkdFilter(BaseCompanyQuery(), pkdIds),
             address, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
+        if (!string.IsNullOrWhiteSpace(companyName))
+            query = query.Where(x => x.Name.Contains(companyName.Trim()));
 
         var total = recordLimit.HasValue
             ? await query.Select(x => x.Id).Take(recordLimit.Value).CountAsync()

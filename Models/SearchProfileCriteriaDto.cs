@@ -4,6 +4,8 @@ namespace ColdCall.Models;
 
 public class SearchProfileCriteriaDto : IValidatableObject
 {
+    [Required(AllowEmptyStrings = true), StringLength(1000)]
+    public string CompanyName { get; set; } = "";
     [Required, RegularExpression("^(name|nip|fullAddress|phone|email|www|dataAktywnosci)$")]
     public string SortColumn { get; set; } = "dataAktywnosci";
     [Required, RegularExpression("^(asc|desc)$")]

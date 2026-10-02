@@ -184,6 +184,8 @@ static async Task EnsureDatabaseSchemaAsync(ColdCallDbContext db)
         await EnsureBusinessTypeTableAsync(connection);
         await EnsurePkdCodeWithoutDotsColumnAsync(connection);
         await EnsureCompanyCreatedOnColumnAsync(connection);
+        await EnsureCompanyStatusAsync(connection);
+        await EnsureDictionaryNamesAsync(connection);
         await EnsureSearchProfileCriteriaAsync(connection);
         await EnsurePlanDefinitionsDescriptionHtmlColumnAsync(connection);
     }
@@ -227,6 +229,12 @@ static async Task EnsureSearchProfileCriteriaAsync(System.Data.Common.DbConnecti
                 CREATE UNIQUE INDEX [IX_SearchProfileCriteria_SearchProfileId]
                     ON [ColdCall].[SearchProfileCriteria] ([SearchProfileId]);
             END;
+            IF COL_LENGTH(N'ColdCall.SearchProfileCriteria', N'CompanyName') IS NULL
+                ALTER TABLE [ColdCall].[SearchProfileCriteria] ADD [CompanyName] nvarchar(1000) NOT NULL
+                    CONSTRAINT [DF_SearchProfileCriteria_CompanyName] DEFAULT N'' WITH VALUES;
+            IF COL_LENGTH(N'ColdCall.SearchProfileCriteria', N'Name') IS NULL
+                ALTER TABLE [ColdCall].[SearchProfileCriteria] ADD [Name] nvarchar(200) NOT NULL
+                    CONSTRAINT [DF_SearchProfileCriteria_Name] DEFAULT N'' WITH VALUES;
             INSERT INTO [ColdCall].[SearchProfileCriteria] ([SearchProfileId])
             SELECT p.[Id] FROM [ColdCall].[SearchProfiles] p
             WHERE NOT EXISTS (SELECT 1 FROM [ColdCall].[SearchProfileCriteria] c WHERE c.[SearchProfileId] = p.[Id]);
@@ -306,6 +314,27 @@ static async Task EnsurePkdCodeWithoutDotsColumnAsync(System.Data.Common.DbConne
             ADD [CodeWithoutDots] AS REPLACE([Code], N'.', N'') PERSISTED;
         END
         """;
+    await command.ExecuteNonQueryAsync();
+}
+
+static async Task EnsureCompanyStatusAsync(System.Data.Common.DbConnection connection)
+{
+    await ExecuteSchemaResourceAsync(connection, "CompanyStatus");
+}
+
+static async Task EnsureDictionaryNamesAsync(System.Data.Common.DbConnection connection)
+{
+    await ExecuteSchemaResourceAsync(connection, "DictionaryNames");
+}
+
+static async Task ExecuteSchemaResourceAsync(System.Data.Common.DbConnection connection, string resourceName)
+{
+    using var stream = typeof(ColdCallDbContext).Assembly.GetManifestResourceStream($"ColdCall.Sql.{resourceName}.sql")
+        ?? throw new InvalidOperationException($"{resourceName} SQL resource is missing.");
+    using var reader = new StreamReader(stream);
+    await using var command = connection.CreateCommand();
+    command.CommandTimeout = 600;
+    command.CommandText = await reader.ReadToEndAsync();
     await command.ExecuteNonQueryAsync();
 }
 

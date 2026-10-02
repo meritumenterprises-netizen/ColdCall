@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ColdCall.Data;
 
-public class ColdCallDbContext : DbContext
+public partial class ColdCallDbContext : DbContext
 {
     public ColdCallDbContext(DbContextOptions<ColdCallDbContext> options) : base(options)
     {
@@ -13,6 +13,7 @@ public class ColdCallDbContext : DbContext
     public DbSet<AdminEmail> AdminEmails => Set<AdminEmail>();
     public DbSet<BusinessType> BusinessTypes => Set<BusinessType>();
     public DbSet<Company> Companies => Set<Company>();
+    public DbSet<CompanyStatus> CompanyStatuses => Set<CompanyStatus>();
     public DbSet<CompanyShortView> CompaniesShort => Set<CompanyShortView>();
     public DbSet<PkdCode> PkdCodes => Set<PkdCode>();
     public DbSet<CompanyPkd> CompanyPkds => Set<CompanyPkd>();
@@ -29,6 +30,25 @@ public class ColdCallDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("ColdCall");
+        modelBuilder.Entity<Wojewodztwo>().HasIndex(x => x.Name)
+            .HasDatabaseName("UX_Wojewodztwa_Name").IsUnique();
+        modelBuilder.Entity<Powiat>().HasIndex(x => x.Name)
+            .HasDatabaseName("UX_Powiaty_Name").IsUnique();
+        modelBuilder.Entity<Gmina>().HasIndex(x => x.Name)
+            .HasDatabaseName("UX_Gminy_Name").IsUnique();
+        modelBuilder.Entity<Miejscowosc>().HasIndex(x => x.Name)
+            .HasDatabaseName("UX_Miejscowosci_Name").IsUnique();
+        modelBuilder.Entity<CompanyStatus>(entity =>
+        {
+            entity.ToTable("CompanyStatus");
+            entity.HasKey(x => x.StatusId);
+            entity.Property(x => x.StatusId).ValueGeneratedNever();
+            entity.Property(x => x.Nazwa).HasMaxLength(100).IsRequired();
+            entity.HasData(new CompanyStatus { StatusId = 1, Nazwa = "Aktywny" });
+        });
+        modelBuilder.Entity<Company>().Property(x => x.StatusDzialalnosciId).HasDefaultValue((byte)1);
+        modelBuilder.Entity<Company>().HasOne(x => x.StatusDzialalnosci).WithMany()
+            .HasForeignKey(x => x.StatusDzialalnosciId).OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<CompanyShortView>().HasNoKey().ToView("viewCompaniesShort", "ColdCall");
 
         modelBuilder.Entity<AppUser>().HasIndex(x => x.GoogleEmail).IsUnique();
@@ -62,7 +82,6 @@ public class ColdCallDbContext : DbContext
         modelBuilder.Entity<Company>().HasIndex(x => x.WojewodztwoId)
             .HasDatabaseName("NonClusteredIndex-Wojewodztwo")
             .IsClustered(false);
-        modelBuilder.Entity<Company>().HasIndex(x => x.Krs);
         modelBuilder.Entity<Company>().Property(x => x.BusinessTypeId).HasColumnName("BusinessType");
         modelBuilder.Entity<Company>()
             .HasOne(x => x.BusinessType)
@@ -89,6 +108,8 @@ public class ColdCallDbContext : DbContext
             entity.Property(x => x.SortColumn).HasMaxLength(32).HasDefaultValue("dataAktywnosci");
             entity.Property(x => x.SortDirection).HasColumnType("varchar(4)").HasDefaultValue("desc");
             entity.Property(x => x.Address).HasMaxLength(1000).HasDefaultValue("");
+            entity.Property(x => x.CompanyName).HasMaxLength(1000).HasDefaultValue("");
+            entity.Property(x => x.Name).HasMaxLength(200).HasDefaultValue("").IsRequired();
             entity.Property(x => x.DateFrom).HasColumnType("date");
             entity.Property(x => x.DateTo).HasColumnType("date");
             entity.Property(x => x.DateRangeEnabled).HasDefaultValue(false);
@@ -100,13 +121,16 @@ public class ColdCallDbContext : DbContext
         modelBuilder.Entity<PlanDefinition>().Property(x => x.DescriptionHtml).HasDefaultValue("");
         modelBuilder.Entity<PlanDefinition>().Property(x => x.Price).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<UserPlan>().Property(x => x.PricePaid).HasColumnType("decimal(18,2)");
-    }
+        ConfigureDatabaseSchema(modelBuilder);
+   }
 }
 
 public static class DbSeeder
 {
     public static async Task SeedAsync(ColdCallDbContext db)
     {
+        if (!await db.CompanyStatuses.AnyAsync(x => x.StatusId == 1))
+            db.CompanyStatuses.Add(new CompanyStatus { StatusId = 1, Nazwa = "Aktywny" });
         if (!db.PlanDefinitions.Any())
         {
             db.PlanDefinitions.AddRange(

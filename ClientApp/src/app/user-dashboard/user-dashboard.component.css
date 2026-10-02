@@ -1,8 +1,6 @@
 .filters-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 50vw) minmax(240px, 1fr);
-  gap: 20px;
-  align-items: start;
+  width: 50vw;
+  max-width: 100%;
   margin-bottom: 14px;
 }
 .pkd-filter-panel {
@@ -11,24 +9,38 @@
   margin-bottom: 0;
 }
 
-.company-filter-panel { min-width: 0; border-left: 1px solid #cbd5e1; padding: 0 0 0 20px; }
+.filter-tabs { display: flex; gap: 20px; border-bottom: 1px solid #cbd5e1; margin-bottom: 16px; }
+.filter-tabs button { border: 0; border-radius: 0; background: transparent; padding: 10px 4px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: #475569; font-size: 14px; cursor: pointer; }
+.filter-tabs button[aria-selected="true"] { border-bottom-color: #087f5b; color: #065f46; font-weight: 600; }
+.filter-tabs button:focus-visible { outline: 2px solid #087f5b; outline-offset: 2px; }
+.filters-layout [hidden] { display: none !important; }
+.company-filter-panel { min-width: 0; padding: 0; }
 .company-filter-panel label { font-size: 14px; margin-bottom: 6px; }
 .company-filter-panel input { min-width: 0; font-size: 14px; }
-.address-filter, .record-limit-filter { margin-bottom: 14px; }
+.pkd-filter-search input { font-size: 12px; }
+.company-name-filter { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.company-name-filter label { flex: 0 0 auto; margin: 0; }
+.company-name-filter input { flex: 1; width: 100%; }
+.filter-actions { display: flex; align-items: flex-end; gap: 12px; margin-top: 14px; }
+.record-limit-filter { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; flex: 0 1 200px; }
+.record-limit-filter label { margin: 0; font-size: 14px; }
+.record-limit-filter input { width: 200px; min-width: 0; max-width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px; }
 .presence-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; min-height: 24px; }
 .presence-filter label { flex: 1; margin: 0; }
 .presence-filter input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border-radius: 0; accent-color: #087f5b; cursor: pointer; }
 .presence-filter input.neutral { accent-color: #8a949b; opacity: .7; }
 .presence-filter span { width: 60px; font-size: 12px; color: #637168; }
-.date-filter { margin: 16px 0; }
-.date-range { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.date-filter { display: flex; align-items: center; gap: 16px; margin: 16px 0; max-width: 100%; overflow-x: auto; padding: 2px; }
+.date-filter > .presence-filter { flex: 0 0 auto; margin-bottom: 0; }
+.date-range { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
+.date-range > div { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.date-range input { width: 150px; flex: 0 0 150px; box-sizing: border-box; }
 .date-range input:disabled { background: #e2e8f0; color: #64748b; }
-.date-range label { color: #637168; font-weight: normal; }
+.date-range label { color: #637168; font-weight: normal; margin: 0; white-space: nowrap; }
 .filter-error { margin: 12px 0; font-size: 13px; color: #a32e2e; overflow-wrap: anywhere; }
-.update-filters { min-width: 120px; font-size: 14px; }
+.update-filters { min-width: 120px; font-size: 14px; margin: 0; }
 @media (max-width: 1200px) {
-  .filters-layout { grid-template-columns: minmax(0, 1fr); }
-  .company-filter-panel { border-left: 0; border-top: 1px solid #cbd5e1; padding: 16px 0 0; }
+  .filters-layout { width: 100%; }
 }
 
 .pkd-transfer {
@@ -39,7 +51,7 @@
 .pkd-listbox { min-width: 0; }
 .pkd-listbox label { overflow-wrap: anywhere; }
 .pkd-options {
-  height: 298px;
+  height: 186px;
   padding: 8px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
