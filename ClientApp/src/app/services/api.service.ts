@@ -22,7 +22,7 @@ export interface CompanyAddressDetails extends CompanyAddress {
   wojewodztwoId: number; powiatId: number; gminaId: number; miejscowoscId: number;
   wojewodztwo: string; powiat: string; gmina: string; miejscowosc: string;
   ulica: string | null; nrUlicy: string | null; rodzaj: string | null;
-  latitude: number; longitude: number; prngId: string | null;
+  latitude: number | null; longitude: number | null; prngId: string | null;
 }
 export interface BusinessType { typDzialalnosciId: number; typDzialalnosci: string; }
 export interface CompanyDetails { company: Company; pkdCodes: Pkd[]; addresses: CompanyAddressDetails[]; }
@@ -31,6 +31,7 @@ export interface CompanyFilters {
   address: string; hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
   startedFrom?: string; startedTo?: string; recordLimit: number;
   wojewodztwoId?: number; powiatId?: number; gminaId?: number; miejscowoscId?: number; radiusKm?: number;
+  addressLocality?: boolean;
 }
 export interface CompanyShort {
   id: number; name: string; nip?: string; fullAddress: string;
@@ -94,7 +95,7 @@ export class ApiService {
     );
   }
   pkd(term: string = ''): Observable<Pkd[]> { return this.http.get<Pkd[]>(this.url('/api/pkd'), { ...this.headers(), params: { term } }); }
-  addressOptions(level: AddressLevel, parentIds: number[] = []): Observable<AddressOption[]> {
+  addressOptions(level: AddressLevel, parentIds: (number | null)[] = []): Observable<AddressOption[]> {
     let params = new HttpParams();
     ['wojewodztwoId', 'powiatId', 'gminaId'].forEach((key, index) => {
       if (parentIds[index]) { params = params.set(key, String(parentIds[index])); }
@@ -102,17 +103,21 @@ export class ApiService {
     return this.http.get<AddressOption[]>(this.url('/api/address/' + level), { ...this.headers(), params });
   }
   searches(): Observable<SearchProfile[]> { return this.http.get<SearchProfile[]>(this.url('/api/searches'), this.headers()); }
+  distanceLocalities(term: string): Observable<AddressOption[]> {
+    return this.http.get<AddressOption[]>(this.url('/api/address/distance-localities'), { ...this.headers(), params: { term } });
+  }
   saveSearch(name: string, pkdCodeIds: number[], criteria?: SearchCriteria): Observable<SearchProfile> {
     return this.http.post<SearchProfile>(this.url('/api/searches'), { name, pkdCodeIds, criteria }, this.headers());
   }
 
   companies(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters): Observable<PagedResult<CompanyShort>> {
-    let params = new HttpParams().set('page', String(page)).set('pageSize', '10').set('sortBy', sortBy).set('direction', direction);
+    let params = new HttpParams().set('page', String(page)).set('pageSize', '10').set('sortBy', sortBy).set('direction', direction)
+      .set('recordLimit', String(filters && filters.recordLimit != null ? filters.recordLimit : 1000));
     pkdIds.forEach(id => params = params.append('pkdIds', String(id)));
     if (filters) {
       if (filters.companyName && filters.companyName.trim()) { params = params.set('companyName', filters.companyName.trim()); }
       if (filters.address.trim()) { params = params.set('address', filters.address.trim()); }
-      ['wojewodztwoId', 'powiatId', 'gminaId', 'miejscowoscId', 'radiusKm'].forEach(key => {
+      ['wojewodztwoId', 'powiatId', 'gminaId', 'miejscowoscId', 'radiusKm', 'addressLocality'].forEach(key => {
         if (filters[key] !== undefined && filters[key] !== null) { params = params.set(key, String(filters[key])); }
       });
       ['hasPhone', 'hasEmail', 'hasWebsite'].forEach(key => {
@@ -121,7 +126,6 @@ export class ApiService {
       if (filters.startedFrom && filters.startedTo) {
         params = params.set('startedFrom', filters.startedFrom).set('startedTo', filters.startedTo);
       }
-      params = params.set('recordLimit', String(filters.recordLimit));
     }
     return this.http.get<PagedResult<CompanyShort>>(this.url('/api/companies'), { ...this.headers(), params });
   }

@@ -8,6 +8,7 @@ import { AppComponent } from './app.component';
 import { NavMenuComponent } from './nav-menu/nav-menu.component';
 import { LoginComponent } from './login/login.component';
 import { UserDashboardComponent } from './user-dashboard/user-dashboard.component';
+import { AddressListboxComponent } from './user-dashboard/address-listbox.component';
 import { AdminDashboardComponent } from './admin-dashboard/admin-dashboard.component';
 import { PlansComponent } from './plans/plans.component';
 import { AuthGuard } from './auth.guard';
@@ -19,6 +20,7 @@ import { CompanyDetailsComponent } from './company-details/company-details.compo
     NavMenuComponent,
     LoginComponent,
     UserDashboardComponent,
+    AddressListboxComponent,
     AdminDashboardComponent,
     PlansComponent,
     CompanyDetailsComponent

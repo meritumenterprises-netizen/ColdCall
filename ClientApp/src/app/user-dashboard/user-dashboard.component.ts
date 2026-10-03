@@ -56,15 +56,15 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   dateFrom = '';
   dateTo = '';
   private readonly numberFormatter = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 0 });
+  private readonly addressCollator = new Intl.Collator('pl', { sensitivity: 'base' });
 
   columns: SortableColumn[] = [
     { key: 'name', label: 'Nazwa' },
-    { key: 'nip', label: 'NIP' },
     { key: 'fullAddress', label: 'Adres' },
     { key: 'phone', label: 'Telefon' },
     { key: 'email', label: 'Email' },
     { key: 'www', label: 'Witryna WWW' },
-    { key: 'dataAktywnosci', label: 'Data aktywno\u015bci' },
+    { key: 'dataAktywnosci', label: 'Aktywne od' },
     { key: 'details', label: 'Szczeg\u00f3\u0142y' }
   ];
 
@@ -98,19 +98,24 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   addressFieldDisabled(index: number) {
-    return index > 0 && this.addressFields[index - 1].selectedId === null;
+    return this.addressFields.slice(0, index).some(field => field.selectedId === null);
+  }
+
+  get radiusAvailable() {
+    return this.addressFields[0].selectedId !== null && this.addressFields[1].selectedId !== null;
   }
 
   loadAddressOptions(index: number) {
+    if (this.addressFieldDisabled(index)) { return; }
     const field = this.addressFields[index];
     if (field.request) { field.request.unsubscribe(); }
     field.loading = true;
     field.error = '';
-    const parents = this.addressFields.slice(0, index).map(parent => parent.selectedId!);
+    const parents = this.addressFields.slice(0, index).map(parent => parent.selectedId);
     field.request = this.api.addressOptions(field.level, parents).pipe(finalize(() => field.loading = false))
       .subscribe(options => {
         field.options = options.filter(option => index !== 0 || option.id !== 1)
-          .sort((a, b) => a.name.localeCompare(b.name, 'pl', { sensitivity: 'base' }) || a.id - b.id);
+          .sort((a, b) => this.addressCollator.compare(a.name, b.name) || a.id - b.id);
         this.filterAddressOptions(index);
       }, () => field.error = 'Nie udalo sie pobrac listy.');
   }
@@ -136,15 +141,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       if (child.request) { child.request.unsubscribe(); child.request = null; }
       child.options = []; child.visible = []; child.selectedId = null; child.term = ''; child.error = ''; child.loading = false;
     });
-    if (index < this.addressFields.length - 1) {
-      this.radiusEnabled = false;
-      this.radiusKm = 1;
-    }
+    if (!this.radiusAvailable) { this.radiusEnabled = false; }
     if (field.selectedId !== null && index < this.addressFields.length - 1) { this.loadAddressOptions(index + 1); }
     if (refresh) { this.updateFilters(false); }
   }
 
   setRadiusEnabled(enabled: boolean) {
+    enabled = enabled && this.radiusAvailable;
     if (this.radiusEnabled === enabled) { return; }
     this.radiusEnabled = enabled;
     this.addressFiltersChanged = true;
@@ -177,8 +180,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.total = result.total;
       this.page = result.page;
       if (result.sortableColumns && result.sortableColumns.length) {
-        this.columns = result.sortableColumns.filter(column => column.key !== 'id')
-          .map(column => column.key === 'typyDzialalnosci' ? { key: 'details', label: 'Szczeg\u00f3\u0142y' } : column);
+        this.columns = result.sortableColumns.filter(column => column.key !== 'id' && column.key !== 'nip')
+          .map(column => column.key === 'typyDzialalnosci' ? { key: 'details', label: 'Szczeg\u00f3\u0142y' } :
+            column.key === 'dataAktywnosci' ? { ...column, label: 'Aktywne od' } : column);
       }
     }, err => {
       this.companies = [];
@@ -255,7 +259,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       powiatId: this.addressFields[1].selectedId || undefined,
       gminaId: this.addressFields[2].selectedId || undefined,
       miejscowoscId: this.addressFields[3].selectedId || undefined,
-      radiusKm: this.radiusEnabled && this.addressFields[3].selectedId !== null ? this.radiusKm : undefined,
+      radiusKm: this.radiusAvailable && this.radiusEnabled && this.addressFields[3].selectedId !== null ? this.radiusKm : undefined,
+      addressLocality: undefined,
       startedFrom: this.dateRangeEnabled ? this.dateFrom : undefined,
       startedTo: this.dateRangeEnabled ? this.dateTo : undefined
     };
@@ -385,7 +390,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   selectSearch(profile: SearchProfile) {
+    this.radiusEnabled = false; this.radiusKm = 1;
     this.selectAddressOption(0, null, false);
+    this.selectAddressOption(3, null, false);
     this.searchName = profile.name;
     this.selectedPkds = this.sortPkds(profile.pkdCodes.slice());
     this.selectedPkdId = this.selectedPkds.length ? this.selectedPkds[0].id : null;
@@ -442,6 +449,14 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   totalPages() { return Math.max(1, Math.ceil(this.total / this.pageSize)); }
   formatNumber(value: number) { return this.numberFormatter.format(value); }
+
+  formatPhone(value: string | null | undefined) {
+    if (!value) { return ''; }
+    const phone = value.trim();
+    if (/^0048\d{9}$/.test(phone)) { return phone.replace(/^0048(\d{3})(\d{3})(\d{3})$/, '+48 $1 $2 $3'); }
+    if (/^\+48\d{9}$/.test(phone)) { return phone.replace(/^(\+48)(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4'); }
+    return /^\d{9}$/.test(phone) ? phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') : value;
+  }
   next() { if (this.page < this.totalPages()) { this.page++; this.loadCompanies(); } }
   prev() { if (this.page > 1) { this.page--; this.loadCompanies(); } }
   last() { this.page = this.totalPages(); this.loadCompanies(); }

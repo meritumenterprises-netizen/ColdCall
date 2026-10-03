@@ -34,6 +34,7 @@
 .address-radius label { margin: 0; font-weight: normal; }
 .address-radius input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: #087f5b; }
 .address-radius select { width: 76px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; }
+.filter-tabs { gap: 16px; flex-wrap: wrap; }
 @media (max-width: 700px) { .address-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 420px) { .address-columns { grid-template-columns: minmax(0, 1fr); } }
 .company-filter-panel label { font-size: 14px; margin-bottom: 6px; }

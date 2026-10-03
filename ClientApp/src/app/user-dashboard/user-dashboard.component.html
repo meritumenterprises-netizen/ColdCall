@@ -80,11 +80,15 @@
           <label [for]="field.level + '-filter'">{{ field.label }}</label>
           <input [id]="field.level + '-filter'" [(ngModel)]="field.term" (ngModelChange)="filterAddressOptions(i)"
                  [disabled]="addressFieldDisabled(i)" [attr.aria-label]="'Filtr: ' + field.label" autocomplete="off">
-          <select [id]="field.level + '-list'" size="8" [ngModel]="field.selectedId"
+          <select *ngIf="i !== 3" [id]="field.level + '-list'" size="8" [ngModel]="field.selectedId"
                   (ngModelChange)="selectAddressOption(i, $event)" [disabled]="addressFieldDisabled(i) || field.loading"
                   [attr.aria-label]="field.label" [attr.aria-busy]="field.loading">
             <option *ngFor="let option of field.visible" [ngValue]="option.id">{{ option.name }}</option>
           </select>
+          <app-address-listbox *ngIf="i === 3" [listId]="field.level + '-list'" [label]="field.label"
+                               [options]="field.visible" [selectedId]="field.selectedId" [loading]="field.loading"
+                               [disabled]="addressFieldDisabled(i) || field.loading"
+                               (selectionChange)="selectAddressOption(i, $event)"></app-address-listbox>
           <button type="button" class="ghost-button address-clear" (click)="selectAddressOption(i, null)"
                   [disabled]="addressFieldDisabled(i) || field.loading || field.selectedId === null" [attr.aria-label]="'Wyczy&#347;&#263;: ' + field.label">Wyczy&#347;&#263;</button>
           <span class="address-status" *ngIf="field.loading" role="status">Wczytywanie...</span>
@@ -95,12 +99,12 @@
         </div>
       </div>
       <div class="address-radius">
-        <input id="address-radius-enabled" type="checkbox" [ngModel]="radiusEnabled" (ngModelChange)="setRadiusEnabled($event)" [disabled]="addressFields[3].selectedId === null">
+        <input id="address-radius-enabled" type="checkbox" [ngModel]="radiusEnabled" (ngModelChange)="setRadiusEnabled($event)" [disabled]="!radiusAvailable">
         <label for="address-radius-enabled">Firmy w promieniu</label>
-        <select id="address-radius-km" [ngModel]="radiusKm" (ngModelChange)="setRadiusKm($event)" [disabled]="addressFields[3].selectedId === null || !radiusEnabled" aria-label="Promie&#324;">
+        <select id="address-radius-km" [ngModel]="radiusKm" (ngModelChange)="setRadiusKm($event)" [disabled]="!radiusAvailable || !radiusEnabled" aria-label="Promie&#324;">
           <option *ngFor="let km of radiusOptions" [ngValue]="km">{{ km }}</option>
         </select>
-        <span> km od wybranej miejscowo&#347;ci</span>
+        <span> km od wybranej lokalizacji</span>
       </div>
     </section>
 
@@ -201,8 +205,8 @@
               (click)="selectedCompanyId = row.id" (focus)="selectedCompanyId = row.id"
               (dblclick)="openCompany(row)" (keydown.enter)="$event.preventDefault(); openCompany(row)">
             <td>{{ formatNumber((page - 1) * pageSize + rowIndex + 1) }}</td>
-            <td hidden>{{ row.id }}</td><td>{{ row.name.length > 50 ? (row.name | slice:0:50) + '...' : row.name }}</td><td>{{ row.nip }}</td>
-            <td>{{ row.fullAddress }}</td><td>{{ row.phone }}</td><td>{{ row.email }}</td>
+            <td hidden>{{ row.id }}</td><td>{{ row.name.length > 50 ? (row.name | slice:0:50) + '...' : row.name }}</td>
+            <td>{{ row.fullAddress }}</td><td>{{ formatPhone(row.phone) }}</td><td>{{ row.email }}</td>
             <td>{{ row.www }}</td><td>{{ row.dataAktywnosci | date:'yyyy-MM-dd' }}</td>
             <td class="company-details-cell">
               <button type="button" class="company-details-button" aria-label="Szczeg&#243;&#322;y firmy" title="Szczeg&#243;&#322;y firmy"
