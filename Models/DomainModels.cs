@@ -116,6 +116,16 @@ public class SearchProfileCriteria
     public DateOnly? DateFrom { get; set; }
     public DateOnly? DateTo { get; set; }
     public int RecordLimit { get; set; } = 1000;
+    public int? WojewodztwoId { get; set; }
+    public Wojewodztwo? Wojewodztwo { get; set; }
+    public int? PowiatId { get; set; }
+    public Powiat? Powiat { get; set; }
+    public int? GminaId { get; set; }
+    public Gmina? Gmina { get; set; }
+    public int? MiejscowoscId { get; set; }
+    public Miejscowosc? Miejscowosc { get; set; }
+    public bool? HasFirmyWPromieniu { get; set; }
+    public int? FirmyWPromieniu { get; set; }
 }
 
 public class SearchProfilePkd

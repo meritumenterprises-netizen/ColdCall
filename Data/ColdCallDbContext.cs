@@ -109,7 +109,7 @@ public partial class ColdCallDbContext : DbContext
             });
             entity.Property(x => x.Id).UseIdentityColumn();
             entity.Property(x => x.SortColumn).HasMaxLength(32).HasDefaultValue("dataAktywnosci");
-            entity.Property(x => x.SortDirection).HasColumnType("varchar(4)").HasDefaultValue("desc");
+            entity.Property(x => x.SortDirection).HasColumnType("varchar(4)").IsUnicode(false).HasDefaultValue("desc");
             entity.Property(x => x.Address).HasMaxLength(1000).HasDefaultValue("");
             entity.Property(x => x.CompanyName).HasMaxLength(1000).HasDefaultValue("");
             entity.Property(x => x.Name).HasMaxLength(200).HasDefaultValue("").IsRequired();
@@ -119,7 +119,17 @@ public partial class ColdCallDbContext : DbContext
             entity.Property(x => x.RecordLimit).HasDefaultValue(1000);
             entity.HasIndex(x => x.SearchProfileId).IsUnique();
             entity.HasOne(x => x.SearchProfile).WithOne(x => x.Criteria)
-                .HasForeignKey<SearchProfileCriteria>(x => x.SearchProfileId).OnDelete(DeleteBehavior.Cascade);
+                .HasForeignKey<SearchProfileCriteria>(x => x.SearchProfileId)
+                .HasConstraintName("FK_SearchProfileCriteria_SearchProfiles_SearchProfileId")
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Wojewodztwo).WithMany().HasForeignKey(x => x.WojewodztwoId)
+                .HasConstraintName("FK_SearchProfileCriteria_Wojewodztwa").OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.Powiat).WithMany().HasForeignKey(x => x.PowiatId)
+                .HasConstraintName("FK_SearchProfileCriteria_Powiaty").OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.Gmina).WithMany().HasForeignKey(x => x.GminaId)
+                .HasConstraintName("FK_SearchProfileCriteria_Gminy").OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.Miejscowosc).WithMany().HasForeignKey(x => x.MiejscowoscId)
+                .HasConstraintName("FK_SearchProfileCriteria_Miejscowosci").OnDelete(DeleteBehavior.NoAction);
         });
         modelBuilder.Entity<PlanDefinition>().Property(x => x.DescriptionHtml).HasDefaultValue("");
         modelBuilder.Entity<PlanDefinition>().Property(x => x.Price).HasColumnType("decimal(18,2)");
