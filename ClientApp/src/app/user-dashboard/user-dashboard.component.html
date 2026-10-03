@@ -30,6 +30,9 @@
       <button type="button" id="criteria-tab" role="tab" aria-controls="criteria-panel"
               [attr.aria-selected]="activeFilterTab === 'criteria'" [attr.tabindex]="activeFilterTab === 'criteria' ? 0 : -1"
               (click)="selectFilterTab('criteria')" (keydown)="navigateFilterTabs($event)">Kryteria</button>
+      <button type="button" id="address-tab" role="tab" aria-controls="address-panel"
+              [attr.aria-selected]="activeFilterTab === 'address'" [attr.tabindex]="activeFilterTab === 'address' ? 0 : -1"
+              (click)="selectFilterTab('address')" (keydown)="navigateFilterTabs($event)">Adres</button>
     </div>
     <section class="pkd-filter-panel" id="pkd-panel" role="tabpanel" aria-labelledby="pkd-tab" [hidden]="activeFilterTab !== 'pkd'">
       <div class="pkd-filter-search">
@@ -70,11 +73,44 @@
       </div>
     </section>
 
+    <section class="address-filter-panel" id="address-panel" role="tabpanel" aria-labelledby="address-tab"
+             [hidden]="activeFilterTab !== 'address'">
+      <div class="address-columns">
+        <div class="address-field" *ngFor="let field of addressFields; let i = index">
+          <label [for]="field.level + '-filter'">{{ field.label }}</label>
+          <input [id]="field.level + '-filter'" [(ngModel)]="field.term" (ngModelChange)="filterAddressOptions(i)"
+                 [disabled]="addressFieldDisabled(i)" [attr.aria-label]="'Filtr: ' + field.label" autocomplete="off">
+          <select [id]="field.level + '-list'" size="8" [ngModel]="field.selectedId"
+                  (ngModelChange)="selectAddressOption(i, $event)" [disabled]="addressFieldDisabled(i) || field.loading"
+                  [attr.aria-label]="field.label" [attr.aria-busy]="field.loading">
+            <option *ngFor="let option of field.visible" [ngValue]="option.id">{{ option.name }}</option>
+          </select>
+          <button type="button" class="ghost-button address-clear" (click)="selectAddressOption(i, null)"
+                  [disabled]="addressFieldDisabled(i) || field.loading || field.selectedId === null" [attr.aria-label]="'Wyczy&#347;&#263;: ' + field.label">Wyczy&#347;&#263;</button>
+          <span class="address-status" *ngIf="field.loading" role="status">Wczytywanie...</span>
+          <span class="address-status" *ngIf="!field.loading && !field.error && !addressFieldDisabled(i) && !field.visible.length" role="status">Brak wynik&#243;w</span>
+          <div *ngIf="field.error" class="filter-error" role="alert">
+            {{ field.error }} <button type="button" class="ghost-button" (click)="loadAddressOptions(i)">Pon&#243;w</button>
+          </div>
+        </div>
+      </div>
+      <div class="address-radius">
+        <input id="address-radius-enabled" type="checkbox" [ngModel]="radiusEnabled" (ngModelChange)="setRadiusEnabled($event)" [disabled]="addressFields[3].selectedId === null">
+        <label for="address-radius-enabled">Firmy w promieniu</label>
+        <select id="address-radius-km" [ngModel]="radiusKm" (ngModelChange)="setRadiusKm($event)" [disabled]="addressFields[3].selectedId === null || !radiusEnabled" aria-label="Promie&#324;">
+          <option *ngFor="let km of radiusOptions" [ngValue]="km">{{ km }}</option>
+        </select>
+        <span> km od wybranej miejscowo&#347;ci</span>
+      </div>
+    </section>
+
     <form class="company-filter-panel" id="criteria-panel" role="tabpanel" aria-labelledby="criteria-tab"
-          [hidden]="activeFilterTab !== 'criteria'" (ngSubmit)="updateFilters()">
+          [hidden]="activeFilterTab !== 'criteria'" (ngSubmit)="updateFilters(false)">
       <div class="company-name-filter">
         <label for="company-name">Nazwa firmy</label>
-        <input id="company-name" name="companyName" [(ngModel)]="filterDraft.companyName" maxlength="1000">
+        <input id="company-name" name="companyName" [ngModel]="filterDraft.companyName" maxlength="1000"
+               (ngModelChange)="filterDraft.companyName = $event; updateFilters(false)"
+               (keydown.enter)="$event.preventDefault()">
       </div>
       <div class="presence-filter">
         <input id="has-phone" type="checkbox" [checked]="filterDraft.hasPhone === true"
@@ -108,10 +144,10 @@
         </div>
         <div class="date-range">
           <div><label for="started-from">Od</label>
-            <input id="started-from" name="dateFrom" [(ngModel)]="dateFrom" [disabled]="!dateRangeEnabled"
+            <input id="started-from" name="dateFrom" [ngModel]="dateFrom" (ngModelChange)="dateFrom = $event; updateFilters(false)" [disabled]="!dateRangeEnabled"
                    placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"></div>
           <div><label for="started-to">Do</label>
-            <input id="started-to" name="dateTo" [(ngModel)]="dateTo" [disabled]="!dateRangeEnabled"
+            <input id="started-to" name="dateTo" [ngModel]="dateTo" (ngModelChange)="dateTo = $event; updateFilters(false)" [disabled]="!dateRangeEnabled"
                    placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"></div>
         </div>
       </div>
@@ -119,13 +155,11 @@
     <div class="filter-actions">
       <div class="record-limit-filter">
         <label for="record-limit">Liczba rekord&#243;w</label>
-        <input id="record-limit" name="recordLimit" list="record-limit-options" inputmode="numeric"
-               [ngModel]="filterDraft.recordLimit" (ngModelChange)="setRecordLimit($event)" autocomplete="off"
-               (keydown.enter)="$event.preventDefault(); updateFilters()" [attr.title]="filterDraft.recordLimit"
+        <select id="record-limit" name="recordLimit"
+               [ngModel]="filterDraft.recordLimit" (ngModelChange)="setRecordLimit($event)"
                [attr.aria-invalid]="!!recordLimitError" [attr.aria-describedby]="recordLimitError ? 'record-limit-error' : null">
-        <datalist id="record-limit-options">
-          <option value="100"></option><option value="1000"></option><option value="5000"></option><option value="10000"></option>
-        </datalist>
+          <option *ngFor="let limit of recordLimitOptions" [ngValue]="limit">{{ limit }}</option>
+        </select>
       </div>
       <button type="button" class="primary-button update-filters" (click)="updateFilters()" [disabled]="loading || !filtersChanged">Aktualizuj</button>
     </div>
@@ -146,8 +180,8 @@
           <tr>
             <th hidden>Id</th>
             <th scope="col">Lp.</th>
-            <th *ngFor="let col of columns" [class.sort-disabled]="col.key === 'details' || !selectedPkds.length || loading"
-                [attr.aria-disabled]="col.key === 'details' || !selectedPkds.length || loading"
+            <th *ngFor="let col of columns" [class.sort-disabled]="col.key === 'details' || loading"
+                [attr.aria-disabled]="col.key === 'details' || loading"
                 [attr.aria-sort]="col.key === 'details' ? null : sortBy === col.key ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'"
                 (click)="sort(col.key)">
               <span class="column-heading">{{ col.label }}<span *ngIf="col.key !== 'details'" class="sort-indicator"

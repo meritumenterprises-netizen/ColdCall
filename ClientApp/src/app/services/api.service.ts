@@ -6,18 +6,31 @@ import { tap } from 'rxjs/operators';
 export interface SortableColumn { key: string; label: string; }
 export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; }
 export interface Pkd { id: number; code: string; name: string; }
+export interface AddressOption { id: number; name: string; }
+export type AddressLevel = 'wojewodztwa' | 'powiaty' | 'gminy' | 'miejscowosci';
 export interface Company {
   id: number; name: string; businessTypeId: number; businessTypeName?: string; firstName?: string; lastName?: string; krs?: string; nip?: string;
   wojewodztwo?: string; city?: string; gmina?: string; powiat?: string; postalCode?: string; street?: string;
   buildingNumber?: string; apartmentNumber?: string; phone?: string; email?: string; googleEmail?: string;
   website?: string; instagramAccount?: string; facebookAccount?: string; startedAt?: string; createdOn?: string;
+  regon?: string | null; statusDzialalnosciId: number; statusDzialalnosciName?: string | null;
+  addressIsMissing: boolean | null; blockedByRODO: boolean;
+  wojewodztwoId?: number | null; miejscowoscId?: number | null; gminaId?: number | null; powiatId?: number | null;
+}
+export interface CompanyAddress { companyAdresId: number; companyId: number; addressId: number; }
+export interface CompanyAddressDetails extends CompanyAddress {
+  wojewodztwoId: number; powiatId: number; gminaId: number; miejscowoscId: number;
+  wojewodztwo: string; powiat: string; gmina: string; miejscowosc: string;
+  ulica: string | null; nrUlicy: string | null; rodzaj: string | null;
+  latitude: number; longitude: number; prngId: string | null;
 }
 export interface BusinessType { typDzialalnosciId: number; typDzialalnosci: string; }
-export interface CompanyDetails { company: Company; pkdCodes: Pkd[]; }
+export interface CompanyDetails { company: Company; pkdCodes: Pkd[]; addresses: CompanyAddressDetails[]; }
 export interface CompanyFilters {
   companyName?: string;
   address: string; hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
   startedFrom?: string; startedTo?: string; recordLimit: number;
+  wojewodztwoId?: number; powiatId?: number; gminaId?: number; miejscowoscId?: number; radiusKm?: number;
 }
 export interface CompanyShort {
   id: number; name: string; nip?: string; fullAddress: string;
@@ -81,6 +94,13 @@ export class ApiService {
     );
   }
   pkd(term: string = ''): Observable<Pkd[]> { return this.http.get<Pkd[]>(this.url('/api/pkd'), { ...this.headers(), params: { term } }); }
+  addressOptions(level: AddressLevel, parentIds: number[] = []): Observable<AddressOption[]> {
+    let params = new HttpParams();
+    ['wojewodztwoId', 'powiatId', 'gminaId'].forEach((key, index) => {
+      if (parentIds[index]) { params = params.set(key, String(parentIds[index])); }
+    });
+    return this.http.get<AddressOption[]>(this.url('/api/address/' + level), { ...this.headers(), params });
+  }
   searches(): Observable<SearchProfile[]> { return this.http.get<SearchProfile[]>(this.url('/api/searches'), this.headers()); }
   saveSearch(name: string, pkdCodeIds: number[], criteria?: SearchCriteria): Observable<SearchProfile> {
     return this.http.post<SearchProfile>(this.url('/api/searches'), { name, pkdCodeIds, criteria }, this.headers());
@@ -92,6 +112,9 @@ export class ApiService {
     if (filters) {
       if (filters.companyName && filters.companyName.trim()) { params = params.set('companyName', filters.companyName.trim()); }
       if (filters.address.trim()) { params = params.set('address', filters.address.trim()); }
+      ['wojewodztwoId', 'powiatId', 'gminaId', 'miejscowoscId', 'radiusKm'].forEach(key => {
+        if (filters[key] !== undefined && filters[key] !== null) { params = params.set(key, String(filters[key])); }
+      });
       ['hasPhone', 'hasEmail', 'hasWebsite'].forEach(key => {
         if (filters[key] !== null) { params = params.set(key, String(filters[key])); }
       });

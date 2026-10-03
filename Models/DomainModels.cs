@@ -34,6 +34,7 @@ public class Company
     public string? Nip { get; set; }
     public string? Regon { get; set; }
     public bool? AddressIsMissing { get; set; }
+    public bool BlockedByRODO { get; set; }
     public int? WojewodztwoId { get; set; }
     public Wojewodztwo? Wojewodztwo { get; set; }
     public int? MiejscowoscId { get; set; }
@@ -55,6 +56,7 @@ public class Company
     public DateTime? StartedAt { get; set; }
     public DateTime CreatedOn { get; set; }
     public ICollection<CompanyPkd> CompanyPkds { get; set; } = new List<CompanyPkd>();
+    public ICollection<CompanyAddress> CompanyAddresses { get; set; } = new List<CompanyAddress>();
 }
 
 public class CompanyStatus

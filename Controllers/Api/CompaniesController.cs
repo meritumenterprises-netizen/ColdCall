@@ -4,6 +4,7 @@ using ColdCall.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using NetTopologySuite.Geometries;
 
 namespace ColdCall.Controllers.Api;
 
@@ -35,7 +36,12 @@ public class CompaniesController : ControllerBase
         [FromQuery] DateOnly? startedFrom = null,
         [FromQuery] DateOnly? startedTo = null,
         [FromQuery] int? recordLimit = 1000,
-        [FromQuery] string? companyName = null)
+        [FromQuery] string? companyName = null,
+        [FromQuery] int? wojewodztwoId = null,
+        [FromQuery] int? powiatId = null,
+        [FromQuery] int? gminaId = null,
+        [FromQuery] int? miejscowoscId = null,
+        [FromQuery] int? radiusKm = null)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         var hasActivePlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow);
@@ -51,8 +57,24 @@ public class CompaniesController : ControllerBase
         if (recordLimit > 10000) return BadRequest(new { message = "Nie mo\u017cna jednorazowo wy\u015bwietli\u0107 wi\u0119cej ni\u017c 10 000 rekord\u00f3w. Nale\u017cy zaw\u0119zi\u0107 kryteria poszukiwania." });
         if (startedFrom.HasValue != startedTo.HasValue || (startedFrom.HasValue && startedTo <= startedFrom))
             return BadRequest(new { message = "Both dates are required and the end date must be later than the start date." });
+        if (new[] { wojewodztwoId, powiatId, gminaId, miejscowoscId }.Any(id => id is <= 0))
+            return BadRequest(new { message = "Niepoprawny identyfikator adresu." });
+        if (radiusKm.HasValue && (!new[] { 1, 5, 10, 20, 50, 100, 200, 500 }.Contains(radiusKm.Value)
+            || !wojewodztwoId.HasValue || !powiatId.HasValue || !gminaId.HasValue || !miejscowoscId.HasValue))
+            return BadRequest(new { message = "Wybierz miejscowosc i poprawny promien." });
         var query = ApplyDetailFilters(ApplyPkdFilter(BaseCompanyQuery(), pkdIds),
             address, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
+        if (radiusKm.HasValue)
+        {
+            var center = await LocalityCenter(wojewodztwoId!.Value, powiatId!.Value, gminaId!.Value, miejscowoscId!.Value);
+            if (center == null)
+                return BadRequest(new { message = "Brak wspolrzednych dla wybranej miejscowosci." });
+            query = ApplyRadiusFilter(query, center, radiusKm.Value);
+        }
+        else
+        {
+            query = ApplyAdministrativeFilter(query, wojewodztwoId, powiatId, gminaId, miejscowoscId);
+        }
         if (!string.IsNullOrWhiteSpace(companyName))
             query = query.Where(x => x.Name.Contains(companyName.Trim()));
 
@@ -85,7 +107,9 @@ public class CompaniesController : ControllerBase
                 x.FirstName, x.LastName, x.Krs, x.Nip,
                 x.Wojewodztwo!.Name, x.Miejscowosc!.Name, x.Gmina!.Name, x.Powiat!.Name,
                 x.PostalCode, x.Street, x.BuildingNumber, x.ApartmentNumber,
-                x.Phone, x.Email, x.GoogleEmail, x.Website, x.InstagramAccount, x.FacebookAccount, x.StartedAt, x.CreatedOn))
+                x.Phone, x.Email, x.GoogleEmail, x.Website, x.InstagramAccount, x.FacebookAccount, x.StartedAt, x.CreatedOn,
+                x.Regon, x.StatusDzialalnosciId, x.StatusDzialalnosci!.Nazwa, x.AddressIsMissing, x.BlockedByRODO,
+                x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId))
             .SingleOrDefaultAsync(cancellationToken);
         if (company == null) return NotFound();
 
@@ -93,7 +117,16 @@ public class CompaniesController : ControllerBase
             .OrderBy(x => x.PkdCode.Code)
             .Select(x => new PkdDto(x.PkdCode.Id, x.PkdCode.Code, x.PkdCode.Name))
             .ToListAsync(cancellationToken);
-        return Ok(new CompanyDetailsDto(company, pkds));
+        var addresses = await _db.CompanyAddresses.AsNoTracking().Where(x => x.CompanyId == id)
+            .OrderBy(x => x.CompanyAdresId)
+            .Select(x => new CompanyAddressDto(
+                x.CompanyAdresId, x.CompanyId, x.AddressId,
+                x.Address.WojewodztwoId, x.Address.PowiatId, x.Address.GminaId, x.Address.MiejscowoscId,
+                x.Address.Wojewodztwo.Name, x.Address.Powiat.Name, x.Address.Gmina.Name, x.Address.Miejscowosc.Name,
+                x.Address.Ulica, x.Address.NrUlicy, x.Address.Rodzaj,
+                x.Address.Latitude, x.Address.Longitude, x.Address.PrngId))
+            .ToListAsync(cancellationToken);
+        return Ok(new CompanyDetailsDto(company, pkds, addresses));
     }
 
     [HttpGet("export")]
@@ -134,6 +167,41 @@ public class CompaniesController : ControllerBase
             ? query
             : query.Where(company => _db.CompanyPkds.Any(companyPkd =>
                 companyPkd.CompanyId == company.Id && selectedPkdIds.Contains(companyPkd.PkdCodeId)));
+    }
+
+    private IQueryable<CompanyShortDto> ApplyAdministrativeFilter(IQueryable<CompanyShortDto> query,
+        int? wojewodztwoId, int? powiatId, int? gminaId, int? miejscowoscId)
+    {
+        if (!wojewodztwoId.HasValue && !powiatId.HasValue && !gminaId.HasValue && !miejscowoscId.HasValue)
+            return query;
+        return query.Where(row => _db.Companies.Any(company => company.Id == row.Id
+            && (!wojewodztwoId.HasValue || company.WojewodztwoId == wojewodztwoId)
+            && (!powiatId.HasValue || company.PowiatId == powiatId)
+            && (!gminaId.HasValue || company.GminaId == gminaId)
+            && (!miejscowoscId.HasValue || company.MiejscowoscId == miejscowoscId)));
+    }
+
+    private async Task<Point?> LocalityCenter(int wojewodztwoId, int powiatId, int gminaId, int miejscowoscId)
+    {
+        // The dictionary has no center point; estimate it from distinct valid address coordinates.
+        var coordinates = await _db.Adresy.AsNoTracking()
+            .Where(a => a.WojewodztwoId == wojewodztwoId && a.PowiatId == powiatId
+                && a.GminaId == gminaId && a.MiejscowoscId == miejscowoscId
+                && a.Latitude >= -90 && a.Latitude <= 90 && a.Longitude >= -180 && a.Longitude <= 180
+                && (a.Latitude != 0 || a.Longitude != 0))
+            .Select(a => new { a.Latitude, a.Longitude }).Distinct()
+            .GroupBy(a => 1)
+            .Select(group => new { Latitude = group.Average(a => a.Latitude), Longitude = group.Average(a => a.Longitude) })
+            .SingleOrDefaultAsync();
+        return coordinates == null ? null : new Point((double)coordinates.Longitude, (double)coordinates.Latitude) { SRID = 4326 };
+    }
+
+    private IQueryable<CompanyShortDto> ApplyRadiusFilter(IQueryable<CompanyShortDto> query, Point center, int radiusKm)
+    {
+        var radiusMeters = radiusKm * 1000d;
+        // Keep distance evaluation in SQL: geography.STDistance returns meters, unlike client-side NTS.
+        return query.Where(company => _db.CompanyAddresses.Any(link => link.CompanyId == company.Id
+            && link.Address.Location.Distance(center) <= radiusMeters));
     }
 
     private static IQueryable<CompanyShortDto> ApplyDetailFilters(
