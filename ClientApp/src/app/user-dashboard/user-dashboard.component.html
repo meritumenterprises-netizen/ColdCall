@@ -35,15 +35,22 @@
               (click)="selectFilterTab('address')" (keydown)="navigateFilterTabs($event)">Adres</button>
     </div>
     <section class="pkd-filter-panel" id="pkd-panel" role="tabpanel" aria-labelledby="pkd-tab" [hidden]="activeFilterTab !== 'pkd'">
-      <div class="pkd-filter-search">
-        <label>PKD</label>
-        <input name="pkdTerm" [(ngModel)]="pkdTerm" (input)="findPkd()" placeholder="Wpisz tekst">
+      <div class="pkd-search-row">
+        <div class="pkd-filter-search">
+          <label for="pkd-term">Nazwa kodu PKD</label>
+          <input id="pkd-term" name="pkdTerm" [(ngModel)]="pkdTerm" (input)="findPkd()" placeholder="Wpisz tekst">
+        </div>
+        <div class="pkd-description">
+          <label for="pkd-description">Opisz typ dzia&#322;alno&#347;ci</label>
+          <input id="pkd-description" name="pkdDescription" [(ngModel)]="pkdDescription" autocomplete="off">
+        </div>
+        <button type="button" class="primary-button" [disabled]="!pkdDescription.length">Sprawd&#378;</button>
       </div>
 
       <div class="pkd-transfer">
         <div class="pkd-listbox">
-          <label>Znalezione PKD</label>
-          <div class="pkd-options" role="listbox" aria-label="Znalezione PKD" tabindex="0"
+          <label>Kody PKD</label>
+          <div class="pkd-options" role="listbox" aria-label="Kody PKD" tabindex="0"
                [attr.aria-activedescendant]="foundPkdId ? 'found-pkd-' + foundPkdId : null"
                (keydown)="navigatePkd($event, false)" (scroll)="pkdHint = null" (mouseleave)="hidePkdHint($event)">
             <div *ngFor="let pkd of pkdSuggestions" class="pkd-option" role="option" [id]="'found-pkd-' + pkd.id"
@@ -116,29 +123,26 @@
                (ngModelChange)="filterDraft.companyName = $event; updateFilters(false)"
                (keydown.enter)="$event.preventDefault()">
       </div>
-      <div class="presence-filter">
-        <input id="has-phone" type="checkbox" [checked]="filterDraft.hasPhone === true"
+      <div class="presence-filter presence-criterion">
+        <label for="has-phone"><input id="has-phone" type="checkbox" [checked]="filterDraft.hasPhone === true"
                [indeterminate]="filterDraft.hasPhone === null" [class.neutral]="filterDraft.hasPhone === null"
                [attr.aria-checked]="filterDraft.hasPhone === null ? 'mixed' : filterDraft.hasPhone"
-               (change)="cyclePresence('hasPhone', $event)">
-        <label for="has-phone">Telefon</label>
-        <span>{{ presenceLabel(filterDraft.hasPhone) }}</span>
+               (change)="cyclePresence('hasPhone', $event)">Telefon</label>
+        <span aria-live="polite">{{ presenceLabel(filterDraft.hasPhone) }}</span>
       </div>
-      <div class="presence-filter">
-        <input id="has-email" type="checkbox" [checked]="filterDraft.hasEmail === true"
+      <div class="presence-filter presence-criterion">
+        <label for="has-email"><input id="has-email" type="checkbox" [checked]="filterDraft.hasEmail === true"
                [indeterminate]="filterDraft.hasEmail === null" [class.neutral]="filterDraft.hasEmail === null"
                [attr.aria-checked]="filterDraft.hasEmail === null ? 'mixed' : filterDraft.hasEmail"
-               (change)="cyclePresence('hasEmail', $event)">
-        <label for="has-email">Email</label>
-        <span>{{ presenceLabel(filterDraft.hasEmail) }}</span>
+               (change)="cyclePresence('hasEmail', $event)">Email</label>
+        <span aria-live="polite">{{ presenceLabel(filterDraft.hasEmail) }}</span>
       </div>
-      <div class="presence-filter">
-        <input id="has-website" type="checkbox" [checked]="filterDraft.hasWebsite === true"
+      <div class="presence-filter presence-criterion">
+        <label for="has-website"><input id="has-website" type="checkbox" [checked]="filterDraft.hasWebsite === true"
                [indeterminate]="filterDraft.hasWebsite === null" [class.neutral]="filterDraft.hasWebsite === null"
                [attr.aria-checked]="filterDraft.hasWebsite === null ? 'mixed' : filterDraft.hasWebsite"
-               (change)="cyclePresence('hasWebsite', $event)">
-        <label for="has-website">Witryna WWW</label>
-        <span>{{ presenceLabel(filterDraft.hasWebsite) }}</span>
+               (change)="cyclePresence('hasWebsite', $event)">Witryna WWW</label>
+        <span aria-live="polite">{{ presenceLabel(filterDraft.hasWebsite) }}</span>
       </div>
       <div class="date-filter">
         <div class="presence-filter">
