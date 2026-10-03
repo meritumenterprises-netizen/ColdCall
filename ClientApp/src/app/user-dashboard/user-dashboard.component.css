@@ -40,6 +40,11 @@
 .company-filter-panel label { font-size: 14px; margin-bottom: 6px; }
 .company-filter-panel input { min-width: 0; font-size: 14px; }
 .pkd-filter-search input { font-size: 12px; }
+.pkd-search-row { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr) auto; align-items: end; gap: 12px; margin-bottom: 14px; }
+.pkd-search-row .pkd-filter-search, .pkd-description { display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: none; margin: 0; }
+.pkd-search-row label { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.pkd-search-row input { width: 100%; min-width: 0; box-sizing: border-box; }
+.pkd-description input { width: 100%; min-width: 0; box-sizing: border-box; font-size: 14px; }
 .company-name-filter { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .company-name-filter label { flex: 0 0 auto; margin: 0; }
 .company-name-filter input { flex: 1; width: 100%; }
@@ -52,6 +57,8 @@
 .presence-filter input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border-radius: 0; accent-color: #087f5b; cursor: pointer; }
 .presence-filter input.neutral { accent-color: #8a949b; opacity: .7; }
 .presence-filter span { width: 60px; font-size: 12px; color: #637168; }
+.presence-criterion label { display: flex; align-items: center; gap: 10px; flex: 0 1 200px; width: 200px; min-width: 0; }
+.presence-criterion span { flex: 0 0 auto; width: auto; }
 .date-filter { display: flex; align-items: center; gap: 16px; margin: 16px 0; max-width: 100%; overflow-x: auto; padding: 2px; }
 .date-filter > .presence-filter { flex: 0 0 auto; margin-bottom: 0; }
 .date-range { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }

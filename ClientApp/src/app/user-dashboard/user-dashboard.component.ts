@@ -13,6 +13,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   allPkds: Pkd[] = [];
   selectedPkds: Pkd[] = [];
   pkdTerm = '';
+  pkdDescription = '';
   activeFilterTab: 'pkd' | 'criteria' | 'address' = 'pkd';
   addressFields: { level: AddressLevel; label: string; options: AddressOption[]; visible: AddressOption[];
     selectedId: number | null; term: string; loading: boolean; error: string; request: Subscription | null }[] =
@@ -453,6 +454,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   formatPhone(value: string | null | undefined) {
     if (!value) { return ''; }
     const phone = value.trim();
+    if (/^48\d{9}$/.test(phone)) { return phone.replace(/^48(\d{3})(\d{3})(\d{3})$/, '+48 $1 $2 $3'); }
     if (/^0048\d{9}$/.test(phone)) { return phone.replace(/^0048(\d{3})(\d{3})(\d{3})$/, '+48 $1 $2 $3'); }
     if (/^\+48\d{9}$/.test(phone)) { return phone.replace(/^(\+48)(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4'); }
     return /^\d{9}$/.test(phone) ? phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') : value;

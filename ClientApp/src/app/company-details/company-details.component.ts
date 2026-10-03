@@ -118,6 +118,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     const value = this.details.company[key];
     if (key === 'phone' && value) {
       const phone = String(value).trim().replace(/^\*\*(\d{9})\*\*$/, '$1');
+      if (/^48\d{9}$/.test(phone)) { return phone.replace(/^48(\d{3})(\d{3})(\d{3})$/, '+48 $1 $2 $3'); }
       if (/^0048\d{9}$/.test(phone)) { return phone.replace(/^0048(\d{3})(\d{3})(\d{3})$/, '+48 $1 $2 $3'); }
       if (/^\+48\d{9}$/.test(phone)) { return phone.replace(/^(\+48)(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4'); }
       if (/^\d{9}$/.test(phone)) { return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3'); }
