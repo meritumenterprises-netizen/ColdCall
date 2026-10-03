@@ -22,7 +22,7 @@
       <button class="primary-button" (click)="saveSearch()">Zapisz</button>
     </section>
 
-    <div class="filters-layout">
+    <fieldset class="filters-layout" [disabled]="classifyingPkd" [attr.inert]="classifyingPkd ? '' : null" [attr.aria-busy]="classifyingPkd">
     <div class="filter-tabs" role="tablist" aria-label="Filtry firm">
       <button type="button" id="pkd-tab" role="tab" aria-controls="pkd-panel"
               [attr.aria-selected]="activeFilterTab === 'pkd'" [attr.tabindex]="activeFilterTab === 'pkd' ? 0 : -1"
@@ -42,15 +42,17 @@
         </div>
         <div class="pkd-description">
           <label for="pkd-description">Opisz typ dzia&#322;alno&#347;ci</label>
-          <input id="pkd-description" name="pkdDescription" [(ngModel)]="pkdDescription" autocomplete="off">
+          <input id="pkd-description" name="pkdDescription" [(ngModel)]="pkdDescription" autocomplete="off"
+                 (keydown.enter)="$event.preventDefault(); checkPkdDescription()">
         </div>
-        <button type="button" class="primary-button" [disabled]="!pkdDescription.length">Sprawd&#378;</button>
+        <button type="button" class="primary-button" [disabled]="!pkdDescription.length || classifyingPkd" (click)="checkPkdDescription()"><ng-container *ngIf="!classifyingPkd">Sprawd&#378;</ng-container><ng-container *ngIf="classifyingPkd">Sprawdzanie...</ng-container></button>
       </div>
+      <div *ngIf="pkdClassificationError" class="filter-error" role="alert">{{ pkdClassificationError }}</div>
 
       <div class="pkd-transfer">
         <div class="pkd-listbox">
           <label>Kody PKD</label>
-          <div class="pkd-options" role="listbox" aria-label="Kody PKD" tabindex="0"
+          <div class="pkd-options" role="listbox" aria-label="Kody PKD" [attr.tabindex]="classifyingPkd ? -1 : 0" [attr.aria-disabled]="classifyingPkd"
                [attr.aria-activedescendant]="foundPkdId ? 'found-pkd-' + foundPkdId : null"
                (keydown)="navigatePkd($event, false)" (scroll)="pkdHint = null" (mouseleave)="hidePkdHint($event)">
             <div *ngFor="let pkd of pkdSuggestions" class="pkd-option" role="option" [id]="'found-pkd-' + pkd.id"
@@ -68,7 +70,7 @@
 
         <div class="pkd-listbox">
           <label>Wybrane PKD (max.10)</label>
-          <div class="pkd-options" role="listbox" aria-label="Wybrane PKD" tabindex="0"
+          <div class="pkd-options" role="listbox" aria-label="Wybrane PKD" [attr.tabindex]="classifyingPkd ? -1 : 0" [attr.aria-disabled]="classifyingPkd"
                [attr.aria-activedescendant]="selectedPkdId ? 'selected-pkd-' + selectedPkdId : null"
                (keydown)="navigatePkd($event, true)" (scroll)="pkdHint = null" (mouseleave)="hidePkdHint($event)">
             <div *ngFor="let pkd of selectedPkds" class="pkd-option" role="option" [id]="'selected-pkd-' + pkd.id"
@@ -94,7 +96,7 @@
           </select>
           <app-address-listbox *ngIf="i === 3" [listId]="field.level + '-list'" [label]="field.label"
                                [options]="field.visible" [selectedId]="field.selectedId" [loading]="field.loading"
-                               [disabled]="addressFieldDisabled(i) || field.loading"
+                               [disabled]="classifyingPkd || addressFieldDisabled(i) || field.loading"
                                (selectionChange)="selectAddressOption(i, $event)"></app-address-listbox>
           <button type="button" class="ghost-button address-clear" (click)="selectAddressOption(i, null)"
                   [disabled]="addressFieldDisabled(i) || field.loading || field.selectedId === null" [attr.aria-label]="'Wyczy&#347;&#263;: ' + field.label">Wyczy&#347;&#263;</button>
@@ -173,7 +175,13 @@
     </div>
     <div *ngIf="recordLimitError" id="record-limit-error" class="filter-error" role="alert">{{ recordLimitError }}</div>
     <div *ngIf="filterError" class="filter-error" role="alert">{{ filterError }}</div>
-    </div>
+    </fieldset>
+
+    <dialog #pkdErrorDialog class="pkd-error-dialog" aria-labelledby="pkd-error-title" aria-describedby="pkd-error-message" (cancel)="$event.preventDefault()">
+      <h2 id="pkd-error-title">B&#322;&#261;d wyszukiwania opisu dzia&#322;alno&#347;ci</h2>
+      <p id="pkd-error-message">{{ pkdClassificationMessage }}</p>
+      <button type="button" class="primary-button" (click)="acknowledgePkdError()">OK</button>
+    </dialog>
 
     <div *ngIf="pkdHint" id="pkd-full-name" class="pkd-tooltip" role="tooltip"
          [style.left.px]="pkdHint.left" [style.top.px]="pkdHint.top" [style.bottom.px]="pkdHint.bottom"

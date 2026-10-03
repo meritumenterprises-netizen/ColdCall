@@ -6,6 +6,7 @@ import { tap } from 'rxjs/operators';
 export interface SortableColumn { key: string; label: string; }
 export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; }
 export interface Pkd { id: number; code: string; name: string; }
+export interface PkdClassification { status: string; text: string; pkdCodes: Pkd[]; }
 export interface AddressOption { id: number; name: string; }
 export type AddressLevel = 'wojewodztwa' | 'powiaty' | 'gminy' | 'miejscowosci';
 export interface Company {
@@ -95,6 +96,9 @@ export class ApiService {
     );
   }
   pkd(term: string = ''): Observable<Pkd[]> { return this.http.get<Pkd[]>(this.url('/api/pkd'), { ...this.headers(), params: { term } }); }
+  classifyPkd(description: string): Observable<PkdClassification> {
+    return this.http.post<PkdClassification>(this.url('/api/pkd/classify'), { description }, this.headers());
+  }
   addressOptions(level: AddressLevel, parentIds: (number | null)[] = []): Observable<AddressOption[]> {
     let params = new HttpParams();
     ['wojewodztwoId', 'powiatId', 'gminaId'].forEach((key, index) => {

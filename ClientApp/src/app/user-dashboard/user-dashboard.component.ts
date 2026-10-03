@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { AddressLevel, AddressOption, ApiService, CompanyFilters, CompanyShort, Pkd, SearchProfile, SortableColumn } from '../services/api.service';
@@ -14,6 +14,11 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   selectedPkds: Pkd[] = [];
   pkdTerm = '';
   pkdDescription = '';
+  classifyingPkd = false;
+  @ViewChild('pkdErrorDialog', { static: true }) pkdErrorDialog: ElementRef;
+  pkdClassificationMessage = '';
+  pkdClassificationError = '';
+  private pkdClassificationRequest: Subscription | null = null;
   activeFilterTab: 'pkd' | 'criteria' | 'address' = 'pkd';
   addressFields: { level: AddressLevel; label: string; options: AddressOption[]; visible: AddressOption[];
     selectedId: number | null; term: string; loading: boolean; error: string; request: Subscription | null }[] =
@@ -194,6 +199,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.pkdErrorDialog.nativeElement.close();
+    if (this.pkdClassificationRequest) { this.pkdClassificationRequest.unsubscribe(); }
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     this.addressFields.forEach(field => { if (field.request) { field.request.unsubscribe(); } });
   }
@@ -307,6 +314,42 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   findPkd() {
     this.pkdHint = null;
     this.updatePkdSuggestions();
+  }
+
+  checkPkdDescription() {
+    if (!this.pkdDescription.length || this.classifyingPkd) { return; }
+    this.clearPkds();
+    this.classifyingPkd = true;
+    this.pkdClassificationMessage = '';
+    this.pkdClassificationError = '';
+    this.pkdClassificationRequest = this.api.classifyPkd(this.pkdDescription)
+      .pipe(finalize(() => this.classifyingPkd = false)).subscribe(result => {
+        const firstLine = (result.text || result.status || '').split(/\r?\n/)[0].trim();
+        if (firstLine !== 'OK') {
+          this.pkdClassificationMessage = firstLine;
+          this.pkdErrorDialog.nativeElement.showModal();
+          return;
+        }
+        const additions = result.pkdCodes.filter(pkd => !this.selectedPkds.some(selected => selected.id === pkd.id));
+        const available = this.maxSelectedPkds - this.selectedPkds.length;
+        if (additions.length > available) {
+          this.pkdClassificationError = 'Lista Wybrane PKD moze zawierac maksymalnie 10 kodow. Usun kody, aby dodac pozostale.';
+        }
+        if (available > 0 && additions.length) {
+          this.selectedPkds = this.selectedPkds.concat(additions.slice(0, available));
+          this.selectedPkdId = additions[0].id;
+          this.updatePkdSuggestions();
+          this.page = 1;
+          this.loadCompanies();
+        }
+      }, err => {
+        this.pkdClassificationError = err.error && err.error.message ? err.error.message : 'Nie udalo sie dobrac kodow PKD.';
+      });
+  }
+
+  acknowledgePkdError() {
+    this.clearPkds();
+    this.pkdErrorDialog.nativeElement.close();
   }
 
   showPkdHint(event: MouseEvent, pkd: Pkd) {
@@ -481,7 +524,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private updatePkdSuggestions() {
     const term = this.pkdTerm.trim().toLowerCase();
     this.pkdSuggestions = this.allPkds.filter(pkd => {
-      const isAlreadySelected = this.selectedPkds.some(selected => selected.id === pkd.id);
+      const isAlreadySelected = this.selectedPkds.some(selected => selected.id === pkd.id || selected.code === pkd.code);
       return !isAlreadySelected && (!term || this.pkdLabel(pkd).toLowerCase().indexOf(term) >= 0);
     });
     this.foundPkdId = this.pkdSuggestions.length ? this.pkdSuggestions[0].id : null;
