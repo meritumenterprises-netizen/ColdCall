@@ -18,6 +18,7 @@ public class PkdController : ControllerBase
         _db = db;
     }
 
+            return BadRequest(new { message = "Wpisz opis dzialalnosci." });
     [HttpGet]
     public async Task<IReadOnlyList<PkdDto>> Search([FromQuery] string? term = null)
     {
