@@ -20,25 +20,14 @@ public class Adres
     public decimal Longitude { get; set; }
     public Geometry Location { get; set; } = null!;
     public string? PrngId { get; set; }
+    public ICollection<CompanyAddress> CompanyAddresses { get; set; } = new List<CompanyAddress>();
 }
 
-// The import staging table has no primary key in SQL Server.
-public class AdresImportStage
-{
-    public string? PrngId { get; set; }
-    public string Nazwa { get; set; } = "";
-    public string? Rodzaj { get; set; }
-    public string Wojewodztwo { get; set; } = "";
-    public string Powiat { get; set; } = "";
-    public string Gmina { get; set; } = "";
-    public decimal Latitude { get; set; }
-    public decimal Longitude { get; set; }
-}
-
-// SQL Server currently defines no foreign keys on this linking table.
 public class CompanyAddress
 {
     public int CompanyAdresId { get; set; }
     public int CompanyId { get; set; }
     public int AddressId { get; set; }
+    public Company Company { get; set; } = null!;
+    public Adres Address { get; set; } = null!;
 }

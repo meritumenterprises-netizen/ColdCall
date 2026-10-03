@@ -1,3 +1,8 @@
+.toolbar { display: flex; align-items: flex-end; gap: 10px; }
+.toolbar .save-search { flex: 0 1 600px; min-width: 0; }
+.toolbar .save-search input { width: 600px; max-width: 100%; box-sizing: border-box; }
+.toolbar > button { flex: 0 0 100px; width: 100px; min-width: 100px; padding-left: 8px; padding-right: 8px; }
+
 .filters-layout {
   width: 50vw;
   max-width: 100%;
@@ -15,6 +20,22 @@
 .filter-tabs button:focus-visible { outline: 2px solid #087f5b; outline-offset: 2px; }
 .filters-layout [hidden] { display: none !important; }
 .company-filter-panel { min-width: 0; padding: 0; }
+.address-columns { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.address-field { min-width: 0; }
+.address-field label { font-size: 14px; margin-bottom: 6px; }
+.address-field input, .address-field select { width: 100%; min-width: 0; box-sizing: border-box; font-size: 14px; }
+.address-field input { margin-bottom: 8px; }
+.address-field select { height: 202px; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; }
+.address-field option { padding: 4px 6px; }
+.address-clear { display: block; margin-top: 6px; padding: 4px 10px; font-size: 12px; line-height: 18px; }
+.address-field input:disabled, .address-field select:disabled, .address-radius select:disabled { background: #e2e8f0; color: #64748b; }
+.address-status { display: block; margin-top: 6px; font-size: 12px; color: #637168; }
+.address-radius { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 16px; font-size: 14px; }
+.address-radius label { margin: 0; font-weight: normal; }
+.address-radius input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: #087f5b; }
+.address-radius select { width: 76px; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 4px; }
+@media (max-width: 700px) { .address-columns { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 420px) { .address-columns { grid-template-columns: minmax(0, 1fr); } }
 .company-filter-panel label { font-size: 14px; margin-bottom: 6px; }
 .company-filter-panel input { min-width: 0; font-size: 14px; }
 .pkd-filter-search input { font-size: 12px; }
@@ -24,7 +45,7 @@
 .filter-actions { display: flex; align-items: flex-end; gap: 12px; margin-top: 14px; }
 .record-limit-filter { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; flex: 0 1 200px; }
 .record-limit-filter label { margin: 0; font-size: 14px; }
-.record-limit-filter input { width: 200px; min-width: 0; max-width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px; }
+.record-limit-filter select { width: 200px; min-width: 0; max-width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; }
 .presence-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; min-height: 24px; }
 .presence-filter label { flex: 1; margin: 0; }
 .presence-filter input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border-radius: 0; accent-color: #087f5b; cursor: pointer; }
@@ -123,6 +144,11 @@
   height: 44px;
   padding: 8px 12px;
   line-height: 20px;
+}
+
+.companies-grid-table td {
+  height: 32px;
+  padding: 2px 12px;
 }
 
 .grid-loading {

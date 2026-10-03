@@ -7,7 +7,6 @@ namespace ColdCall.Data;
 public partial class ColdCallDbContext
 {
     public DbSet<Adres> Adresy => Set<Adres>();
-    public DbSet<AdresImportStage> AdresyImportStage => Set<AdresImportStage>();
     public DbSet<CompanyAddress> CompanyAddresses => Set<CompanyAddress>();
     public DbSet<AdresView> AddressView => Set<AdresView>();
     public DbSet<CompanyAddressView> CompanyAddressesView => Set<CompanyAddressView>();
@@ -32,9 +31,13 @@ public partial class ColdCallDbContext
         modelBuilder.Entity<BusinessType>().Property(x => x.TypDzialalnosciId).ValueGeneratedNever();
         modelBuilder.Entity<Company>(entity =>
         {
+            entity.Property(x => x.BlockedByRODO).HasColumnType("bit").IsRequired().HasDefaultValue(false);
             entity.Property(x => x.Krs).HasMaxLength(450);
             entity.Property(x => x.Nip).HasMaxLength(450);
             entity.Property(x => x.Regon).HasMaxLength(50);
+            entity.HasIndex(x => x.Id).HasDatabaseName("IX_PrgImporter_Companies_MissingAddress")
+                .HasFilter("[AddressIsMissing] = 1 AND [BlockedByRODO] = 0")
+                .IncludeProperties(x => new { x.MiejscowoscId, x.WojewodztwoId, x.PowiatId });
             entity.HasIndex(x => x.StatusDzialalnosciId);
             entity.HasOne(x => x.BusinessType).WithMany().HasForeignKey(x => x.BusinessTypeId)
                 .OnDelete(DeleteBehavior.NoAction);
@@ -75,23 +78,17 @@ public partial class ColdCallDbContext
             entity.HasOne(x => x.Miejscowosc).WithMany().HasForeignKey(x => x.MiejscowoscId)
                 .HasConstraintName("FK_Adresy_Miejscowosci").OnDelete(DeleteBehavior.NoAction);
         });
-        modelBuilder.Entity<AdresImportStage>(entity =>
-        {
-            entity.HasNoKey().ToTable("AdresyImportStage");
-            entity.Property(x => x.PrngId).HasMaxLength(50).IsUnicode(false);
-            entity.Property(x => x.Nazwa).HasMaxLength(250);
-            entity.Property(x => x.Rodzaj).HasMaxLength(200);
-            entity.Property(x => x.Wojewodztwo).HasMaxLength(250);
-            entity.Property(x => x.Powiat).HasMaxLength(250);
-            entity.Property(x => x.Gmina).HasMaxLength(250);
-            entity.Property(x => x.Latitude).HasPrecision(9, 6);
-            entity.Property(x => x.Longitude).HasPrecision(9, 6);
-        });
         modelBuilder.Entity<CompanyAddress>(entity =>
         {
             entity.ToTable("CompanyAddress");
             entity.HasKey(x => x.CompanyAdresId).HasName("PK_ColdCall.CompanyAddress");
             entity.Property(x => x.CompanyAdresId).UseIdentityColumn();
+            entity.HasIndex(x => x.CompanyId).HasDatabaseName("IX_PrgImporter_CompanyAddress_CompanyId")
+                .IncludeProperties(x => x.AddressId);
+            entity.HasOne(x => x.Company).WithMany(x => x.CompanyAddresses).HasForeignKey(x => x.CompanyId)
+                .HasConstraintName("FK_CompanyAddress_Companies").OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.Address).WithMany(x => x.CompanyAddresses).HasForeignKey(x => x.AddressId)
+                .HasConstraintName("FK_CompanyAddress_Adresy").OnDelete(DeleteBehavior.NoAction);
         });
         modelBuilder.Entity<CompanyShortView>(entity =>
         {
@@ -130,8 +127,10 @@ public partial class ColdCallDbContext
             entity.Property(x => x.Nip).HasMaxLength(450);
             entity.Property(x => x.Regon).HasMaxLength(50);
             entity.Property(x => x.StatusDzialalnosci).HasMaxLength(100);
-            entity.Property(x => x.Wojewodztwo).HasColumnName("Wojew\u00f3dztwo");
-            entity.Property(x => x.Miejscowosc).HasColumnName("Miejscowo\u015b\u0107");
+            entity.Property(x => x.Wojewodztwo).HasColumnName("Wojew\u00f3dztwo").HasMaxLength(250);
+            entity.Property(x => x.Miejscowosc).HasColumnName("Miejscowo\u015b\u0107").HasMaxLength(250);
+            entity.Property(x => x.Gmina).HasMaxLength(250);
+            entity.Property(x => x.Powiat).HasMaxLength(250);
         });
         modelBuilder.Entity<CompanyWithPkdsView>(entity =>
         {

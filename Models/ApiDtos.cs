@@ -11,7 +11,14 @@ public record SortableColumnDto(string Key, string Label);
 
 public record PkdDto(int Id, string Code, string Name);
 
-public record CompanyDetailsDto(CompanyDto Company, IReadOnlyList<PkdDto> PkdCodes);
+public record CompanyDetailsDto(CompanyDto Company, IReadOnlyList<PkdDto> PkdCodes, IReadOnlyList<CompanyAddressDto> Addresses);
+
+public record CompanyAddressDto(
+    int CompanyAdresId, int CompanyId, int AddressId,
+    int WojewodztwoId, int PowiatId, int GminaId, int MiejscowoscId,
+    string Wojewodztwo, string Powiat, string Gmina, string Miejscowosc,
+    string? Ulica, string? NrUlicy, string? Rodzaj,
+    decimal Latitude, decimal Longitude, string? PrngId);
 
 public record CompanyDto(
     int Id,
@@ -37,7 +44,16 @@ public record CompanyDto(
     string? InstagramAccount,
     string? FacebookAccount,
     DateTime? StartedAt,
-    DateTime CreatedOn);
+    DateTime CreatedOn,
+    string? Regon,
+    byte StatusDzialalnosciId,
+    string? StatusDzialalnosciName,
+    bool? AddressIsMissing,
+    bool BlockedByRODO,
+    int? WojewodztwoId,
+    int? MiejscowoscId,
+    int? GminaId,
+    int? PowiatId);
 
 public record CompanyUpdateDto(
     [System.ComponentModel.DataAnnotations.StringLength(1000)] string Name,

@@ -70,7 +70,9 @@ public class AdminController : ControllerBase
                 x.Id, x.Name, x.BusinessTypeId, x.BusinessType != null ? x.BusinessType.TypDzialalnosci : null, x.FirstName, x.LastName, x.Krs, x.Nip,
                 x.Wojewodztwo!.Name, x.Miejscowosc!.Name, x.Gmina!.Name, x.Powiat!.Name, x.PostalCode,
                 x.Street, x.BuildingNumber, x.ApartmentNumber, x.Phone, x.Email, x.GoogleEmail,
-                x.Website, x.InstagramAccount, x.FacebookAccount, x.StartedAt, x.CreatedOn))
+                x.Website, x.InstagramAccount, x.FacebookAccount, x.StartedAt, x.CreatedOn,
+                x.Regon, x.StatusDzialalnosciId, x.StatusDzialalnosci!.Nazwa, x.AddressIsMissing, x.BlockedByRODO,
+                x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId))
             .ToListAsync();
 
         return Ok(new PagedResult<CompanyDto>(items, total, page, pageSize, QueryableExtensions.CompanySortableColumns));

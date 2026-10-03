@@ -30,6 +30,9 @@ public class CompanyAddressView
     public string Gmina { get; set; } = "";
     public string Miejscowosc { get; set; } = "";
     public bool? AddressIsMissing { get; set; }
+    public string? Street { get; set; }
+    public string? BuildingNumber { get; set; }
+    public string? ApartmentNumber { get; set; }
 }
 
 public class CompanyView

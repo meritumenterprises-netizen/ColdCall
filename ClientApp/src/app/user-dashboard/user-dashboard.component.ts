@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import { ApiService, CompanyFilters, CompanyShort, Pkd, SearchProfile, SortableColumn } from '../services/api.service';
+import { AddressLevel, AddressOption, ApiService, CompanyFilters, CompanyShort, Pkd, SearchProfile, SortableColumn } from '../services/api.service';
 
 @Component({
   selector: 'app-user-dashboard',
@@ -13,7 +13,22 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   allPkds: Pkd[] = [];
   selectedPkds: Pkd[] = [];
   pkdTerm = '';
-  activeFilterTab: 'pkd' | 'criteria' = 'pkd';
+  activeFilterTab: 'pkd' | 'criteria' | 'address' = 'pkd';
+  addressFields: { level: AddressLevel; label: string; options: AddressOption[]; visible: AddressOption[];
+    selectedId: number | null; term: string; loading: boolean; error: string; request: Subscription | null }[] =
+    [
+      { level: 'wojewodztwa', label: 'Wojew\u00f3dztwo' },
+      { level: 'powiaty', label: 'Powiat' },
+      { level: 'gminy', label: 'Gmina' },
+      { level: 'miejscowosci', label: 'Miejscowo\u015bci' }
+    ].map(field => ({ ...field, level: field.level as AddressLevel, options: [], visible: [], selectedId: null,
+      term: '', loading: false, error: '', request: null }));
+  radiusEnabled = false;
+  radiusKm = 1;
+  private addressFiltersChanged = false;
+  private recordLimitChanged = false;
+  readonly recordLimitOptions = [100, 500, 1000, 2000, 5000];
+  readonly radiusOptions = [1, 5, 10, 20, 50, 100, 200, 500];
   pkdSuggestions: Pkd[] = [];
   maxSelectedPkds = 10;
   foundPkdId: number | null = null;
@@ -59,12 +74,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.lastUpdatedFilterState = this.filterState();
     this.loadSearches();
     this.loadPkds();
+    this.loadAddressOptions(0);
     this.loadCompanies();
   }
 
   loadSearches() { this.api.searches().subscribe(x => this.searches = x); }
 
-  selectFilterTab(tab: 'pkd' | 'criteria') {
+  selectFilterTab(tab: 'pkd' | 'criteria' | 'address') {
     this.activeFilterTab = tab;
     this.pkdHint = null;
   }
@@ -72,11 +88,74 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   navigateFilterTabs(event: KeyboardEvent) {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) === -1) { return; }
     event.preventDefault();
-    const tab = event.key === 'Home' ? 'pkd' : event.key === 'End' ? 'criteria' :
-      this.activeFilterTab === 'pkd' ? 'criteria' : 'pkd';
+    const tabs: ('pkd' | 'criteria' | 'address')[] = ['pkd', 'criteria', 'address'];
+    const index = tabs.indexOf(this.activeFilterTab);
+    const tab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] :
+      tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
     this.selectFilterTab(tab);
     const buttons = (event.currentTarget as HTMLElement).parentElement.querySelectorAll<HTMLButtonElement>('[role="tab"]');
-    buttons[tab === 'pkd' ? 0 : 1].focus();
+    buttons[tabs.indexOf(tab)].focus();
+  }
+
+  addressFieldDisabled(index: number) {
+    return index > 0 && this.addressFields[index - 1].selectedId === null;
+  }
+
+  loadAddressOptions(index: number) {
+    const field = this.addressFields[index];
+    if (field.request) { field.request.unsubscribe(); }
+    field.loading = true;
+    field.error = '';
+    const parents = this.addressFields.slice(0, index).map(parent => parent.selectedId!);
+    field.request = this.api.addressOptions(field.level, parents).pipe(finalize(() => field.loading = false))
+      .subscribe(options => {
+        field.options = options.filter(option => index !== 0 || option.id !== 1)
+          .sort((a, b) => a.name.localeCompare(b.name, 'pl', { sensitivity: 'base' }) || a.id - b.id);
+        this.filterAddressOptions(index);
+      }, () => field.error = 'Nie udalo sie pobrac listy.');
+  }
+
+  filterAddressOptions(index: number) {
+    const field = this.addressFields[index];
+    const term = field.term.trim().toLowerCase();
+    field.visible = field.options.filter(option => option.name.toLowerCase().includes(term));
+    if (field.selectedId !== null && !field.visible.some(option => option.id === field.selectedId)) {
+      this.selectAddressOption(index, null);
+    }
+  }
+
+  selectAddressOption(index: number, id: number | null, refresh = true) {
+    const field = this.addressFields[index];
+    if (this.addressFieldDisabled(index)) { return; }
+    const selectedId = field.visible.some(option => option.id === id) ? id : null;
+    if (field.selectedId === selectedId) { return; }
+    field.selectedId = selectedId;
+    this.addressFiltersChanged = true;
+    // Cancel dependent requests before clearing their selections and lists.
+    this.addressFields.slice(index + 1).forEach(child => {
+      if (child.request) { child.request.unsubscribe(); child.request = null; }
+      child.options = []; child.visible = []; child.selectedId = null; child.term = ''; child.error = ''; child.loading = false;
+    });
+    if (index < this.addressFields.length - 1) {
+      this.radiusEnabled = false;
+      this.radiusKm = 1;
+    }
+    if (field.selectedId !== null && index < this.addressFields.length - 1) { this.loadAddressOptions(index + 1); }
+    if (refresh) { this.updateFilters(false); }
+  }
+
+  setRadiusEnabled(enabled: boolean) {
+    if (this.radiusEnabled === enabled) { return; }
+    this.radiusEnabled = enabled;
+    this.addressFiltersChanged = true;
+    this.updateFilters(false);
+  }
+
+  setRadiusKm(km: number) {
+    if (this.radiusKm === km) { return; }
+    this.radiusKm = km;
+    this.addressFiltersChanged = true;
+    this.updateFilters(false);
   }
 
   loadPkds() {
@@ -104,12 +183,14 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     }, err => {
       this.companies = [];
       this.total = 0;
-      this.error = err.status === 402 ? 'Plan wygasl. Przejdz do zakupow, aby odblokowac wyniki.' : 'Nie udalo sie pobrac firm.';
+      this.error = err.status === 402 ? 'Plan wygasl. Przejdz do zakupow, aby odblokowac wyniki.' :
+        err.status === 400 && err.error && err.error.message ? err.error.message : 'Nie udalo sie pobrac firm.';
     });
   }
 
   ngOnDestroy() {
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
+    this.addressFields.forEach(field => { if (field.request) { field.request.unsubscribe(); } });
   }
 
   openCompany(row: CompanyShort) {
@@ -123,6 +204,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     const checkbox = event.target as HTMLInputElement;
     checkbox.checked = this.filterDraft[key] === true;
     checkbox.indeterminate = this.filterDraft[key] === null;
+    this.updateFilters(false);
   }
 
   presenceLabel(value: boolean | null) {
@@ -131,7 +213,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   setDateRangeEnabled(enabled: boolean) {
     this.dateRangeEnabled = enabled;
-    if (!enabled) { return; }
+    if (!enabled) { this.updateFilters(false); return; }
     if (!this.dateFrom) { this.dateFrom = '2020-01-01'; }
     if (!this.dateTo) {
       const parts = new Intl.DateTimeFormat('en-GB', {
@@ -139,13 +221,14 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       }).formatToParts(new Date());
       this.dateTo = ['year', 'month', 'day'].map(type => parts.find(part => part.type === type)!.value).join('-');
     }
+    this.updateFilters(false);
   }
 
   get filtersChanged() {
-    return this.lastUpdatedFilterState === null || this.filterState() !== this.lastUpdatedFilterState;
+    return this.recordLimitChanged || this.addressFiltersChanged || this.lastUpdatedFilterState === null || this.filterState() !== this.lastUpdatedFilterState;
   }
 
-  private filterState() {
+  private filterState(recordLimit = this.filterDraft.recordLimit) {
     return JSON.stringify({
       pkdIds: this.selectedPkds.map(pkd => pkd.id).sort((a, b) => a - b),
       companyName: this.filterDraft.companyName || '',
@@ -155,20 +238,30 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       dateRangeEnabled: this.dateRangeEnabled,
       dateFrom: this.dateFrom,
       dateTo: this.dateTo,
-      recordLimit: Number(this.filterDraft.recordLimit)
+      addressIds: this.addressFields.map(field => field.selectedId),
+      radiusEnabled: this.radiusEnabled,
+      radiusKm: this.radiusKm,
+      recordLimit: Number(recordLimit)
     });
   }
 
-  updateFilters() {
-    if (this.loading || !this.filtersChanged) { return; }
+  updateFilters(applyRecordLimit = true) {
+    if ((applyRecordLimit && this.loading) || !this.filtersChanged) { return; }
     if (!this.validateFilters()) { return; }
-    const limit = Number(this.filterDraft.recordLimit);
+    const limit = Number(applyRecordLimit ? this.filterDraft.recordLimit : this.appliedFilters.recordLimit);
     this.appliedFilters = {
       ...this.filterDraft, companyName: (this.filterDraft.companyName || '').trim(), address: '', recordLimit: limit,
+      wojewodztwoId: this.addressFields[0].selectedId || undefined,
+      powiatId: this.addressFields[1].selectedId || undefined,
+      gminaId: this.addressFields[2].selectedId || undefined,
+      miejscowoscId: this.addressFields[3].selectedId || undefined,
+      radiusKm: this.radiusEnabled && this.addressFields[3].selectedId !== null ? this.radiusKm : undefined,
       startedFrom: this.dateRangeEnabled ? this.dateFrom : undefined,
       startedTo: this.dateRangeEnabled ? this.dateTo : undefined
     };
-    this.lastUpdatedFilterState = this.filterState();
+    this.lastUpdatedFilterState = this.filterState(limit);
+    this.addressFiltersChanged = false;
+    if (applyRecordLimit) { this.recordLimitChanged = false; }
     this.page = 1;
     this.loadCompanies();
   }
@@ -190,7 +283,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   setRecordLimit(value: number) {
+    if (this.filterDraft.recordLimit === value) { return; }
     this.filterDraft.recordLimit = value;
+    this.recordLimitChanged = true;
     this.validateRecordLimit();
   }
 
@@ -290,6 +385,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   selectSearch(profile: SearchProfile) {
+    this.selectAddressOption(0, null, false);
     this.searchName = profile.name;
     this.selectedPkds = this.sortPkds(profile.pkdCodes.slice());
     this.selectedPkdId = this.selectedPkds.length ? this.selectedPkds[0].id : null;
@@ -302,7 +398,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       hasPhone: criteria ? criteria.hasPhone : null,
       hasEmail: criteria ? criteria.hasEmail : null,
       hasWebsite: criteria ? criteria.hasWebsite : null,
-      recordLimit: criteria ? criteria.recordLimit : 1000
+      recordLimit: criteria && this.recordLimitOptions.includes(criteria.recordLimit) ? criteria.recordLimit : 1000
     };
     this.dateRangeEnabled = criteria ? criteria.dateRangeEnabled : false;
     this.dateFrom = criteria && criteria.dateRangeEnabled ? criteria.dateFrom || '' : '';
@@ -316,6 +412,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.recordLimitError = '';
     this.pkdHint = null;
     this.lastUpdatedFilterState = this.filterState();
+    this.addressFiltersChanged = false;
+    this.recordLimitChanged = false;
     this.page = 1;
     this.loadCompanies();
     this.updatePkdSuggestions();
@@ -335,7 +433,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   sort(column: string) {
-    if (column === 'details' || !this.selectedPkds.length || this.loading) { return; }
+    if (column === 'details' || this.loading) { return; }
     this.direction = this.sortBy === column && this.direction === 'asc' ? 'desc' : 'asc';
     this.sortBy = column;
     this.page = 1;
