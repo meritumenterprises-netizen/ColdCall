@@ -10,6 +10,18 @@ namespace ColdCall.Controllers.Api;
 [Authorize]
 public class AddressController(ColdCallDbContext db) : ControllerBase
 {
+    [HttpGet("distance-localities")]
+    public async Task<IActionResult> DistanceLocalities(string? term, CancellationToken cancellationToken)
+    {
+        var prefix = term?.Trim() ?? "";
+        if (prefix.Length < 3) return Ok(Array.Empty<object>());
+        return Ok(await db.Miejscowosci.AsNoTracking()
+            .Where(locality => locality.Name.StartsWith(prefix))
+            .OrderBy(locality => locality.Name).ThenBy(locality => locality.Id)
+            .Select(locality => new { locality.Id, locality.Name })
+            .ToListAsync(cancellationToken));
+    }
+
     [HttpGet("wojewodztwa")]
     public async Task<IActionResult> Wojewodztwa(CancellationToken cancellationToken) =>
         Ok(await db.Wojewodztwa.AsNoTracking().Where(x => x.Id != 1)
@@ -28,8 +40,10 @@ public class AddressController(ColdCallDbContext db) : ControllerBase
             .OrderBy(x => x.Name).Select(x => new { x.Id, x.Name }).ToListAsync(cancellationToken));
 
     [HttpGet("miejscowosci")]
-    public async Task<IActionResult> Miejscowosci(int wojewodztwoId, int powiatId, int gminaId, CancellationToken cancellationToken) =>
+    public async Task<IActionResult> Miejscowosci(int? wojewodztwoId, int? powiatId, int? gminaId, CancellationToken cancellationToken) =>
         Ok(await db.Miejscowosci.AsNoTracking()
-            .Where(x => db.Adresy.Any(a => a.WojewodztwoId == wojewodztwoId && a.PowiatId == powiatId && a.GminaId == gminaId && a.MiejscowoscId == x.Id))
+            .Where(x => wojewodztwoId.HasValue && powiatId.HasValue && gminaId.HasValue
+                && db.Adresy.Any(a => a.WojewodztwoId == wojewodztwoId
+                    && a.PowiatId == powiatId && a.GminaId == gminaId && a.MiejscowoscId == x.Id))
             .OrderBy(x => x.Name).Select(x => new { x.Id, x.Name }).ToListAsync(cancellationToken));
 }

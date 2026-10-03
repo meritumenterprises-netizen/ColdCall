@@ -18,7 +18,7 @@ public record CompanyAddressDto(
     int WojewodztwoId, int PowiatId, int GminaId, int MiejscowoscId,
     string Wojewodztwo, string Powiat, string Gmina, string Miejscowosc,
     string? Ulica, string? NrUlicy, string? Rodzaj,
-    decimal Latitude, decimal Longitude, string? PrngId);
+    decimal? Latitude, decimal? Longitude, string? PrngId);
 
 public record CompanyDto(
     int Id,

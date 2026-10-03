@@ -1,9 +1,28 @@
 <dialog #dialog aria-labelledby="company-details-title" (cancel)="close()">
   <header>
-    <h2 id="company-details-title">{{ details ? details.company.name : companyName }}</h2>
-    <button type="button" class="close-button" (click)="close()" aria-label="Zamknij" title="Zamknij" autofocus>&times;</button>
+    <h2 id="company-details-title">Firma</h2>
+    <div class="header-actions">
+      <button type="button" class="header-icon-button" (click)="copyCompany()" [disabled]="!details || loading || copying"
+              aria-label="Kopiuj do schowka" title="Kopiuj do schowka">
+        <img src="assets/copy.svg" width="20" height="20" alt="">
+      </button>
+      <button type="button" class="header-icon-button" (click)="openGoogle()" [disabled]="!details || loading"
+              aria-label="Otw&#243;rz w Google" title="Otw&#243;rz w Google">
+        <img src="assets/external-link.svg" width="20" height="20" alt="">
+      </button>
+      <button type="button" class="header-icon-button" (click)="openGoogle(false)" [disabled]="!details || loading"
+              aria-label="Otw&#243;rz w Google Local ten adres" title="Otw&#243;rz w Google Local ten adres">
+        <img src="assets/external-link.svg" width="20" height="20" alt="">
+      </button>
+      <button type="button" class="header-icon-button" (click)="openWebsite()" [disabled]="!websiteUrl"
+              aria-label="Otw&#243;rz witryn&#281; WWW" title="Otw&#243;rz witryn&#281; WWW">
+        <img src="assets/globe.svg" width="20" height="20" alt="">
+      </button>
+      <button type="button" class="close-button" (click)="close()" aria-label="Zamknij" title="Zamknij" autofocus>&times;</button>
+    </div>
   </header>
   <div class="dialog-body" [attr.aria-busy]="loading">
+    <p *ngIf="copyError" class="error-state" role="alert">{{ copyError }}</p>
     <div *ngIf="loading" class="loading-state" role="status">
       <span class="spinner" aria-hidden="true"></span><span>Wczytywanie danych firmy...</span>
     </div>
@@ -12,11 +31,24 @@
       <button type="button" class="ghost-button" (click)="load()">Pon&#243;w</button>
     </div>
     <ng-container *ngIf="details && !loading && !error">
-      <dl class="company-fields">
-        <div *ngFor="let field of fields">
-          <dt>{{ field.label }}</dt><dd>{{ value(field.key) }}</dd>
+      <dl class="company-name">
+        <div class="company-name-field">
+          <dt>Nazwa</dt><dd>{{ value('name') }}</dd>
         </div>
       </dl>
+      <section *ngFor="let section of sections" class="company-section" [class.address-section]="section.id === 'address'"
+               [attr.aria-labelledby]="'company-section-' + section.id">
+        <h3 [id]="'company-section-' + section.id">{{ section.label }}</h3>
+        <dl *ngFor="let row of section.rows; let rowIndex = index" class="company-fields" [class.columns-2]="row.length === 2 && section.id !== 'contact'"
+            [class.columns-3]="row.length === 3 && section.id !== 'address' && (section.id !== 'contact' || rowIndex !== 0)"
+            [class.contact-primary-row]="section.id === 'contact' && rowIndex === 0">
+          <div *ngFor="let field of row" [class.website-field]="field.key === 'website'">
+            <dt>{{ field.label }}</dt>
+            <dd [class.single-line-value]="field.key === 'email' || field.key === 'website' || field.key === 'googleEmail'"
+                [attr.tabindex]="field.key === 'email' || field.key === 'website' || field.key === 'googleEmail' ? 0 : null">{{ value(field.key) }}</dd>
+          </div>
+        </dl>
+      </section>
       <section class="pkds">
         <h3>Kody PKD <span>({{ details.pkdCodes.length }})</span></h3>
         <p *ngIf="!details.pkdCodes.length">Brak przypisanych kod&#243;w PKD.</p>
@@ -27,4 +59,8 @@
       </section>
     </ng-container>
   </div>
+</dialog>
+<dialog #copyConfirmation class="copy-confirmation" aria-labelledby="company-copy-message" (cancel)="closeCopyConfirmation()">
+  <p id="company-copy-message">Skopiowano dane firmy do schowka</p>
+  <button type="button" class="primary-button" (click)="closeCopyConfirmation()" autofocus>OK</button>
 </dialog>

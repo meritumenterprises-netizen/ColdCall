@@ -4,7 +4,7 @@ namespace ColdCall.Models;
 
 public class AdresView
 {
-    public Geometry Location { get; set; } = null!;
+    public Geometry? Location { get; set; }
     public int WojewodztwoId { get; set; }
     public int PowiatId { get; set; }
     public int GminaId { get; set; }
@@ -13,8 +13,8 @@ public class AdresView
     public string Powiat { get; set; } = "";
     public string Gmina { get; set; } = "";
     public string Miejscowosc { get; set; } = "";
-    public decimal Latitude { get; set; }
-    public decimal Longitude { get; set; }
+    public decimal? Latitude { get; set; }
+    public decimal? Longitude { get; set; }
 }
 
 public class CompanyAddressView

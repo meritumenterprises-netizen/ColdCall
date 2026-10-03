@@ -36,7 +36,7 @@ public partial class ColdCallDbContext
             entity.Property(x => x.Nip).HasMaxLength(450);
             entity.Property(x => x.Regon).HasMaxLength(50);
             entity.HasIndex(x => x.Id).HasDatabaseName("IX_PrgImporter_Companies_MissingAddress")
-                .HasFilter("[AddressIsMissing] = 1 AND [BlockedByRODO] = 0")
+                .HasFilter("([AddressIsMissing]=(1) AND [BlockedByRODO]=(0))")
                 .IncludeProperties(x => new { x.MiejscowoscId, x.WojewodztwoId, x.PowiatId });
             entity.HasIndex(x => x.StatusDzialalnosciId);
             entity.HasOne(x => x.BusinessType).WithMany().HasForeignKey(x => x.BusinessTypeId)
@@ -66,9 +66,9 @@ public partial class ColdCallDbContext
             entity.Property(x => x.PrngId).HasMaxLength(50).IsUnicode(false);
             entity.Property(x => x.Latitude).HasPrecision(9, 6);
             entity.Property(x => x.Longitude).HasPrecision(9, 6);
-            entity.Property(x => x.Location).HasColumnType("geography").IsRequired();
+            entity.Property(x => x.Location).HasColumnType("geography").IsRequired(false);
             entity.HasIndex(x => x.PrngId).HasDatabaseName("UX_Adresy_PrngId")
-                .IsUnique().HasFilter("[PrngId] IS NOT NULL");
+                .IsUnique().HasFilter("([PrngId] IS NOT NULL)");
             entity.HasOne(x => x.Wojewodztwo).WithMany().HasForeignKey(x => x.WojewodztwoId)
                 .HasConstraintName("FK_Adresy_Wojewodztwa").OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(x => x.Powiat).WithMany().HasForeignKey(x => x.PowiatId)

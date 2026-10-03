@@ -1,5 +1,5 @@
 dialog {
-  width: 860px;
+  width: 1120px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 32px);
   padding: 0;
@@ -11,15 +11,31 @@ dialog {
   overflow: auto;
 }
 dialog::backdrop { background: rgba(15, 25, 20, .45); }
-header { display: flex; gap: 16px; align-items: flex-start; padding: 20px 24px; border-bottom: 1px solid #e1e7e3; }
-h2 { flex: 1; margin: 0; font-size: 20px; line-height: 1.4; overflow-wrap: anywhere; }
-.close-button { flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: #edf2ef; font-size: 24px; line-height: 32px; cursor: pointer; }
-.close-button:hover { background: #dde7e0; }
+header { display: flex; gap: 16px; align-items: flex-start; padding: 20px 24px; border-bottom: 1px solid #065f46; background: #087f5b; color: white; }
+h2 { flex: 1; min-width: 0; margin: 0; font-size: 20px; line-height: 1.4; overflow-wrap: anywhere; }
+.header-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+.close-button, .header-icon-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: rgba(255, 255, 255, .15); color: white; font-size: 24px; line-height: 32px; cursor: pointer; }
+.close-button:hover, .header-icon-button:hover { background: rgba(255, 255, 255, .25); }
+.close-button:focus-visible, .header-icon-button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.header-icon-button:disabled { opacity: .5; cursor: default; }
+.header-icon-button img { filter: brightness(0) invert(1); }
+.copy-confirmation { width: 420px; padding: 24px; text-align: center; }
+.copy-confirmation p { margin: 0 0 20px; }
 .dialog-body { padding: 20px 24px; }
-.company-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; margin: 0; }
+.company-name { margin: 0; }
+.company-section { margin-top: 24px; border-top: 1px solid #e1e7e3; padding-top: 16px; }
+.company-fields { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px 24px; margin: 0; }
+.company-fields.columns-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.company-fields.columns-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.company-fields + .company-fields { margin-top: 16px; }
 .company-fields > div { min-width: 0; }
+.contact-primary-row > .website-field { grid-column: 3 / 6; }
+.company-name-field { grid-column: 1 / -1; }
 dt { font-size: 12px; font-weight: 600; color: #637168; }
-dd { margin: 4px 0 0; font-size: 14px; overflow-wrap: anywhere; }
+dd { margin: 4px 0 0; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
+.company-name-field dd { font-size: 16px; font-weight: 700; }
+.single-line-value { white-space: nowrap; overflow-wrap: normal; overflow-x: auto; }
+.single-line-value:focus-visible { outline: 2px solid #087f5b; outline-offset: 2px; }
 .pkds { margin-top: 24px; border-top: 1px solid #e1e7e3; padding-top: 16px; }
 h3 { font-size: 16px; margin: 0 0 12px; }
 h3 span { color: #637168; font-weight: normal; }
@@ -31,8 +47,12 @@ th:first-child { width: 88px; }
 .spinner { width: 24px; height: 24px; border: 3px solid #d9e2dc; border-top-color: #087f5b; border-radius: 50%; animation: spin .8s linear infinite; }
 .error-state { color: #a32e2e; }
 @keyframes spin { to { transform: rotate(360deg); } }
+@media (max-width: 900px) {
+  .company-fields, .company-fields.columns-2, .company-fields.columns-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .contact-primary-row > .website-field { grid-column: auto; }
+}
 @media (max-width: 540px) {
-  .company-fields { grid-template-columns: minmax(0, 1fr); }
+  .company-fields, .company-fields.columns-2, .company-fields.columns-3 { grid-template-columns: minmax(0, 1fr); }
   header, .dialog-body { padding: 16px; }
   h2 { font-size: 18px; }
 }

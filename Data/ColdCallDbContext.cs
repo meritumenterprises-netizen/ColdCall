@@ -71,6 +71,9 @@ public partial class ColdCallDbContext : DbContext
         modelBuilder.Entity<Company>().HasIndex(x => x.Name)
             .HasDatabaseName("NonClusteredIndex-20260930-225523")
             .IsClustered(false);
+        modelBuilder.Entity<Company>().HasIndex(x => x.Name, "NonClusteredIndex-20261003-065101")
+            .HasDatabaseName("NonClusteredIndex-20261003-065101")
+            .IsClustered(false);
         modelBuilder.Entity<Company>().HasIndex(x => x.StartedAt)
             .HasDatabaseName("NonClusteredIndex-StartedAtASC")
             .IsClustered(false);
