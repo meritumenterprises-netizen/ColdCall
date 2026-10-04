@@ -1,6 +1,6 @@
 <dialog #dialog aria-labelledby="company-details-title" (cancel)="close()">
   <header>
-    <h2 id="company-details-title">Firma</h2>
+    <h2 id="company-details-title">Dzia&#322;alno&#347;&#263;</h2>
     <div class="header-actions">
       <button type="button" class="header-icon-button" (click)="copyCompany()" [disabled]="!details || loading || copying"
               aria-label="Kopiuj do schowka" title="Kopiuj do schowka">
@@ -13,10 +13,6 @@
       <button type="button" class="header-icon-button" (click)="openGoogle(false)" [disabled]="!details || loading"
               aria-label="Otw&#243;rz w Google Local ten adres" title="Otw&#243;rz w Google Local ten adres">
         <img src="assets/external-link.svg" width="20" height="20" alt="">
-      </button>
-      <button type="button" class="header-icon-button" (click)="openWebsite()" [disabled]="!websiteUrl"
-              aria-label="Otw&#243;rz witryn&#281; WWW" title="Otw&#243;rz witryn&#281; WWW">
-        <img src="assets/globe.svg" width="20" height="20" alt="">
       </button>
       <button type="button" class="close-button" (click)="close()" aria-label="Zamknij" title="Zamknij" autofocus>&times;</button>
     </div>
@@ -33,9 +29,24 @@
     <ng-container *ngIf="details && !loading && !error">
       <dl class="company-name">
         <div class="company-name-field">
-          <dt>Nazwa</dt><dd>{{ value('name') }}</dd>
+          <dt>Nazwa</dt><dd class="company-name-value"><span>{{ value('name') }}</span>
+            <button type="button" class="name-copy-button" (click)="copyNameAndOpenCeidg()" [disabled]="copying || !details.company.name"
+                    title="Kopiuj nazw&#281; i otw&#243;rz CEIDG" aria-label="Kopiuj nazw&#281; i otw&#243;rz CEIDG">
+              <img src="assets/globe.svg" width="20" height="20" alt="">
+            </button>
+          </dd>
         </div>
       </dl>
+      <div class="company-tabs" role="tablist" aria-label="Szczeg&#243;&#322;y firmy">
+        <button type="button" role="tab" id="company-description-tab" aria-controls="company-description-panel"
+                [attr.aria-selected]="activeTab === 'description'" [attr.tabindex]="activeTab === 'description' ? 0 : -1"
+                (click)="activeTab = 'description'" (keydown)="navigateTabs($event)">Opis</button>
+        <button type="button" role="tab" id="company-notes-tab" aria-controls="company-notes-panel"
+                [attr.aria-selected]="activeTab === 'notes'" [attr.tabindex]="activeTab === 'notes' ? 0 : -1"
+                (click)="activeTab = 'notes'" (keydown)="navigateTabs($event)">Notatki</button>
+      </div>
+      <div class="company-tab-panels">
+      <div id="company-description-panel" role="tabpanel" aria-labelledby="company-description-tab" [hidden]="activeTab !== 'description'" [attr.inert]="activeTab !== 'description' ? '' : null">
       <section *ngFor="let section of sections" class="company-section" [class.address-section]="section.id === 'address'"
                [attr.aria-labelledby]="'company-section-' + section.id">
         <h3 [id]="'company-section-' + section.id">{{ section.label }}</h3>
@@ -45,10 +56,24 @@
           <div *ngFor="let field of row" [class.website-field]="field.key === 'website'">
             <dt>{{ field.label }}</dt>
             <dd [class.single-line-value]="field.key === 'email' || field.key === 'website' || field.key === 'googleEmail'"
-                [attr.tabindex]="field.key === 'email' || field.key === 'website' || field.key === 'googleEmail' ? 0 : null">{{ value(field.key) }}</dd>
+                [attr.tabindex]="field.key === 'email' || field.key === 'website' || field.key === 'googleEmail' ? 0 : null"><a
+                  *ngIf="field.key === 'email' && details.company.email && details.company.email.trim(); else plainFieldValue"
+                  [href]="emailUrl" title="Email" target="_blank" rel="noopener noreferrer">{{ value(field.key) }}</a><ng-template
+                  #plainFieldValue><a *ngIf="field.key === 'website' && details.company.website && details.company.website.trim(); else plainTextValue"
+                    [href]="websiteHref(details.company.website)" target="_blank" rel="noopener noreferrer">{{ value(field.key) }}</a><ng-template
+                    #plainTextValue>{{ value(field.key) }}</ng-template></ng-template></dd>
           </div>
         </dl>
       </section>
+      </div>
+      <div id="company-notes-panel" class="company-notes-panel" role="tabpanel" aria-labelledby="company-notes-tab" [hidden]="activeTab !== 'notes'" [attr.inert]="activeTab !== 'notes' ? '' : null">
+        <div *ngIf="notesError" class="error-state" role="alert">{{ notesError }}
+          <button type="button" class="ghost-button" (click)="loadNotes()" *ngIf="!notesLoaded">Pon&#243;w</button>
+        </div>
+        <textarea name="companyNotes" [(ngModel)]="notes" aria-label="Notatki" [disabled]="notesLoading || !notesLoaded"></textarea>
+        <button type="button" class="primary-button" (click)="saveNotes()" [disabled]="!notesChanged || notesLoading || notesSaving || !notesLoaded">Zapisz</button>
+      </div>
+      </div>
       <section class="pkds">
         <h3>Kody PKD <span>({{ details.pkdCodes.length }})</span></h3>
         <p *ngIf="!details.pkdCodes.length">Brak przypisanych kod&#243;w PKD.</p>
@@ -61,6 +86,6 @@
   </div>
 </dialog>
 <dialog #copyConfirmation class="copy-confirmation" aria-labelledby="company-copy-message" (cancel)="closeCopyConfirmation()">
-  <p id="company-copy-message">Skopiowano dane firmy do schowka</p>
-  <button type="button" class="primary-button" (click)="closeCopyConfirmation()" autofocus>OK</button>
+  <p id="company-copy-message">{{ copyConfirmationMessage }}</p>
+  <button type="button" class="primary-button" (click)="confirmCopy()" autofocus>OK</button>
 </dialog>

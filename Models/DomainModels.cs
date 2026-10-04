@@ -5,6 +5,7 @@ public class AppUser
     public int Id { get; set; }
     public string GoogleSubject { get; set; } = "";
     public string GoogleEmail { get; set; } = "";
+    public bool UsesGmail { get; set; } = true;
     public string? DisplayName { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime LastLoginAtUtc { get; set; } = DateTime.UtcNow;

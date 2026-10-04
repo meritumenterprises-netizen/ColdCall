@@ -40,6 +40,8 @@ export interface CompanyShort {
   typyDzialalnosci?: string;
 }
 export interface SearchCriteria {
+  wojewodztwoId?: number | null; powiatId?: number | null; gminaId?: number | null; miejscowoscId?: number | null;
+  hasFirmyWPromieniu?: boolean | null; firmyWPromieniu?: number | null;
   companyName?: string;
   sortColumn: string; sortDirection: string; address: string;
   hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
@@ -47,7 +49,7 @@ export interface SearchCriteria {
 }
 export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; }
-export interface Me { id: number; googleEmail: string; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; plan?: any; }
+export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; plan?: any; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; }
 export interface AuthConfig { googleClientId: string; }
@@ -79,6 +81,13 @@ export class ApiService {
   isAdmin() { return this.authenticated && !!this.currentUser && this.currentUser.isAdmin; }
   isNonAdmin() { return this.authenticated && !!this.currentUser && !this.currentUser.isAdmin; }
   user() { return this.currentUser; }
+  emailUrl(email: string): string {
+    return this.currentUser && this.currentUser.usesGmail === false ? 'mailto:' + email :
+      'https://mail.google.com/mail/?view=cm&fs=1&to=' + encodeURIComponent(email);
+  }
+  websiteHref(website: string): string {
+    return /^https?:\/\//i.test(website) ? website : 'https://' + website;
+  }
 
   headers() {
     return { headers: new HttpHeaders({ Authorization: 'Bearer ' + this.token }) };
@@ -110,7 +119,10 @@ export class ApiService {
   distanceLocalities(term: string): Observable<AddressOption[]> {
     return this.http.get<AddressOption[]>(this.url('/api/address/distance-localities'), { ...this.headers(), params: { term } });
   }
-  saveSearch(name: string, pkdCodeIds: number[], criteria?: SearchCriteria): Observable<SearchProfile> {
+  saveSearch(name: string, pkdCodeIds: number[], criteria?: SearchCriteria, profileId?: number): Observable<SearchProfile> {
+    if (profileId != null) {
+      return this.http.put<SearchProfile>(this.url('/api/searches/' + profileId), { name, pkdCodeIds, criteria }, this.headers());
+    }
     return this.http.post<SearchProfile>(this.url('/api/searches'), { name, pkdCodeIds, criteria }, this.headers());
   }
 
@@ -136,6 +148,12 @@ export class ApiService {
 
   companyDetails(id: number): Observable<CompanyDetails> {
     return this.http.get<CompanyDetails>(this.url('/api/companies/' + id), this.headers());
+  }
+  companyNotes(id: number): Observable<{ notes: string }> {
+    return this.http.get<{ notes: string }>(this.url('/api/companies/' + id + '/notes'), this.headers());
+  }
+  saveCompanyNotes(id: number, notes: string): Observable<{ notes: string }> {
+    return this.http.put<{ notes: string }>(this.url('/api/companies/' + id + '/notes'), { notes }, this.headers());
   }
 
   exportCompanies(pkdIds: number[]) {

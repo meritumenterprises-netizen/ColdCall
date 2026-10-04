@@ -36,6 +36,7 @@ public class AuthController : ControllerBase
         {
             user.Id,
             user.GoogleEmail,
+            user.UsesGmail,
             DisplayName = user.DisplayName ?? User.FindFirstValue("name"),
             PictureUrl = User.FindFirstValue("picture"),
             isAdmin,

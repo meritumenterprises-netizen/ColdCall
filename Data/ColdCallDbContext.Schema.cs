@@ -7,6 +7,7 @@ namespace ColdCall.Data;
 public partial class ColdCallDbContext
 {
     public DbSet<Adres> Adresy => Set<Adres>();
+    public DbSet<CompanyUserNote> CompanyUserNotes => Set<CompanyUserNote>();
     public DbSet<CompanyAddress> CompanyAddresses => Set<CompanyAddress>();
     public DbSet<AdresView> AddressView => Set<AdresView>();
     public DbSet<CompanyAddressView> CompanyAddressesView => Set<CompanyAddressView>();
@@ -26,7 +27,23 @@ public partial class ColdCallDbContext
 
     private static void ConfigureDatabaseSchema(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<CompanyUserNote>(entity =>
+        {
+            entity.ToTable("CompanyUserNotes");
+            entity.HasKey(x => x.Id).HasName("PK_CompanyUserNotes");
+            entity.Property(x => x.Id).HasColumnName("ID").UseIdentityColumn();
+            entity.Property(x => x.CompanyId).HasColumnName("CompanyID");
+            entity.Property(x => x.Notes).HasColumnType("nvarchar(max)").IsRequired();
+            entity.HasIndex(x => new { x.CompanyId, x.UserId }).IsUnique()
+                .HasDatabaseName("UX_CompanyUserNotes_CompanyID_UserId");
+            entity.HasOne(x => x.Company).WithMany().HasForeignKey(x => x.CompanyId)
+                .HasConstraintName("FK_CompanyUserNotes_Companies").OnDelete(DeleteBehavior.NoAction);
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId)
+                .HasConstraintName("FK_CompanyUserNotes_Users").OnDelete(DeleteBehavior.NoAction);
+        });
         modelBuilder.Entity<AppUser>().Property(x => x.GoogleEmail).HasMaxLength(450);
+        modelBuilder.Entity<AppUser>().Property(x => x.UsesGmail).HasColumnType("bit").IsRequired()
+            .HasDefaultValue(true).HasSentinel(true);
         modelBuilder.Entity<AdminEmail>().Property(x => x.Email).HasMaxLength(450);
         modelBuilder.Entity<BusinessType>().Property(x => x.TypDzialalnosciId).ValueGeneratedNever();
         modelBuilder.Entity<Company>(entity =>

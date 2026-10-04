@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
     <EmbeddedResource Include="Sql\CompanyStatus.sql" />
+    <EmbeddedResource Include="Sql\CompanyUserNotes.sql" />
     <EmbeddedResource Include="Sql\DictionaryNames.sql" />
   </ItemGroup>
 
