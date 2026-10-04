@@ -57,7 +57,7 @@ public partial class ColdCallDbContext : DbContext
         {
             entity.ToTable("BusinessType");
             entity.HasKey(x => x.TypDzialalnosciId);
-            entity.Property(x => x.TypDzialalnosci).HasColumnType("varchar(512)").IsRequired();
+            entity.Property(x => x.TypDzialalnosci).HasColumnType("nvarchar(512)").HasMaxLength(512).IsUnicode().IsRequired();
         });
         modelBuilder.Entity<PkdCode>().HasIndex(x => x.Code).IsUnique();
         modelBuilder.Entity<PkdCode>().Property(x => x.CodeWithoutDots)

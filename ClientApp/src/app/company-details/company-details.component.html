@@ -1,6 +1,6 @@
 <dialog #dialog aria-labelledby="company-details-title" (cancel)="close()">
   <header>
-    <h2 id="company-details-title">Dzia&#322;alno&#347;&#263;</h2>
+    <h2 id="company-details-title">{{ details && details.company.businessTypeName ? details.company.businessTypeName : 'Dzia\u0142alno\u015b\u0107' }}</h2>
     <div class="header-actions">
       <button type="button" class="header-icon-button" (click)="copyCompany()" [disabled]="!details || loading || copying"
               aria-label="Kopiuj do schowka" title="Kopiuj do schowka">
@@ -53,7 +53,7 @@
         <dl *ngFor="let row of section.rows; let rowIndex = index" class="company-fields" [class.columns-2]="row.length === 2 && section.id !== 'contact'"
             [class.columns-3]="row.length === 3 && section.id !== 'address' && (section.id !== 'contact' || rowIndex !== 0)"
             [class.contact-primary-row]="section.id === 'contact' && rowIndex === 0">
-          <div *ngFor="let field of row" [class.website-field]="field.key === 'website'">
+          <div *ngFor="let field of row" [class.website-field]="field.key === 'website'" [class.active-since-field]="field.key === 'startedAt'">
             <dt>{{ field.label }}</dt>
             <dd [class.single-line-value]="field.key === 'email' || field.key === 'website' || field.key === 'googleEmail'"
                 [attr.tabindex]="field.key === 'email' || field.key === 'website' || field.key === 'googleEmail' ? 0 : null"><a

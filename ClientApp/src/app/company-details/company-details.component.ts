@@ -45,7 +45,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     { id: 'owner', label: 'W\u0142a\u015bciciel', rows: [[
       { key: 'firstName', label: 'Imi\u0119' }, { key: 'lastName', label: 'Nazwisko' },
       { key: 'regon', label: 'REGON' }, { key: 'nip', label: 'NIP' },
-      { key: 'startedAt', label: 'Aktywne od' }
+      { key: 'krs', label: 'KRS' }
     ]] },
     { id: 'address', label: 'Adres', rows: [[
       { key: 'wojewodztwo', label: 'Wojew\u00f3dztwo' }, { key: 'powiat', label: 'Powiat' },
@@ -53,13 +53,11 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
       { key: 'postalCode', label: 'Kod Pocztowy' }
     ], [
       { key: 'street', label: 'Ulica' },
-      { key: 'buildingNumber', label: 'Numer budynku' }, { key: 'apartmentNumber', label: 'Nr lokalu' }
+      { key: 'buildingNumber', label: 'Numer budynku' }, { key: 'apartmentNumber', label: 'Nr lokalu' },
+      { key: 'startedAt', label: 'Aktywne od' }
     ]] },
     { id: 'contact', label: 'Kontakt', rows: [[
       { key: 'email', label: 'Email' }, { key: 'phone', label: 'Telefon' }, { key: 'website', label: 'Witryna WWW' }
-    ], [
-      { key: 'googleEmail', label: 'Email Google' },
-      { key: 'instagramAccount', label: 'Instagram' }, { key: 'facebookAccount', label: 'Facebook' }
     ]] }
   ];
 
@@ -109,7 +107,9 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
 
   async copyCompany() {
     if (!this.details || this.loading || this.copying) { return; }
-    const fields: { key: keyof Company; label: string }[] = [{ key: 'name', label: 'Nazwa' }];
+    const fields: { key: keyof Company; label: string }[] = [
+      { key: 'name', label: 'Nazwa' }, { key: 'businessTypeName', label: 'Typ dzia\u0142alno\u015bci' }
+    ];
     this.sections.forEach(section => section.rows.forEach(row => fields.push(...row)));
     const lines = fields.map(field => field.label + ': ' + this.value(field.key).replace(/[\r\n]+/g, ' '));
     if (this.details.pkdCodes.length) {

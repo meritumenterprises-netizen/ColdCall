@@ -84,7 +84,7 @@ public class CompaniesController : ControllerBase
         {
             query = ApplyAdministrativeFilter(query, wojewodztwoId, powiatId, gminaId, miejscowoscId);
         }
-        if (!string.IsNullOrWhiteSpace(companyName))
+        if (!string.IsNullOrWhiteSpace(companyName) && companyName.Trim().Length >= 3)
             query = query.Where(x => x.Name.Contains(companyName.Trim()));
 
         var total = await query.Select(x => x.Id).Take(recordLimit.Value).CountAsync();
