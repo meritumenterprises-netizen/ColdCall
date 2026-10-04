@@ -1,6 +1,6 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { Subscription } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import { Observable, of, Subscription } from 'rxjs';
+import { finalize, switchMap } from 'rxjs/operators';
 import { AddressLevel, AddressOption, ApiService, CompanyFilters, CompanyShort, Pkd, SearchProfile, SortableColumn } from '../services/api.service';
 
 @Component({
@@ -19,6 +19,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   pkdClassificationMessage = '';
   pkdClassificationError = '';
   private pkdClassificationRequest: Subscription | null = null;
+  restoringSearch = false;
+  private searchesRequest: Subscription | null = null;
+  private restoreSearchRequest: Subscription | null = null;
   activeFilterTab: 'pkd' | 'criteria' | 'address' = 'pkd';
   addressFields: { level: AddressLevel; label: string; options: AddressOption[]; visible: AddressOption[];
     selectedId: number | null; term: string; loading: boolean; error: string; request: Subscription | null }[] =
@@ -52,6 +55,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   sortBy = 'dataAktywnosci';
   direction = 'desc';
   searchName = '';
+  currentSearchId: number | null = null;
+  savingSearch = false;
+  searchSaved = false;
+
+  get filtersLocked() { return this.classifyingPkd || this.restoringSearch || this.searchSaved; }
+  private savedSearchState: string | null = null;
+  private saveSearchRequest: Subscription | null = null;
   error = '';
   filterError = '';
   recordLimitError = '';
@@ -80,11 +90,21 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.lastUpdatedFilterState = this.filterState();
     this.loadSearches();
     this.loadPkds();
-    this.loadAddressOptions(0);
-    this.loadCompanies();
   }
 
-  loadSearches() { this.api.searches().subscribe(x => this.searches = x); }
+  loadSearches() {
+    this.restoringSearch = true;
+    this.searchesRequest = this.api.searches().subscribe(profiles => {
+      this.searches = profiles;
+      if (profiles.length) { this.selectSearch(profiles[0]); }
+      else { this.restoringSearch = false; this.loadAddressOptions(0); this.loadCompanies(); }
+    }, () => {
+      this.restoringSearch = false;
+      this.loadAddressOptions(0);
+      this.loadCompanies();
+      this.filterError = 'Nie udalo sie pobrac zapisanych wyszukiwan.';
+    });
+  }
 
   selectFilterTab(tab: 'pkd' | 'criteria' | 'address') {
     this.activeFilterTab = tab;
@@ -199,6 +219,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.saveSearchRequest) { this.saveSearchRequest.unsubscribe(); }
+    if (this.searchesRequest) { this.searchesRequest.unsubscribe(); }
+    if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
     this.pkdErrorDialog.nativeElement.close();
     if (this.pkdClassificationRequest) { this.pkdClassificationRequest.unsubscribe(); }
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
@@ -434,21 +457,29 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   selectSearch(profile: SearchProfile) {
+    if (this.savingSearch || this.classifyingPkd) { return; }
+    this.searchSaved = false;
+    this.currentSearchId = profile.id;
+    if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
+    if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
+    this.restoringSearch = true;
+    this.addressFields.forEach(field => {
+      if (field.request) { field.request.unsubscribe(); field.request = null; }
+      field.options = []; field.visible = []; field.selectedId = null; field.term = ''; field.error = ''; field.loading = false;
+    });
     this.radiusEnabled = false; this.radiusKm = 1;
-    this.selectAddressOption(0, null, false);
-    this.selectAddressOption(3, null, false);
     this.searchName = profile.name;
     this.selectedPkds = this.sortPkds(profile.pkdCodes.slice());
     this.selectedPkdId = this.selectedPkds.length ? this.selectedPkds[0].id : null;
     const criteria = profile.criteria;
-    this.sortBy = criteria ? criteria.sortColumn : 'dataAktywnosci';
-    this.direction = criteria ? criteria.sortDirection : 'desc';
+    this.sortBy = criteria && criteria.sortColumn ? criteria.sortColumn : 'dataAktywnosci';
+    this.direction = criteria && (criteria.sortDirection || '').toLowerCase() === 'asc' ? 'asc' : 'desc';
     this.filterDraft = {
       companyName: criteria ? criteria.companyName || '' : '',
       address: '',
-      hasPhone: criteria ? criteria.hasPhone : null,
-      hasEmail: criteria ? criteria.hasEmail : null,
-      hasWebsite: criteria ? criteria.hasWebsite : null,
+      hasPhone: criteria && criteria.hasPhone != null ? criteria.hasPhone : null,
+      hasEmail: criteria && criteria.hasEmail != null ? criteria.hasEmail : null,
+      hasWebsite: criteria && criteria.hasWebsite != null ? criteria.hasWebsite : null,
       recordLimit: criteria && this.recordLimitOptions.includes(criteria.recordLimit) ? criteria.recordLimit : 1000
     };
     this.dateRangeEnabled = criteria ? criteria.dateRangeEnabled : false;
@@ -462,25 +493,74 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.filterError = '';
     this.recordLimitError = '';
     this.pkdHint = null;
-    this.lastUpdatedFilterState = this.filterState();
-    this.addressFiltersChanged = false;
-    this.recordLimitChanged = false;
-    this.page = 1;
-    this.loadCompanies();
     this.updatePkdSuggestions();
+    const ids = criteria ? [criteria.wojewodztwoId, criteria.powiatId, criteria.gminaId, criteria.miejscowoscId] : [];
+    const finish = () => {
+      this.radiusEnabled = !!criteria && criteria.hasFirmyWPromieniu === true && this.radiusAvailable;
+      this.radiusKm = criteria && this.radiusOptions.includes(criteria.firmyWPromieniu) ? criteria.firmyWPromieniu : 1;
+      ['wojewodztwoId', 'powiatId', 'gminaId', 'miejscowoscId'].forEach((key, index) => {
+        this.appliedFilters[key] = this.addressFields[index].selectedId === null ? undefined : this.addressFields[index].selectedId;
+      });
+      this.appliedFilters.radiusKm = this.radiusEnabled && this.addressFields[3].selectedId !== null ? this.radiusKm : undefined;
+      this.lastUpdatedFilterState = this.filterState();
+      this.savedSearchState = this.searchState();
+      this.addressFiltersChanged = false;
+      this.recordLimitChanged = false;
+      this.page = 1;
+      this.restoringSearch = false;
+      this.loadCompanies();
+    };
+    this.restoreSearchRequest = this.restoreAddressSelection(ids, 0).subscribe(finish, () => {
+      finish();
+      this.filterError = 'Nie udalo sie odtworzyc wszystkich filtrow adresu.';
+    });
+  }
+
+  private restoreAddressSelection(ids: (number | null | undefined)[], index: number): Observable<void> {
+    const field = this.addressFields[index];
+    field.loading = true;
+    return this.api.addressOptions(field.level, this.addressFields.slice(0, index).map(parent => parent.selectedId))
+      .pipe(finalize(() => field.loading = false), switchMap(options => {
+        field.options = options.filter(option => index !== 0 || option.id !== 1)
+          .sort((a, b) => this.addressCollator.compare(a.name, b.name) || a.id - b.id);
+        field.visible = field.options;
+        field.selectedId = field.options.some(option => option.id === ids[index]) ? ids[index] : null;
+        return field.selectedId !== null && index < 3 ? this.restoreAddressSelection(ids, index + 1) : of(undefined);
+      }));
   }
 
   saveSearch() {
-    if (!this.searchName.trim() || !this.validateFilters()) { return; }
+    if (!this.canSaveSearch || !this.validateFilters()) { return; }
+    const savedState = this.searchState();
+    this.error = '';
     const criteria = {
       sortColumn: this.sortBy, sortDirection: this.direction, companyName: this.filterDraft.companyName || '', address: '',
       hasPhone: this.filterDraft.hasPhone, hasEmail: this.filterDraft.hasEmail, hasWebsite: this.filterDraft.hasWebsite,
       dateRangeEnabled: this.dateRangeEnabled, dateFrom: this.dateRangeEnabled ? this.dateFrom : null,
-      dateTo: this.dateRangeEnabled ? this.dateTo : null, recordLimit: Number(this.filterDraft.recordLimit)
+      dateTo: this.dateRangeEnabled ? this.dateTo : null, recordLimit: Number(this.filterDraft.recordLimit),
+      wojewodztwoId: this.addressFields[0].selectedId, powiatId: this.addressFields[1].selectedId,
+      gminaId: this.addressFields[2].selectedId, miejscowoscId: this.addressFields[3].selectedId,
+      hasFirmyWPromieniu: this.radiusEnabled, firmyWPromieniu: this.radiusKm
     };
-    this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id), criteria).subscribe(profile => {
-      this.searches.push(profile);
-    }, err => this.error = err.error && err.error.message ? err.error.message : 'Nie udalo sie zapisac wyszukiwania.');
+    this.savingSearch = true;
+    this.saveSearchRequest = this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id), criteria, this.currentSearchId)
+      .pipe(finalize(() => this.savingSearch = false)).subscribe(profile => {
+        const index = this.searches.findIndex(search => search.id === profile.id);
+        if (index < 0) { this.searches.unshift(profile); }
+        else { this.searches[index] = profile; }
+        this.currentSearchId = profile.id;
+        this.savedSearchState = savedState;
+        this.searchSaved = true;
+      }, err => this.error = err.error && err.error.message ? err.error.message : 'Nie udalo sie zapisac wyszukiwania.');
+  }
+
+  get canSaveSearch() {
+    return !!this.searchName.trim() && !this.savingSearch && !this.restoringSearch && !this.classifyingPkd
+      && (this.savedSearchState === null || this.searchState() !== this.savedSearchState);
+  }
+
+  private searchState() {
+    return JSON.stringify({ name: this.searchName.trim(), sortBy: this.sortBy, direction: this.direction, filters: this.filterState() });
   }
 
   sort(column: string) {
@@ -493,6 +573,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   totalPages() { return Math.max(1, Math.ceil(this.total / this.pageSize)); }
   formatNumber(value: number) { return this.numberFormatter.format(value); }
+  emailUrl(email: string) { return this.api.emailUrl(email); }
+  websiteHref(website: string) { return this.api.websiteHref(website); }
 
   formatPhone(value: string | null | undefined) {
     if (!value) { return ''; }

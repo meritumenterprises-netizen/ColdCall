@@ -20,6 +20,12 @@ public class SearchProfileCriteriaDto : IValidatableObject
     public DateOnly? DateTo { get; set; }
     [Range(1, 10000)]
     public int RecordLimit { get; set; } = 1000;
+    public int? WojewodztwoId { get; set; }
+    public int? PowiatId { get; set; }
+    public int? GminaId { get; set; }
+    public int? MiejscowoscId { get; set; }
+    public bool? HasFirmyWPromieniu { get; set; }
+    public int? FirmyWPromieniu { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

@@ -27,7 +27,7 @@ public class SearchesController : ControllerBase
         var user = await _currentUserService.GetOrCreateAsync(User);
         var profiles = await _db.SearchProfiles.AsNoTracking()
             .Where(x => x.AppUserId == user.Id)
-            .OrderBy(x => x.Name)
+            .OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.Id)
             .Include(x => x.Criteria)
             .Include(x => x.PkdCodes).ThenInclude(x => x.PkdCode)
             .AsSplitQuery()
@@ -38,8 +38,15 @@ public class SearchesController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<ActionResult<SearchProfileDto>> Save(SaveSearchProfileDto request)
+    public Task<ActionResult<SearchProfileDto>> Save(SaveSearchProfileDto request) => SaveCore(request, null);
+
+    [HttpPut("{id:int}")]
+    public Task<ActionResult<SearchProfileDto>> Update(int id, SaveSearchProfileDto request) => SaveCore(request, id);
+
+    private async Task<ActionResult<SearchProfileDto>> SaveCore(SaveSearchProfileDto request, int? id)
     {
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 200)
+            return BadRequest(new { message = "Podaj nazwe wyszukiwania (maksymalnie 200 znakow)." });
         var criteria = request.Criteria ?? new SearchProfileCriteriaDto();
         var validation = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
         if (!System.ComponentModel.DataAnnotations.Validator.TryValidateObject(criteria,
@@ -47,6 +54,12 @@ public class SearchesController : ControllerBase
             return BadRequest(new { message = string.Join(" ", validation.Select(x => x.ErrorMessage)) });
         if (!criteria.DateRangeEnabled) { criteria.DateFrom = null; criteria.DateTo = null; }
         var user = await _currentUserService.GetOrCreateAsync(User);
+        var profile = id.HasValue ? await _db.SearchProfiles.Include(x => x.Criteria).Include(x => x.PkdCodes)
+            .SingleOrDefaultAsync(x => x.Id == id.Value && x.AppUserId == user.Id) : null;
+        if (id.HasValue && profile == null) return NotFound();
+        var name = request.Name.Trim();
+        if (await _db.SearchProfiles.AnyAsync(x => x.AppUserId == user.Id && x.Name == name && (!id.HasValue || x.Id != id.Value)))
+            return Conflict(new { message = "Nazwa wyszukiwania ju\u017c istnieje" });
         var activePlan = await _db.UserPlans
             .Include(x => x.PlanDefinition)
             .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
@@ -58,28 +71,42 @@ public class SearchesController : ControllerBase
         }
 
         var currentCount = await _db.SearchProfiles.CountAsync(x => x.AppUserId == user.Id);
-        if (currentCount >= activePlan.PlanDefinition.SearchLimit)
+        if (!id.HasValue && currentCount >= activePlan.PlanDefinition.SearchLimit)
         {
             return BadRequest(new { message = $"Limit planu {activePlan.PlanDefinition.Code} to {activePlan.PlanDefinition.SearchLimit} zapisanych wyszukan." });
         }
 
-        var profile = new SearchProfile
+        if (profile == null)
         {
-            AppUserId = user.Id, Name = request.Name,
-            Criteria = new SearchProfileCriteria
+            profile = new SearchProfile { AppUserId = user.Id };
+            _db.SearchProfiles.Add(profile);
+        }
+        profile.Name = request.Name.Trim();
+        profile.Criteria ??= new SearchProfileCriteria();
+        _db.Entry(profile.Criteria).CurrentValues.SetValues(new SearchProfileCriteria
             {
+                Id = profile.Criteria.Id, SearchProfileId = profile.Id, Name = profile.Name,
                 SortColumn = criteria.SortColumn, SortDirection = criteria.SortDirection,
                 CompanyName = criteria.CompanyName, Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
                 HasWebsite = criteria.HasWebsite, DateRangeEnabled = criteria.DateRangeEnabled,
-                DateFrom = criteria.DateFrom, DateTo = criteria.DateTo, RecordLimit = criteria.RecordLimit
-            }
-        };
-        foreach (var pkdId in request.PkdCodeIds.Distinct())
+                DateFrom = criteria.DateFrom, DateTo = criteria.DateTo, RecordLimit = criteria.RecordLimit,
+                WojewodztwoId = criteria.WojewodztwoId, PowiatId = criteria.PowiatId,
+                GminaId = criteria.GminaId, MiejscowoscId = criteria.MiejscowoscId,
+                HasFirmyWPromieniu = criteria.HasFirmyWPromieniu, FirmyWPromieniu = criteria.FirmyWPromieniu
+            });
+        var pkdIds = request.PkdCodeIds.Distinct().ToArray();
+        if (pkdIds.Length > 10 || await _db.PkdCodes.CountAsync(x => pkdIds.Contains(x.Id)) != pkdIds.Length)
+            return BadRequest(new { message = "Wybierz maksymalnie 10 istniejacych kodow PKD." });
+        foreach (var removed in profile.PkdCodes.Where(x => !pkdIds.Contains(x.PkdCodeId)).ToArray())
+        {
+            profile.PkdCodes.Remove(removed);
+            _db.SearchProfilePkds.Remove(removed);
+        }
+        foreach (var pkdId in pkdIds.Where(pkdId => !profile.PkdCodes.Any(x => x.PkdCodeId == pkdId)))
         {
             profile.PkdCodes.Add(new SearchProfilePkd { PkdCodeId = pkdId });
         }
 
-        _db.SearchProfiles.Add(profile);
         await _db.SaveChangesAsync();
 
         var pkds = await _db.PkdCodes
@@ -96,6 +123,9 @@ public class SearchesController : ControllerBase
             SortColumn = criteria.SortColumn, SortDirection = criteria.SortDirection,
             CompanyName = criteria.CompanyName, Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
             HasWebsite = criteria.HasWebsite, DateRangeEnabled = criteria.DateRangeEnabled,
-            DateFrom = criteria.DateFrom, DateTo = criteria.DateTo, RecordLimit = criteria.RecordLimit
+            DateFrom = criteria.DateFrom, DateTo = criteria.DateTo, RecordLimit = criteria.RecordLimit,
+            WojewodztwoId = criteria.WojewodztwoId, PowiatId = criteria.PowiatId,
+            GminaId = criteria.GminaId, MiejscowoscId = criteria.MiejscowoscId,
+            HasFirmyWPromieniu = criteria.HasFirmyWPromieniu, FirmyWPromieniu = criteria.FirmyWPromieniu
         };
 }

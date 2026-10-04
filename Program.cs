@@ -188,6 +188,7 @@ static async Task EnsureDatabaseSchemaAsync(ColdCallDbContext db)
         await EnsureCompanyStatusAsync(connection);
         await EnsureDictionaryNamesAsync(connection);
         await EnsureSearchProfileCriteriaAsync(connection);
+        await ExecuteSchemaResourceAsync(connection, "CompanyUserNotes");
         await EnsurePlanDefinitionsDescriptionHtmlColumnAsync(connection);
     }
     finally

@@ -19,6 +19,27 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   error = '';
   copying = false;
   copyError = '';
+  copyConfirmationMessage = '';
+  activeTab: 'description' | 'notes' = 'description';
+  notes = '';
+  private savedNotes = '';
+  notesLoading = false;
+  notesSaving = false;
+  notesError = '';
+  notesLoaded = false;
+  private notesRequest: Subscription | null = null;
+  private saveNotesRequest: Subscription | null = null;
+
+  get notesChanged() { return this.notes !== this.savedNotes; }
+
+  navigateTabs(event: KeyboardEvent) {
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) < 0) { return; }
+    event.preventDefault();
+    this.activeTab = event.key === 'Home' ? 'description' : event.key === 'End' ? 'notes' :
+      this.activeTab === 'description' ? 'notes' : 'description';
+    this.dialog.nativeElement.querySelector('#company-' + this.activeTab + '-tab').focus();
+  }
+  private openCeidgAfterConfirmation = false;
   private request: Subscription | null = null;
   readonly sections: { id: string; label: string; rows: { key: keyof Company; label: string }[][] }[] = [
     { id: 'owner', label: 'W\u0142a\u015bciciel', rows: [[
@@ -56,13 +77,35 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     this.error = '';
     this.request = this.api.companyDetails(this.companyId)
       .pipe(finalize(() => this.loading = false))
-      .subscribe(details => this.details = details, err => {
+      .subscribe(details => { this.details = details; this.loadNotes(); }, err => {
         this.error = err.status === 404 ? 'Nie znaleziono firmy.' :
           err.status === 402 ? 'Plan wygas\u0142.' : 'Nie uda\u0142o si\u0119 pobra\u0107 szczeg\u00f3\u0142\u00f3w firmy.';
       });
   }
 
   close() { this.closed.emit(); }
+
+  loadNotes() {
+    if (this.notesRequest) { this.notesRequest.unsubscribe(); }
+    this.notesLoading = true;
+    this.notesLoaded = false;
+    this.notesError = '';
+    this.notesRequest = this.api.companyNotes(this.companyId).pipe(finalize(() => this.notesLoading = false))
+      .subscribe(result => {
+        this.notes = result.notes;
+        this.savedNotes = result.notes;
+        this.notesLoaded = true;
+      }, () => this.notesError = 'Nie udalo sie wczytac notatek.');
+  }
+
+  saveNotes() {
+    if (!this.notesChanged || !this.notesLoaded || this.notesSaving || this.notesLoading) { return; }
+    const notes = this.notes;
+    this.notesSaving = true;
+    this.notesError = '';
+    this.saveNotesRequest = this.api.saveCompanyNotes(this.companyId, notes).pipe(finalize(() => this.notesSaving = false))
+      .subscribe(() => this.savedNotes = notes, () => this.notesError = 'Nie udalo sie zapisac notatek.');
+  }
 
   async copyCompany() {
     if (!this.details || this.loading || this.copying) { return; }
@@ -77,6 +120,8 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     this.copyError = '';
     try {
       await navigator.clipboard.writeText(lines.join('\n'));
+      this.copyConfirmationMessage = 'Skopiowano dane firmy do schowka';
+      this.openCeidgAfterConfirmation = false;
       this.copyConfirmation.nativeElement.showModal();
     } catch {
       this.copyError = 'Nie uda\u0142o si\u0119 skopiowa\u0107 danych firmy do schowka.';
@@ -85,7 +130,34 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  closeCopyConfirmation() { this.copyConfirmation.nativeElement.close(); }
+  closeCopyConfirmation() {
+    this.openCeidgAfterConfirmation = false;
+    this.copyConfirmation.nativeElement.close();
+  }
+
+  confirmCopy() {
+    const openCeidg = this.openCeidgAfterConfirmation;
+    this.closeCopyConfirmation();
+    if (openCeidg) {
+      window.open('https://aplikacja.ceidg.gov.pl/ceidg/ceidg.public.ui/search.aspx', '_blank', 'noopener,noreferrer');
+    }
+  }
+
+  async copyNameAndOpenCeidg() {
+    if (!this.details || this.loading || this.copying || !this.details.company.name) { return; }
+    this.copying = true;
+    this.copyError = '';
+    try {
+      await navigator.clipboard.writeText(this.details.company.name);
+      this.copyConfirmationMessage = 'Skopiowano nazw\u0119 firmy do schowka. Otwieram stron\u0119 CEIDG';
+      this.openCeidgAfterConfirmation = true;
+      this.copyConfirmation.nativeElement.showModal();
+    } catch {
+      this.copyError = 'Nie uda\u0142o si\u0119 skopiowa\u0107 nazwy firmy do schowka.';
+    } finally {
+      this.copying = false;
+    }
+  }
 
   openGoogle(includeCompanyName = true) {
     if (!this.details || this.loading) { return; }
@@ -108,6 +180,12 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     } catch { return null; }
   }
 
+  get emailUrl(): string {
+    const email = this.details ? this.details.company.email || '' : '';
+    return this.api.emailUrl(email);
+  }
+  websiteHref(website: string) { return this.api.websiteHref(website); }
+
   openWebsite() {
     const url = this.websiteUrl;
     if (url) { window.open(url, '_blank', 'noopener,noreferrer'); }
@@ -128,6 +206,8 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.notesRequest) { this.notesRequest.unsubscribe(); }
+    if (this.saveNotesRequest) { this.saveNotesRequest.unsubscribe(); }
     if (this.request) { this.request.unsubscribe(); }
     this.dialog.nativeElement.close();
     this.copyConfirmation.nativeElement.close();

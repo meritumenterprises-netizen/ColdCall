@@ -1,7 +1,7 @@
 <div class="app-layout">
   <aside class="sidebar">
     <div class="sidebar-title">Wyszukania</div>
-    <button class="search-item" *ngFor="let search of searches" (click)="selectSearch(search)">
+    <button class="search-item" *ngFor="let search of searches" (click)="selectSearch(search)" [disabled]="savingSearch || classifyingPkd">
       <strong>{{ search.name }}</strong>
       <span>{{ search.pkdCodes.length }} PKD</span>
     </button>
@@ -19,10 +19,10 @@
         <label>Nazwa wyszukiwania</label>
         <input name="searchName" [(ngModel)]="searchName" placeholder="typ dzia&#322;alno&#347;ci albo s&#322;owa kluczowe">
       </div>
-      <button class="primary-button" (click)="saveSearch()">Zapisz</button>
+      <button class="primary-button" (click)="saveSearch()" [disabled]="!canSaveSearch">Zapisz</button>
     </section>
 
-    <fieldset class="filters-layout" [disabled]="classifyingPkd" [attr.inert]="classifyingPkd ? '' : null" [attr.aria-busy]="classifyingPkd">
+    <div class="filters-layout">
     <div class="filter-tabs" role="tablist" aria-label="Filtry firm">
       <button type="button" id="pkd-tab" role="tab" aria-controls="pkd-panel"
               [attr.aria-selected]="activeFilterTab === 'pkd'" [attr.tabindex]="activeFilterTab === 'pkd' ? 0 : -1"
@@ -34,6 +34,7 @@
               [attr.aria-selected]="activeFilterTab === 'address'" [attr.tabindex]="activeFilterTab === 'address' ? 0 : -1"
               (click)="selectFilterTab('address')" (keydown)="navigateFilterTabs($event)">Adres</button>
     </div>
+    <fieldset class="filter-controls" [disabled]="filtersLocked" [attr.inert]="filtersLocked ? '' : null" [attr.aria-busy]="classifyingPkd || restoringSearch">
     <section class="pkd-filter-panel" id="pkd-panel" role="tabpanel" aria-labelledby="pkd-tab" [hidden]="activeFilterTab !== 'pkd'">
       <div class="pkd-search-row">
         <div class="pkd-filter-search">
@@ -96,7 +97,7 @@
           </select>
           <app-address-listbox *ngIf="i === 3" [listId]="field.level + '-list'" [label]="field.label"
                                [options]="field.visible" [selectedId]="field.selectedId" [loading]="field.loading"
-                               [disabled]="classifyingPkd || addressFieldDisabled(i) || field.loading"
+                               [disabled]="filtersLocked || addressFieldDisabled(i) || field.loading"
                                (selectionChange)="selectAddressOption(i, $event)"></app-address-listbox>
           <button type="button" class="ghost-button address-clear" (click)="selectAddressOption(i, null)"
                   [disabled]="addressFieldDisabled(i) || field.loading || field.selectedId === null" [attr.aria-label]="'Wyczy&#347;&#263;: ' + field.label">Wyczy&#347;&#263;</button>
@@ -176,6 +177,7 @@
     <div *ngIf="recordLimitError" id="record-limit-error" class="filter-error" role="alert">{{ recordLimitError }}</div>
     <div *ngIf="filterError" class="filter-error" role="alert">{{ filterError }}</div>
     </fieldset>
+    </div>
 
     <dialog #pkdErrorDialog class="pkd-error-dialog" aria-labelledby="pkd-error-title" aria-describedby="pkd-error-message" (cancel)="$event.preventDefault()">
       <h2 id="pkd-error-title">B&#322;&#261;d wyszukiwania opisu dzia&#322;alno&#347;ci</h2>
@@ -218,8 +220,11 @@
               (dblclick)="openCompany(row)" (keydown.enter)="$event.preventDefault(); openCompany(row)">
             <td>{{ formatNumber((page - 1) * pageSize + rowIndex + 1) }}</td>
             <td hidden>{{ row.id }}</td><td>{{ row.name.length > 50 ? (row.name | slice:0:50) + '...' : row.name }}</td>
-            <td>{{ row.fullAddress }}</td><td>{{ formatPhone(row.phone) }}</td><td>{{ row.email }}</td>
-            <td>{{ row.www }}</td><td>{{ row.dataAktywnosci | date:'yyyy-MM-dd' }}</td>
+            <td>{{ row.fullAddress }}</td><td>{{ formatPhone(row.phone) }}</td><td><a *ngIf="row.email && row.email.trim()"
+              [href]="emailUrl(row.email)" title="Email" target="_blank" rel="noopener noreferrer"
+              (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ row.email }}</a></td>
+            <td><a *ngIf="row.www && row.www.trim()" [href]="websiteHref(row.www)" target="_blank" rel="noopener noreferrer"
+              (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ row.www }}</a></td><td>{{ row.dataAktywnosci | date:'yyyy-MM-dd' }}</td>
             <td class="company-details-cell">
               <button type="button" class="company-details-button" aria-label="Szczeg&#243;&#322;y firmy" title="Szczeg&#243;&#322;y firmy"
                       (click)="$event.stopPropagation(); openCompany(row)" (dblclick)="$event.stopPropagation()"
