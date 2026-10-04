@@ -285,7 +285,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (!this.validateFilters()) { return; }
     const limit = Number(applyRecordLimit ? this.filterDraft.recordLimit : this.appliedFilters.recordLimit);
     this.appliedFilters = {
-      ...this.filterDraft, companyName: (this.filterDraft.companyName || '').trim(), address: '', recordLimit: limit,
+      ...this.filterDraft, companyName: (this.filterDraft.companyName || '').trim().length >= 3 ? this.filterDraft.companyName.trim() : '', address: '', recordLimit: limit,
       wojewodztwoId: this.addressFields[0].selectedId || undefined,
       powiatId: this.addressFields[1].selectedId || undefined,
       gminaId: this.addressFields[2].selectedId || undefined,
@@ -323,6 +323,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.filterDraft.recordLimit = value;
     this.recordLimitChanged = true;
     this.validateRecordLimit();
+  }
+
+  setCompanyName(value: string) {
+    this.filterDraft.companyName = value;
+    if (value.trim().length >= 3 || !value.trim() || !!this.appliedFilters.companyName) {
+      this.updateFilters(false);
+    }
   }
 
   private validateRecordLimit() {

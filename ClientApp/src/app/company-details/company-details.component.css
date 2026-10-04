@@ -41,6 +41,7 @@ h2 { flex: 1; min-width: 0; margin: 0; font-size: 20px; line-height: 1.4; overfl
 .company-fields + .company-fields { margin-top: 16px; }
 .company-fields > div { min-width: 0; }
 .contact-primary-row > .website-field { grid-column: 3 / 6; }
+.address-section .active-since-field { grid-column: 5; }
 .company-name-field { grid-column: 1 / -1; }
 dt { font-size: 12px; font-weight: 600; color: #637168; }
 dd { margin: 4px 0 0; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
@@ -67,6 +68,7 @@ th:first-child { width: 88px; }
 @media (max-width: 900px) {
   .company-fields, .company-fields.columns-2, .company-fields.columns-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .contact-primary-row > .website-field { grid-column: auto; }
+  .address-section .active-since-field { grid-column: auto; }
 }
 @media (max-width: 540px) {
   .company-fields, .company-fields.columns-2, .company-fields.columns-3 { grid-template-columns: minmax(0, 1fr); }

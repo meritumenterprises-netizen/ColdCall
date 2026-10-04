@@ -131,7 +131,7 @@ export class ApiService {
       .set('recordLimit', String(filters && filters.recordLimit != null ? filters.recordLimit : 1000));
     pkdIds.forEach(id => params = params.append('pkdIds', String(id)));
     if (filters) {
-      if (filters.companyName && filters.companyName.trim()) { params = params.set('companyName', filters.companyName.trim()); }
+      if (filters.companyName && filters.companyName.trim().length >= 3) { params = params.set('companyName', filters.companyName.trim()); }
       if (filters.address.trim()) { params = params.set('address', filters.address.trim()); }
       ['wojewodztwoId', 'powiatId', 'gminaId', 'miejscowoscId', 'radiusKm', 'addressLocality'].forEach(key => {
         if (filters[key] !== undefined && filters[key] !== null) { params = params.set(key, String(filters[key])); }

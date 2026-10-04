@@ -122,8 +122,8 @@
           [hidden]="activeFilterTab !== 'criteria'" (ngSubmit)="updateFilters(false)">
       <div class="company-name-filter">
         <label for="company-name">Nazwa firmy</label>
-        <input id="company-name" name="companyName" [ngModel]="filterDraft.companyName" maxlength="1000"
-               (ngModelChange)="filterDraft.companyName = $event; updateFilters(false)"
+        <input id="company-name" name="companyName" [ngModel]="filterDraft.companyName" maxlength="1000" placeholder="Min. 3 znaki"
+               (ngModelChange)="setCompanyName($event)"
                (keydown.enter)="$event.preventDefault()">
       </div>
       <div class="presence-filter presence-criterion">
