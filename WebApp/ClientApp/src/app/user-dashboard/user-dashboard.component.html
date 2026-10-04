@@ -17,7 +17,7 @@
     <section class="toolbar">
       <div class="save-search">
         <label>Nazwa wyszukiwania</label>
-        <input name="searchName" [(ngModel)]="searchName" placeholder="typ dzia&#322;alno&#347;ci albo s&#322;owa kluczowe">
+        <input name="searchName" [ngModel]="searchName" (input)="setSearchName($event)" placeholder="typ dzia&#322;alno&#347;ci albo s&#322;owa kluczowe">
       </div>
       <button class="primary-button" (click)="saveSearch()" [disabled]="!canSaveSearch">Zapisz</button>
     </section>
