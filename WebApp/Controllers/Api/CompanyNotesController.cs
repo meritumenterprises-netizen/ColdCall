@@ -40,6 +40,16 @@ public class CompanyNotesController(ColdCallDbContext db, ICurrentUserService cu
         // Lock the company/user key range so concurrent first saves cannot create duplicates.
         var note = await db.CompanyUserNotes.FromSqlInterpolated($"SELECT * FROM [ColdCall].[CompanyUserNotes] WITH (UPDLOCK, HOLDLOCK) WHERE [CompanyID] = {companyId} AND [UserId] = {user.Id}")
             .SingleOrDefaultAsync(token);
+        if (request.Notes.Length == 0)
+        {
+            if (note != null)
+            {
+                db.CompanyUserNotes.Remove(note);
+                await db.SaveChangesAsync(token);
+            }
+            await transaction.CommitAsync(token);
+            return Ok(new { notes = "" });
+        }
         if (note == null)
         {
             note = new CompanyUserNote { CompanyId = companyId, UserId = user.Id };

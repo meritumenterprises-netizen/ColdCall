@@ -332,6 +332,12 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     }
   }
 
+  setSearchName(event: Event) {
+    const input = event.target as HTMLInputElement;
+    input.value = input.value.replace(/[^A-Za-z0-9\u0104\u0105\u0106\u0107\u0118\u0119\u0141\u0142\u0143\u0144\u00d3\u00f3\u015a\u015b\u0179\u017a\u017b\u017c_!().,'"-]/g, '');
+    this.searchName = input.value;
+  }
+
   private validateRecordLimit() {
     const limit = Number(this.filterDraft.recordLimit);
     this.recordLimitError = limit > 10000
