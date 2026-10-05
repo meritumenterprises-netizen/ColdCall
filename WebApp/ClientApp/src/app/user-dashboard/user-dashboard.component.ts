@@ -1,5 +1,5 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { Observable, of, Subscription } from 'rxjs';
+import { Observable, of, Subscription, timer } from 'rxjs';
 import { finalize, switchMap } from 'rxjs/operators';
 import { AddressLevel, AddressOption, ApiService, CompanyFilters, CompanyShort, Pkd, SearchProfile, SortableColumn } from '../services/api.service';
 
@@ -62,6 +62,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   get filtersLocked() { return this.classifyingPkd || this.restoringSearch || this.searchSaved; }
   private savedSearchState: string | null = null;
   private saveSearchRequest: Subscription | null = null;
+  private companyNameDelay: Subscription | null = null;
   error = '';
   filterError = '';
   recordLimitError = '';
@@ -219,6 +220,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     if (this.saveSearchRequest) { this.saveSearchRequest.unsubscribe(); }
     if (this.searchesRequest) { this.searchesRequest.unsubscribe(); }
     if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
@@ -325,17 +327,24 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.validateRecordLimit();
   }
 
-  setCompanyName(value: string) {
+  setCompanyName(event: Event) {
+    const value = this.sanitizeNameInput(event);
     this.filterDraft.companyName = value;
+    if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
+    if (value.length > 0 && !value.trim()) { return; }
     if (value.trim().length >= 3 || !value.trim() || !!this.appliedFilters.companyName) {
-      this.updateFilters(false);
+      this.companyNameDelay = timer(3000).subscribe(() => this.updateFilters(false));
     }
   }
 
   setSearchName(event: Event) {
+    this.searchName = this.sanitizeNameInput(event);
+  }
+
+  private sanitizeNameInput(event: Event): string {
     const input = event.target as HTMLInputElement;
-    input.value = input.value.replace(/[^A-Za-z0-9\u0104\u0105\u0106\u0107\u0118\u0119\u0141\u0142\u0143\u0144\u00d3\u00f3\u015a\u015b\u0179\u017a\u017b\u017c_!().,'"-]/g, '');
-    this.searchName = input.value;
+    input.value = input.value.replace(/[^A-Za-z0-9\u0104\u0105\u0106\u0107\u0118\u0119\u0141\u0142\u0143\u0144\u00d3\u00f3\u015a\u015b\u0179\u017a\u017b\u017c _!().,'"-]/g, '');
+    return input.value;
   }
 
   private validateRecordLimit() {
@@ -471,6 +480,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   selectSearch(profile: SearchProfile) {
     if (this.savingSearch || this.classifyingPkd) { return; }
+    if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     this.searchSaved = false;
     this.currentSearchId = profile.id;
     if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
