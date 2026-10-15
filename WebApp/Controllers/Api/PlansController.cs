@@ -40,13 +40,14 @@ public class PlansController : ControllerBase
             x => (DateTime?)x.ActiveUntil);
 
         var plans = await _db.PlanDefinitions
-            .OrderBy(x => x.SearchLimit)
+            .Where(x => x.ShowInOffer && !x.IsTrial)
+            .OrderBy(x => x.MaxNumberOfSearches)
             .ToListAsync();
 
         return plans
             .Select(x => new PlanDto(
                 x.Code,
-                x.SearchLimit,
+                x.MaxNumberOfSearches,
                 x.DescriptionHtml,
                 x.Price,
                 x.Currency,

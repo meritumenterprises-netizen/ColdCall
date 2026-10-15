@@ -1,0 +1,116 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - brak województwa.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo dolnośląskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo kujawsko-pomorskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo lubelskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo lubuskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo mazowieckie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo małopolskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo opolskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo podkarpackie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo podlaskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo pomorskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo warmińsko-mazurskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo wielkopolskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo zachodniopomorskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo łódzkie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo śląskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG\Zarejestrowane działalności - 2026-09-21 - województwo świętokrzyskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - brak województwa.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo dolnośląskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo kujawsko-pomorskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo lubelskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo lubuskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo mazowieckie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo małopolskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo opolskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo podkarpackie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo podlaskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo pomorskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo warmińsko-mazurskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo wielkopolskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo zachodniopomorskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo łódzkie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo śląskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo świętokrzyskie.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

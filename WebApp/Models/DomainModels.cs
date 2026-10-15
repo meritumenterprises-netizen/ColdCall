@@ -36,6 +36,7 @@ public class Company
     public string? Regon { get; set; }
     public bool? AddressIsMissing { get; set; }
     public bool BlockedByRODO { get; set; }
+    public bool SkipAddressVerification { get; set; }
     public int? WojewodztwoId { get; set; }
     public Wojewodztwo? Wojewodztwo { get; set; }
     public int? MiejscowoscId { get; set; }
@@ -56,6 +57,7 @@ public class Company
     public string? FacebookAccount { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime CreatedOn { get; set; }
+    public DateTime? DataModifiedOn { get; set; }
     public ICollection<CompanyPkd> CompanyPkds { get; set; } = new List<CompanyPkd>();
     public ICollection<CompanyAddress> CompanyAddresses { get; set; } = new List<CompanyAddress>();
 }
@@ -146,13 +148,19 @@ public class PlanDefinition
     public PlanDefinition(string code, int searchLimit, decimal price)
     {
         Code = code;
-        SearchLimit = searchLimit;
+        MaxNumberOfSearches = searchLimit;
         Price = price;
     }
 
     public int Id { get; set; }
     public string Code { get; set; } = "";
-    public int SearchLimit { get; set; }
+    public int MaxNumberOfSearches { get; set; }
+    public int? MaxNumberOfCSVExportsPerSearch { get; set; }
+    public int? MaxNumberOfExportedRecords { get; set; }
+    public int? ExpiresAfterDays { get; set; }
+    public bool IsTrial { get; set; }
+    public bool ShowInOffer { get; set; } = true;
+    public bool IsActive { get; set; } = true;
     public string DescriptionHtml { get; set; } = "";
     public decimal Price { get; set; }
     public string Currency { get; set; } = "PLN";

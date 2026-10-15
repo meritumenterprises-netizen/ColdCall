@@ -71,9 +71,9 @@ public class SearchesController : ControllerBase
         }
 
         var currentCount = await _db.SearchProfiles.CountAsync(x => x.AppUserId == user.Id);
-        if (!id.HasValue && currentCount >= activePlan.PlanDefinition.SearchLimit)
+        if (!id.HasValue && currentCount >= activePlan.PlanDefinition.MaxNumberOfSearches)
         {
-            return BadRequest(new { message = $"Limit planu {activePlan.PlanDefinition.Code} to {activePlan.PlanDefinition.SearchLimit} zapisanych wyszukan." });
+            return BadRequest(new { message = $"Limit planu {activePlan.PlanDefinition.Code} to {activePlan.PlanDefinition.MaxNumberOfSearches} zapisanych wyszukan." });
         }
 
         if (profile == null)

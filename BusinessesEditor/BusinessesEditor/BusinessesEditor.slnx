@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="../KrsImporter/KrsImporter.csproj" />
+  <Project Path="BusinessesEditor/BusinessesEditor.csproj" />
+</Solution>

@@ -44,7 +44,7 @@ public class AuthController : ControllerBase
             plan = activePlan == null ? null : new
             {
                 activePlan.PlanDefinition.Code,
-                activePlan.PlanDefinition.SearchLimit,
+                activePlan.PlanDefinition.MaxNumberOfSearches,
                 activePlan.ExpiresAtUtc
             }
         });
