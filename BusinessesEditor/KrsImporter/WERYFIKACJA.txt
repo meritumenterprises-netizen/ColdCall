@@ -1,0 +1,5 @@
+Kompilacja .NET SDK 10.0.401: powodzenie, 0 błędów, 0 ostrzeżeń.
+Test --probe 2026-01-02: HTTP 200 dla biuletynu i odpisu.
+Biuletyn: 23520 unikalnych numerów.
+Odpis KRS 0001215073: TOTAL WELD SPÓŁKA Z OGRANICZONĄ ODPOWIEDZIALNOŚCIĄ, data rejestracji 02.01.2026, odczytane PKD.
+Nie testowano zapisu do SQL Server użytkownika; brak połączenia z jego bazą.

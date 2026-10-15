@@ -8,7 +8,11 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.IdentityModel.Tokens;
 using Stripe;
 
-var builder = WebApplication.CreateBuilder(args);
+var initializeDatabase = args.Contains("--initialize-database", StringComparer.OrdinalIgnoreCase);
+var angularDevelopment = args.Contains("--angular-dev-server", StringComparer.OrdinalIgnoreCase);
+var builder = WebApplication.CreateBuilder(args.Where(arg =>
+    !arg.Equals("--initialize-database", StringComparison.OrdinalIgnoreCase) &&
+    !arg.Equals("--angular-dev-server", StringComparison.OrdinalIgnoreCase)).ToArray());
 
 builder.Services.AddControllers();
 builder.Services.AddDbContext<ColdCallDbContext>(options =>
@@ -78,16 +82,30 @@ else
     app.UseHsts();
 }
 
-using (var scope = app.Services.CreateScope())
+// Database repair/seeding is an explicit maintenance command, not a startup dependency.
+if (initializeDatabase)
 {
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<ColdCallDbContext>();
     await EnsureDatabaseSchemaAsync(db);
     await DbSeeder.SeedAsync(db);
+    app.Logger.LogInformation("Database initialization completed.");
+    return;
 }
+
+var useAngularCli = app.Environment.IsDevelopment() &&
+    (angularDevelopment || app.Configuration.GetValue<bool>("Spa:UseAngularCliServer"));
+var developmentServerUrl = app.Environment.IsDevelopment()
+    ? app.Configuration["Spa:DevelopmentServerUrl"] : null;
+var useBuiltFrontend = !useAngularCli && string.IsNullOrWhiteSpace(developmentServerUrl);
+if (useBuiltFrontend &&
+    !System.IO.File.Exists(Path.Combine(app.Environment.ContentRootPath, "ClientApp", "dist", "index.html")))
+    throw new InvalidOperationException(
+        "Frontend build missing. Run npm run build in ClientApp once, or use --angular-dev-server in Development.");
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-if (!app.Environment.IsDevelopment())
+if (useBuiltFrontend)
 {
     app.UseSpaStaticFiles();
 }
@@ -119,9 +137,13 @@ app.UseEndpoints(endpoints =>
 app.UseSpa(spa =>
 {
     spa.Options.SourcePath = "ClientApp";
-    if (app.Environment.IsDevelopment())
+    if (useAngularCli)
     {
         spa.UseAngularCliServer(npmScript: "start");
+    }
+    else if (!string.IsNullOrWhiteSpace(developmentServerUrl))
+    {
+        spa.UseProxyToSpaDevelopmentServer(developmentServerUrl);
     }
 });
 

@@ -133,6 +133,9 @@ public partial class ColdCallDbContext : DbContext
         });
         modelBuilder.Entity<PlanDefinition>().Property(x => x.DescriptionHtml).HasDefaultValue("");
         modelBuilder.Entity<PlanDefinition>().Property(x => x.Price).HasColumnType("decimal(18,2)");
+        modelBuilder.Entity<PlanDefinition>().Property(x => x.IsTrial).HasDefaultValue(false);
+        modelBuilder.Entity<PlanDefinition>().Property(x => x.ShowInOffer).HasDefaultValue(true).HasSentinel(true);
+        modelBuilder.Entity<PlanDefinition>().Property(x => x.IsActive).HasDefaultValue(true).HasSentinel(true);
         modelBuilder.Entity<UserPlan>().Property(x => x.PricePaid).HasColumnType("decimal(18,2)");
         ConfigureDatabaseSchema(modelBuilder);
    }
