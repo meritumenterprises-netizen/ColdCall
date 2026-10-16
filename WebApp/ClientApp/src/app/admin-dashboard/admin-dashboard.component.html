@@ -147,7 +147,7 @@
           <th>Akcje</th>
         </tr></thead>
         <tbody>
-          <tr *ngIf="usersLoading"><td colspan="5" role="status">Wczytywanie...</td></tr>
+          <tr *ngIf="usersLoading"><td colspan="6" role="status">Wczytywanie...</td></tr>
           <ng-container *ngIf="!usersLoading">
             <tr *ngFor="let row of userRows; trackBy: trackUser">
               <td>{{ row.displayName || '-' }}</td>
@@ -157,12 +157,13 @@
                         (focus)="showPlanHint($event, row.descriptionHtml)" (blur)="planHint = null" (keydown.escape)="planHint = null"
                         [attr.aria-describedby]="planHint ? 'admin-plan-tooltip' : null">{{ row.planCode }}</span><ng-template #noUserPlan>-</ng-template></td>
               <td [class.expired]="row.expired">{{ row.expiresAtUtc ? (row.expiresAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
+              <td>{{ row.createdAtUtc ? (row.createdAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
               <td class="admin-user-actions">
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="extendPlan(row.id)">Przed&#322;u&#380; o 7 dni</button>
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id)" (click)="requestDeleteCsv(row)">Usu&#324; pliki CSV</button>
               </td>
             </tr>
-            <tr *ngIf="!userRows.length"><td colspan="5">Brak u&#380;ytkownik&#243;w.</td></tr>
+            <tr *ngIf="!userRows.length"><td colspan="6">Brak u&#380;ytkownik&#243;w.</td></tr>
           </ng-container>
         </tbody>
       </table>
