@@ -12,6 +12,11 @@ export class PlansComponent implements OnInit {
 
   constructor(private api: ApiService) {}
 
+  get canReturnToDashboard(): boolean {
+    const user = this.api.user();
+    return !!user && (user.isAdmin || user.hasActivePlan);
+  }
+
   ngOnInit() {
     this.api.plans().subscribe(x => {
       this.plans = x;

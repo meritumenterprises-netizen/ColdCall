@@ -1,2 +1,7 @@
 <app-nav-menu></app-nav-menu>
 <router-outlet></router-outlet>
+<dialog #expiredTrialDialog class="trial-dialog" aria-labelledby="expired-trial-title" aria-describedby="expired-trial-description" (cancel)="$event.preventDefault()">
+  <p id="expired-trial-title">Twoja wersja próbna serwisu zakończyła się.</p>
+  <p id="expired-trial-description">Zakup jeden z podanych planów, żeby kontynuować</p>
+  <div class="trial-actions"><button type="button" class="primary-button" (click)="acknowledgeExpiredTrial()">OK</button></div>
+</dialog>

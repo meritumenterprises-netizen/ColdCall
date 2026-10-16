@@ -88,11 +88,10 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
         if (!account.EmailConfirmed) return BadRequest(new { code = "EmailNotConfirmed", message = "Potwierdz adres email przed zalogowaniem." });
         await manager.ResetAccessFailedCountAsync(account);
         TrialOffer? offer = null;
-        if (!account.TrialOffered && !await db.UserPlans.AnyAsync(p => p.AppUserId == user.Id))
+        if (!user.IsAdmin)
         {
-            offer = await trials.OfferAsync(user.Id);
-            account.TrialOffered = true;
-            await manager.UpdateAsync(account);
+            await trials.DeactivateExpiredAsync(user.Id, HttpContext.RequestAborted);
+            await trials.EnsureAssignedAsync(user.Id, HttpContext.RequestAborted);
         }
         user.LastLoginAtUtc = DateTime.UtcNow;
         await db.SaveChangesAsync();

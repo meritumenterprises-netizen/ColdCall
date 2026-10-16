@@ -16,12 +16,15 @@ public class AuthController : ControllerBase
     private readonly ColdCallDbContext _db;
     private readonly ICurrentUserService _currentUserService;
     private readonly TrialPlanService _trialPlans;
+    private readonly CsvExportCleanupService _csvCleanup;
 
-    public AuthController(ColdCallDbContext db, ICurrentUserService currentUserService, TrialPlanService trialPlans)
+    public AuthController(ColdCallDbContext db, ICurrentUserService currentUserService, TrialPlanService trialPlans,
+        CsvExportCleanupService csvCleanup)
     {
         _db = db;
         _currentUserService = currentUserService;
         _trialPlans = trialPlans;
+        _csvCleanup = csvCleanup;
     }
 
     [HttpGet("me")]
@@ -29,6 +32,12 @@ public class AuthController : ControllerBase
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         var isAdmin = user.IsAdmin;
+        await _csvCleanup.DeleteOrphanedAsync(HttpContext.RequestAborted);
+        if (!isAdmin)
+        {
+            await _trialPlans.DeactivateExpiredAsync(user.Id, HttpContext.RequestAborted);
+            await _trialPlans.EnsureAssignedAsync(user.Id, HttpContext.RequestAborted);
+        }
         var activePlan = await _db.UserPlans
             .Include(x => x.PlanDefinition)
             .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
@@ -36,7 +45,10 @@ public class AuthController : ControllerBase
             .FirstOrDefaultAsync();
 
         var maxNumberOfExportedRecords = await PlanRecordLimits.ForUserAsync(_db, user.Id, isAdmin);
-        var trialOffer = _currentUserService.WasCreated ? await _trialPlans.OfferAsync(user.Id) : null;
+        TrialOffer? trialOffer = null;
+        var hasExpiredTrial = !isAdmin && activePlan == null && await _db.UserPlans.AnyAsync(
+            p => p.AppUserId == user.Id && p.PlanDefinition.IsTrial && p.ExpiresAtUtc <= DateTime.UtcNow,
+            HttpContext.RequestAborted);
         return Ok(new
         {
             user.Id,
@@ -46,6 +58,7 @@ public class AuthController : ControllerBase
             PictureUrl = User.FindFirstValue("picture"),
             isAdmin,
             hasActivePlan = activePlan != null,
+            hasExpiredTrial,
             trialOffer,
             maxNumberOfSearches = activePlan?.PlanDefinition.MaxNumberOfSearches ?? 0,
             maxNumberOfExportedRecords,

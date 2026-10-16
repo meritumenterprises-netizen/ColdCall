@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, of, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { catchError, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
@@ -53,7 +53,7 @@ export interface Plan { code: string; searchLimit: number; descriptionHtml: stri
 export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; expiresAtUtc: string; isExpired?: boolean; }
 export interface UserProfile { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
-export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
+export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string; descriptionHtml?: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; }
 export interface AuthConfig { googleClientId: string; }
@@ -61,6 +61,10 @@ export interface CsvExportRow { id: number; userId: number; searchProfileId: num
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
+  private expiredTrialNotified = false;
+  readonly expiredTrialNotice = new BehaviorSubject<boolean>(false);
+
+  acknowledgeExpiredTrial() { this.expiredTrialNotice.next(false); }
   private token = localStorage.getItem('google_id_token') || '';
   private authenticated = false;
   private currentUser: Me | null = null;
@@ -71,6 +75,8 @@ export class ApiService {
   constructor(private http: HttpClient) {}
 
   setToken(token: string) {
+    this.expiredTrialNotified = false;
+    this.expiredTrialNotice.next(false);
     this.csrfToken = ''; this.csrfRequest = null;
     this.localSession = false;
     sessionStorage.removeItem('coldcall_local_session');
@@ -80,6 +86,8 @@ export class ApiService {
   }
 
   logout() {
+    this.expiredTrialNotified = false;
+    this.expiredTrialNotice.next(false);
     this.localSession = false;
     this.csrfToken = '';
     this.csrfRequest = null;
@@ -142,6 +150,8 @@ export class ApiService {
     return this.accountPost<{ message: string }>('register', { displayName, email, password });
   }
   loginLocal(email: string, password: string) {
+    this.expiredTrialNotified = false;
+    this.expiredTrialNotice.next(false);
     this.csrfToken = ''; this.csrfRequest = null;
     this.authenticated = false; this.currentUser = null;
     this.token = ''; localStorage.removeItem('google_id_token');
@@ -164,6 +174,10 @@ export class ApiService {
       tap(user => {
         this.currentUser = user;
         this.authenticated = true;
+        if (!user.isAdmin && !user.hasActivePlan && user.hasExpiredTrial && !this.expiredTrialNotified) {
+          this.expiredTrialNotified = true;
+          this.expiredTrialNotice.next(true);
+        }
       })
     );
   }

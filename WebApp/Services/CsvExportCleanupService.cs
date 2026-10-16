@@ -1,12 +1,73 @@
 using ColdCall.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace ColdCall.Services;
 
 public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment environment,
     IConfiguration configuration, ILogger<CsvExportCleanupService> logger)
 {
+    public async Task<int> DeleteOrphanedAsync(CancellationToken token)
+    {
+        await using var transaction = await db.Database.BeginTransactionAsync(token);
+        await LockAsync("OrphanCSVExports", token);
+        var orphans = await db.CsvExports.AsNoTracking()
+            .Where(e => e.SearchProfileId == null || !db.SearchProfiles.Any(p => p.Id == e.SearchProfileId))
+            .Select(e => new { e.EksportCsvId, e.SearchProfileId, e.CsvFileName }).ToListAsync(token);
+        if (orphans.Count == 0) return 0;
+        var configuredRoot = configuration["CSVExportFolder"];
+        if (string.IsNullOrWhiteSpace(configuredRoot)) throw new InvalidOperationException("Brak CSVExportFolder.");
+        var root = Path.GetFullPath(configuredRoot, environment.ContentRootPath);
+        EnsureSafeDirectory(root);
+        var files = new List<string>();
+        if (Directory.Exists(root))
+        {
+            var existingProfiles = await db.SearchProfiles.Select(p => p.Id).ToHashSetAsync(token);
+            var namesWithoutProfile = orphans.Where(e => e.SearchProfileId == null)
+                .Select(e => e.CsvFileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var namesByProfile = orphans.Where(e => e.SearchProfileId.HasValue)
+                .ToLookup(e => e.SearchProfileId!.Value, e => e.CsvFileName);
+            foreach (var userFolder in Directory.EnumerateDirectories(root))
+            {
+                if (!int.TryParse(Path.GetFileName(userFolder), out var userId) || userId <= 0) continue;
+                EnsureSafeDirectory(userFolder);
+                foreach (var profileFolder in Directory.EnumerateDirectories(userFolder))
+                {
+                    token.ThrowIfCancellationRequested();
+                    if (!int.TryParse(Path.GetFileName(profileFolder), out var profileId) || profileId <= 0
+                        || existingProfiles.Contains(profileId)) continue;
+                    EnsureSafeDirectory(profileFolder);
+                    var names = namesByProfile[profileId].ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    foreach (var file in Directory.EnumerateFiles(profileFolder))
+                    {
+                        if (!string.Equals(Path.GetExtension(file), ".csv", StringComparison.OrdinalIgnoreCase)
+                            || (!names.Contains(Path.GetFileName(file)) && !namesWithoutProfile.Contains(Path.GetFileName(file)))) continue;
+                        if (File.GetAttributes(file).HasFlag(FileAttributes.ReparsePoint))
+                            throw new IOException("Plik eksportu nie moze byc dowiazaniem.");
+                        files.Add(file);
+                    }
+                }
+            }
+        }
+        var ids = orphans.Select(e => e.EksportCsvId).ToArray();
+        return await StageAndCommitAsync(root, files, transaction, () => db.CsvExports
+            .Where(e => ids.Contains(e.EksportCsvId)
+                && (e.SearchProfileId == null || !db.SearchProfiles.Any(p => p.Id == e.SearchProfileId)))
+            .ExecuteDeleteAsync(token), token);
+    }
+
     public async Task<int> DeleteForUserAsync(int userId, CancellationToken token)
+        => await DeleteAsync(userId, false, token);
+
+    public async Task<int> DeleteForExpiredTrialAsync(int userId, CancellationToken token)
+    {
+        if (!await db.Users.AnyAsync(u => u.Id == userId && !u.IsAdmin, token)) return 0;
+        if (!await db.UserPlans.AnyAsync(p => p.AppUserId == userId && p.PlanDefinition.IsTrial
+            && p.ExpiresAtUtc <= DateTime.UtcNow, token)) return 0;
+        return await DeleteAsync(userId, true, token);
+    }
+
+    private async Task<int> DeleteAsync(int userId, bool expiredTrial, CancellationToken token)
     {
         if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
         var configuredRoot = configuration["CSVExportFolder"];
@@ -20,6 +81,22 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
                 throw new IOException("Katalog eksportow nie moze byc dowiazaniem.");
 
         await using var transaction = await db.Database.BeginTransactionAsync(token);
+        if (expiredTrial)
+        {
+            await LockAsync("TrialPlan:" + userId, token);
+            var now = DateTime.UtcNow;
+            if (!await db.Users.AnyAsync(u => u.Id == userId && !u.IsAdmin, token)) return 0;
+            if (!await db.UserPlans.AnyAsync(p => p.AppUserId == userId && p.PlanDefinition.IsTrial
+                && p.ExpiresAtUtc <= now, token)) return 0;
+            await db.UserPlans.Where(p => p.AppUserId == userId && p.PlanDefinition.IsTrial
+                    && p.ExpiresAtUtc <= now && (p.IsActive == null || p.IsActive == true))
+                .ExecuteUpdateAsync(updates => updates.SetProperty(p => p.IsActive, (bool?)false), token);
+            if (await db.UserPlans.AnyAsync(p => p.AppUserId == userId && p.ExpiresAtUtc > now, token))
+            {
+                await transaction.CommitAsync(token);
+                return 0;
+            }
+        }
         var userLock = "UserExports:" + userId;
         await LockAsync(userLock, token);
         var profileIds = await db.SearchProfiles.Where(p => p.AppUserId == userId).OrderBy(p => p.Id).Select(p => p.Id).ToListAsync(token);
@@ -27,6 +104,19 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
 
         var files = new List<string>();
         if (Directory.Exists(userFolder)) CollectFiles(userFolder, files);
+        return await StageAndCommitAsync(root, files, transaction, async () =>
+        {
+            var deleted = await db.CsvExports.Where(e => e.SearchProfileId.HasValue && profileIds.Contains(e.SearchProfileId.Value))
+                .ExecuteDeleteAsync(token);
+            if (expiredTrial)
+                await db.SearchProfiles.Where(p => p.AppUserId == userId && profileIds.Contains(p.Id)).ExecuteDeleteAsync(token);
+            return deleted;
+        }, token);
+    }
+
+    private async Task<int> StageAndCommitAsync(string root, List<string> files,
+        IDbContextTransaction transaction, Func<Task<int>> deleteRecords, CancellationToken token)
+    {
         var staging = Path.Combine(root, ".cleanup-" + Guid.NewGuid().ToString("N"));
         var moved = new List<(string Source, string Staged)>();
         var committed = false;
@@ -40,8 +130,7 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
                 File.Move(file, staged);
                 moved.Add((file, staged));
             }
-            var deleted = await db.CsvExports.Where(e => e.SearchProfileId.HasValue && profileIds.Contains(e.SearchProfileId.Value))
-                .ExecuteDeleteAsync(token);
+            var deleted = await deleteRecords();
             await transaction.CommitAsync(token);
             committed = true;
             foreach (var file in moved) File.Delete(file.Staged);
@@ -56,9 +145,16 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
                     if (File.Exists(file.Staged)) File.Move(file.Staged, file.Source);
                 if (Directory.Exists(staging)) Directory.Delete(staging, false);
             }
-            else logger.LogError("CSV metadata removed, but staging cleanup failed for user {UserId} in {Staging}", userId, staging);
+            else logger.LogError("CSV metadata removed, but staging cleanup failed in {Staging}", staging);
             throw;
         }
+    }
+
+    private static void EnsureSafeDirectory(string path)
+    {
+        for (var directory = new DirectoryInfo(path); directory != null; directory = directory.Parent)
+            if (directory.Exists && directory.Attributes.HasFlag(FileAttributes.ReparsePoint))
+                throw new IOException("Katalog eksportow nie moze byc dowiazaniem.");
     }
 
     private async Task LockAsync(string resource, CancellationToken token) =>

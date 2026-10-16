@@ -20,6 +20,11 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   get isDataPanel() { return this.route.snapshot.data.section === 'data'; }
 
+  get canSearch(): boolean {
+    const user = this.api.user();
+    return !!this.profile && !this.profile.isAdmin && !!user && user.hasActivePlan;
+  }
+
   ngOnInit() { this.loadPlan(); }
 
   loadPlan() {
