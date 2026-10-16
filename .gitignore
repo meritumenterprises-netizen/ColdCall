@@ -275,3 +275,4 @@ _Pvt_Extensions
 /WebApp/ClientApp/src/app/export/*
 !/WebApp/ClientApp/src/app/export/.gitkeep
 /WebApp/Export/
+/WebApp/App_Data/AuthMail/

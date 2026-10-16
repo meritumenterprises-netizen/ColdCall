@@ -59,7 +59,6 @@ export class NavMenuComponent {
 
   logout() {
     this.userMenuOpen = false;
-    this.api.logout();
-    this.router.navigateByUrl('/');
+    this.api.logoutSession().subscribe(() => this.router.navigateByUrl('/'));
   }
 }

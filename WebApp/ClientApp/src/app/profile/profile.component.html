@@ -28,6 +28,7 @@
       <ng-container *ngIf="profile && !profile.isAdmin">
       <ng-container *ngIf="plan; else noPlan">
         <p class="plan-name"><strong>{{ plan.code }}</strong></p>
+        <span *ngIf="plan.isTrial" class="trial-plan-badge">Plan próbny</span>
         <p class="plan-expiration" [class.expired]="plan.isExpired">
           <ng-container *ngIf="plan.isExpired">Wygas&#322;:</ng-container><ng-container *ngIf="!plan.isExpired">Wygasa:</ng-container> {{ plan.expiresAtUtc | date:'dd.MM.yyyy HH:mm' }}
         </p>
