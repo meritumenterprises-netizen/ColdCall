@@ -142,9 +142,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       const plan = plans[0];
       const expiresAtUtc = plan ? this.dateUtc(plan.expiresAtUtc) : '';
       return { id: user.id, displayName: user.displayName || '', googleEmail: user.googleEmail,
-        planCode: plan ? plan.planCode : '', expiresAtUtc, expired: !!plan && new Date(expiresAtUtc).getTime() <= now };
+        planCode: plan ? plan.planCode : '', descriptionHtml: plan ? plan.descriptionHtml || '' : '', expiresAtUtc, expired: !!plan && new Date(expiresAtUtc).getTime() <= now };
     });
-    return rows.sort((a, b) => {
+    const email = this.userEmailFilter.trim().toLowerCase();
+    return rows.filter(row => !email || row.googleEmail.toLowerCase().includes(email)).sort((a, b) => {
       let comparison = 0;
       if (this.usersSortBy === 'expiresAtUtc') {
         if (!a.expiresAtUtc || !b.expiresAtUtc) { return a.expiresAtUtc ? -1 : b.expiresAtUtc ? 1 : a.id - b.id; }
@@ -154,6 +155,16 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       }
       return (this.usersDirection === 'asc' ? comparison : -comparison) || a.id - b.id;
     });
+  }
+  userEmailFilter = '';
+  trackUser(index: number, row: { id: number }) { return row.id; }
+  planHint: { html: string; left: number; top: number } | null = null;
+  showPlanHint(event: Event, html: string) {
+    if (!html) { this.planHint = null; return; }
+    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    this.planHint = { html,
+      left: Math.max(12, Math.min(bounds.left, window.innerWidth - Math.min(420, window.innerWidth - 24) - 12)),
+      top: Math.max(12, Math.min(bounds.bottom + 8, window.innerHeight - Math.min(320, window.innerHeight - 24) - 12)) };
   }
   sortUsers(column: string) {
     if (this.usersLoading || !this.userColumns.some(c => c.key === column)) { return; }

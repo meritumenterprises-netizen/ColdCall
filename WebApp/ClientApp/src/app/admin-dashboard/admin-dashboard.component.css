@@ -44,3 +44,7 @@
 .delete-csv-dialog h2 { font-size: 22px; margin-top: 0; }
 .delete-csv-dialog::backdrop { background: #0008; }
 .delete-csv-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.admin-user-email-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.admin-user-email-filter input { width: 400px; max-width: calc(100% - 60px); }
+.admin-plan-label { cursor: default; }
+.admin-plan-tooltip { position: fixed; z-index: 1100; width: 420px; max-width: calc(100vw - 24px); max-height: min(320px, calc(100vh - 24px)); overflow: auto; padding: 14px 18px; background: #fff; color: #111827; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 16px #0003; box-sizing: border-box; pointer-events: none; font-size: 12px; line-height: 1.4; }
