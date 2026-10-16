@@ -285,6 +285,7 @@ tbody tr:hover { background: #f8fafc; }
   font-weight: 900;
 }
 .plan-description { min-height: 48px; color: #475569; line-height: 1.5; }
+.plan-card > .primary-button { margin-top: auto; }
 .plan-description p { margin: 0; }
 .price { font-size: 22px; font-weight: 900; color: #111827; }
 
@@ -318,3 +319,8 @@ tbody tr:hover { background: #f8fafc; }
   .plan-grid { grid-template-columns: 1fr; }
   .sidebar { min-height: auto; }
 }
+.company-count-card { display: inline-flex; flex-direction: column; align-items: center; padding: 20px 28px; margin: 16px 0; max-width: 100%; background: #0f8f6a; color: #fff; border: 1px solid #0f8f6a; border-radius: 8px; box-sizing: border-box; }
+.company-count-value { font-size: 42px; line-height: 1.15; font-weight: 800; white-space: nowrap; }
+.company-count-label { margin-top: 8px; font-size: 16px; color: #dbeafe; }
+.company-count-retry { margin-top: 10px; border: 0; background: transparent; color: #6ee7b7; text-decoration: underline; cursor: pointer; }
+@media (max-width: 480px) { .company-count-card { padding: 16px; } .company-count-value { font-size: 32px; } }

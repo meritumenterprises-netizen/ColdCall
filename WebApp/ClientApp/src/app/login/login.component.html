@@ -2,6 +2,11 @@
   <div class="login-art">
     <div class="brand-mark">FMN</div>
     <h1>FindMeNow</h1>
+    <article class="company-count-card" aria-live="polite">
+      <div class="company-count-value">{{ companyCount === null ? (companyCountError ? '-' : '...') : formatCompanyCount() }}</div>
+      <div class="company-count-label">Liczba firm</div>
+      <button *ngIf="companyCountError" type="button" class="company-count-retry" (click)="loadCompanyCount()">Pon&#243;w</button>
+    </article>
     <p>Self-hosted platforma B2B Sales Intelligence oparta na aktualnych danych rejestrowych CEIDG, KRS i REGON.</p>
   </div>
 

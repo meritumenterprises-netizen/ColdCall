@@ -53,4 +53,21 @@ public class AuthController : ControllerBase
             }
         });
     }
+
+    [HttpGet("profile")]
+    public async Task<IActionResult> Profile()
+    {
+        var user = await _currentUserService.GetOrCreateAsync(User);
+        var plan = await _db.UserPlans.AsNoTracking()
+            .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
+            .OrderByDescending(x => x.ExpiresAtUtc)
+            .Select(x => new
+            {
+                x.PlanDefinition.Code,
+                x.PlanDefinition.DescriptionHtml,
+                x.PlanDefinition.MaxNumberOfSearches,
+                x.ExpiresAtUtc
+            }).FirstOrDefaultAsync();
+        return Ok(new { user.DisplayName, user.GoogleEmail, user.IsAdmin, plan });
+    }
 }

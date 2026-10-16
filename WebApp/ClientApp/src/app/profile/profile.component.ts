@@ -1,7 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import { ApiService, CurrentPlan } from '../services/api.service';
+import { ActivatedRoute } from '@angular/router';
+import { ApiService, CurrentPlan, UserProfile } from '../services/api.service';
 
 @Component({
   selector: 'app-profile',
@@ -10,11 +11,14 @@ import { ApiService, CurrentPlan } from '../services/api.service';
 })
 export class ProfileComponent implements OnInit, OnDestroy {
   plan: CurrentPlan | null = null;
+  profile: UserProfile | null = null;
   loading = true;
   error = '';
   private request: Subscription | null = null;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private route: ActivatedRoute) {}
+
+  get isDataPanel() { return this.route.snapshot.data.section === 'data'; }
 
   ngOnInit() { this.loadPlan(); }
 
@@ -22,9 +26,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
     if (this.request) { this.request.unsubscribe(); }
     this.loading = true;
     this.error = '';
-    this.request = this.api.me().pipe(finalize(() => this.loading = false)).subscribe(user => {
+    this.request = this.api.profile().pipe(finalize(() => this.loading = false)).subscribe(user => {
+      this.profile = user;
       this.plan = user.plan || null;
-    }, () => this.error = 'Nie udało się pobrać szczegółów planu.');
+    }, () => this.error = 'Nie udało się pobrać danych profilu.');
   }
 
   ngOnDestroy() { if (this.request) { this.request.unsubscribe(); } }

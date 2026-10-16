@@ -8,6 +8,7 @@ public partial class ColdCallDbContext
 {
     public DbSet<Adres> Adresy => Set<Adres>();
     public DbSet<CompanyUserNote> CompanyUserNotes => Set<CompanyUserNote>();
+    public DbSet<CsvExport> CsvExports => Set<CsvExport>();
     public DbSet<CompanyAddress> CompanyAddresses => Set<CompanyAddress>();
     public DbSet<AdresView> AddressView => Set<AdresView>();
     public DbSet<CompanyAddressView> CompanyAddressesView => Set<CompanyAddressView>();
@@ -27,6 +28,23 @@ public partial class ColdCallDbContext
 
     private static void ConfigureDatabaseSchema(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<CsvExport>(entity =>
+        {
+            entity.ToTable("CSVExport", "ColdCall");
+            entity.Property(x => x.SearchProfileHash).HasColumnType("nvarchar(32)")
+                .HasMaxLength(32).IsUnicode().IsRequired(false);
+            entity.Property(x => x.NumberOfRecords).HasColumnType("int").IsRequired(false);
+            entity.HasKey(x => x.EksportCsvId).HasName("PK_CSVExport").IsClustered();
+            entity.Property(x => x.EksportCsvId).HasColumnName("EksportCSVId").UseIdentityColumn(1, 1);
+            entity.Property(x => x.SearchProfileId).HasColumnType("int").IsRequired(false);
+            entity.HasOne(x => x.SearchProfile).WithMany().HasForeignKey(x => x.SearchProfileId)
+                .HasConstraintName("FK_CSVExport_SearchProfiles").OnDelete(DeleteBehavior.NoAction);
+            entity.Property(x => x.CreatedOn).HasColumnType("datetime").IsRequired().HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.CsvFileNameId).HasColumnName("CSVFileNameId").HasColumnType("uniqueidentifier")
+                .IsRequired().HasDefaultValueSql("NEWID()");
+            entity.Property(x => x.CsvFileName).HasColumnName("CSVFileName").HasColumnType("nvarchar(2048)")
+                .HasMaxLength(2048).IsUnicode().IsRequired();
+        });
         modelBuilder.Entity<CompanyUserNote>(entity =>
         {
             entity.ToTable("CompanyUserNotes");
@@ -42,8 +60,22 @@ public partial class ColdCallDbContext
                 .HasConstraintName("FK_CompanyUserNotes_Users").OnDelete(DeleteBehavior.NoAction);
         });
         modelBuilder.Entity<AppUser>().Property(x => x.GoogleEmail).HasMaxLength(450);
+        modelBuilder.Entity<AppUser>(entity =>
+        {
+            entity.ToTable("Users", "ColdCall");
+            entity.HasKey(x => x.Id).HasName("PK_Users").IsClustered();
+            entity.Property(x => x.Id).UseIdentityColumn(1, 1);
+            entity.Property(x => x.GoogleSubject).HasColumnType("nvarchar(max)").IsRequired();
+            entity.Property(x => x.GoogleEmail).HasColumnType("nvarchar(450)").HasMaxLength(450).IsRequired();
+            entity.Property(x => x.DisplayName).HasColumnType("nvarchar(max)").IsRequired(false);
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("datetime2").IsRequired();
+            entity.Property(x => x.LastLoginAtUtc).HasColumnType("datetime2").IsRequired();
+            entity.HasIndex(x => x.GoogleEmail).HasDatabaseName("IX_Users_GoogleEmail").IsUnique().IsClustered(false);
+        });
         modelBuilder.Entity<AppUser>().Property(x => x.IsAdmin).HasColumnType("bit").IsRequired()
             .HasDefaultValue(false);
+        modelBuilder.Entity<AppUser>().Property(x => x.IsEnabled).HasColumnType("bit").IsRequired()
+            .HasDefaultValue(true).HasSentinel(true);
         modelBuilder.Entity<AppUser>().Property(x => x.UsesGmail).HasColumnType("bit").IsRequired()
             .HasDefaultValue(true).HasSentinel(true);
         modelBuilder.Entity<AdminEmail>().Property(x => x.Email).HasMaxLength(450);
@@ -75,7 +107,19 @@ public partial class ColdCallDbContext
         modelBuilder.Entity<PkdCode>().Property(x => x.CodeWithoutDots).HasMaxLength(4000).IsRequired(false);
         modelBuilder.Entity<CompanyPkd>().HasIndex(x => x.PkdCodeId);
         modelBuilder.Entity<SearchProfilePkd>().HasIndex(x => x.PkdCodeId);
-        modelBuilder.Entity<SearchProfile>().HasIndex(x => x.AppUserId);
+        modelBuilder.Entity<SearchProfile>(entity =>
+        {
+            entity.ToTable("SearchProfiles", "ColdCall");
+            entity.Property(x => x.SearchProfileHash).HasColumnType("nvarchar(1024)")
+                .HasMaxLength(1024).IsUnicode().IsRequired(false);
+            entity.HasKey(x => x.Id).HasName("PK_SearchProfiles").IsClustered();
+            entity.Property(x => x.Id).UseIdentityColumn(1, 1);
+            entity.Property(x => x.Name).HasColumnType("nvarchar(max)").IsRequired();
+            entity.Property(x => x.CreatedAtUtc).HasColumnType("datetime2").IsRequired();
+            entity.HasIndex(x => x.AppUserId).HasDatabaseName("IX_SearchProfiles_AppUserId").IsClustered(false);
+            entity.HasOne(x => x.AppUser).WithMany(x => x.SearchProfiles).HasForeignKey(x => x.AppUserId)
+                .HasConstraintName("FK_SearchProfiles_Users_AppUserId").OnDelete(DeleteBehavior.Cascade);
+        });
         modelBuilder.Entity<UserPlan>().HasIndex(x => x.AppUserId);
         modelBuilder.Entity<UserPlan>().Property(x => x.IsActive).HasColumnType("bit").IsRequired(false);
         modelBuilder.Entity<UserPlan>().HasIndex(x => x.PlanDefinitionId);

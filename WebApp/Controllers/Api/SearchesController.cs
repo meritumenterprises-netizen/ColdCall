@@ -40,6 +40,26 @@ public class SearchesController : ControllerBase
     [HttpPost]
     public Task<ActionResult<SearchProfileDto>> Save(SaveSearchProfileDto request) => SaveCore(request, null);
 
+    [HttpPost("{id:int}/check-csv-export")]
+    public async Task<ActionResult> CheckCsvExport(int id, CancellationToken cancellationToken)
+    {
+        var user = await _currentUserService.GetOrCreateAsync(User);
+        var profile = await _db.SearchProfiles.Include(p => p.Criteria).Include(p => p.PkdCodes)
+            .AsSplitQuery().SingleOrDefaultAsync(p => p.Id == id && p.AppUserId == user.Id, cancellationToken);
+        if (profile == null) return NotFound();
+        profile.SearchProfileHash = SearchProfileHashCalculator.Calculate(profile);
+        var exportedProfiles = await _db.SearchProfiles.Include(p => p.Criteria).Include(p => p.PkdCodes)
+            .Where(p => p.AppUserId == user.Id && _db.CsvExports.Any(e => e.SearchProfileId == p.Id && e.SearchProfileHash == null))
+            .AsSplitQuery().ToListAsync(cancellationToken);
+        // Preserve a snapshot, rather than comparing exports against mutable profile criteria.
+        foreach (var exported in exportedProfiles)
+            await SearchProfileHashCalculator.FreezeLegacyExportsAsync(_db, exported, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
+        var exists = await _db.CsvExports.AnyAsync(e => e.SearchProfile != null && e.SearchProfile.AppUserId == user.Id
+            && e.SearchProfileHash == profile.SearchProfileHash, cancellationToken);
+        return Ok(new { hash = profile.SearchProfileHash, exists });
+    }
+
     [HttpPut("{id:int}")]
     public Task<ActionResult<SearchProfileDto>> Update(int id, SaveSearchProfileDto request) => SaveCore(request, id);
 
@@ -85,6 +105,7 @@ public class SearchesController : ControllerBase
             profile = new SearchProfile { AppUserId = user.Id };
             _db.SearchProfiles.Add(profile);
         }
+        if (id.HasValue) await SearchProfileHashCalculator.FreezeLegacyExportsAsync(_db, profile);
         profile.Name = request.Name.Trim();
         profile.Criteria ??= new SearchProfileCriteria();
         _db.Entry(profile.Criteria).CurrentValues.SetValues(new SearchProfileCriteria
@@ -111,6 +132,7 @@ public class SearchesController : ControllerBase
             profile.PkdCodes.Add(new SearchProfilePkd { PkdCodeId = pkdId });
         }
 
+        profile.SearchProfileHash = SearchProfileHashCalculator.Calculate(profile);
         await _db.SaveChangesAsync();
 
         var pkds = await _db.PkdCodes

@@ -1,4 +1,6 @@
-import { AfterViewInit, ChangeDetectorRef, Component, NgZone } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { Subscription } from 'rxjs';
+import { retry, timeout } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { ApiService } from '../services/api.service';
 
@@ -8,7 +10,32 @@ declare const google: any;
   selector: 'app-login',
   templateUrl: './login.component.html'
 })
-export class LoginComponent implements AfterViewInit {
+export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
+  companyCount: number | null = null;
+  companyCountError = false;
+  private countRequest: Subscription | null = null;
+  private countFormatter = new Intl.NumberFormat('pl-PL');
+
+  ngOnInit() {
+    this.loadCompanyCount();
+  }
+
+  loadCompanyCount() {
+    if (this.countRequest) { this.countRequest.unsubscribe(); }
+    this.companyCountError = false;
+    this.countRequest = this.api.companyCount().pipe(timeout(15000), retry(1)).subscribe(result => {
+      this.zone.run(() => {
+        this.companyCount = result.count;
+        this.companyCountError = false;
+      });
+    }, () => this.zone.run(() => this.companyCountError = true));
+  }
+
+  ngOnDestroy() {
+    if (this.countRequest) { this.countRequest.unsubscribe(); }
+  }
+
+  formatCompanyCount() { return this.companyCount === null ? '' : this.countFormatter.format(this.companyCount); }
   error = '';
   isLoading = true;
   currentOrigin = window.location.origin;

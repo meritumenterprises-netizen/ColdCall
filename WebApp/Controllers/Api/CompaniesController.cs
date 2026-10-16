@@ -4,7 +4,6 @@ using ColdCall.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using NetTopologySuite.Geometries;
 
 namespace ColdCall.Controllers.Api;
 
@@ -15,11 +14,13 @@ public class CompaniesController : ControllerBase
 {
     private readonly ColdCallDbContext _db;
     private readonly ICurrentUserService _currentUserService;
+    private readonly CompanyCsvExportService _csvExporter;
 
-    public CompaniesController(ColdCallDbContext db, ICurrentUserService currentUserService)
+    public CompaniesController(ColdCallDbContext db, ICurrentUserService currentUserService, CompanyCsvExportService csvExporter)
     {
         _db = db;
         _currentUserService = currentUserService;
+        _csvExporter = csvExporter;
     }
 
     [HttpGet]
@@ -43,8 +44,7 @@ public class CompaniesController : ControllerBase
         [FromQuery] int? miejscowoscId = null,
         [FromQuery] int? radiusKm = null,
         [FromQuery] bool addressLocality = false,
-        [FromQuery] int? modifiedWithinDays = null,
-        [FromQuery] bool downloadCsv = false)
+        [FromQuery] int? modifiedWithinDays = null)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         var hasActivePlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow);
@@ -60,48 +60,21 @@ public class CompaniesController : ControllerBase
             return StatusCode(StatusCodes.Status403Forbidden, new { message = "Plan nie pozwala na pobieranie rekordow." });
         // The plan, not a request parameter or a saved search, determines the result cap.
         recordLimit = maximumRecordLimit;
-        if (modifiedWithinDays.HasValue && modifiedWithinDays is not (7 or 30))
-            return BadRequest(new { message = "Dopuszczalne okresy aktywnosci to 7 lub 30 dni." });
-        if (startedFrom.HasValue != startedTo.HasValue || (startedFrom.HasValue && startedTo <= startedFrom))
-            return BadRequest(new { message = "Both dates are required and the end date must be later than the start date." });
-        if (new[] { wojewodztwoId, powiatId, gminaId, miejscowoscId }.Any(id => id is <= 0))
-            return BadRequest(new { message = "Niepoprawny identyfikator adresu." });
-        if (addressLocality && !miejscowoscId.HasValue)
-            return BadRequest(new { message = "Wybierz miejscowosc." });
-        if (radiusKm.HasValue && (!new[] { 1, 5, 10, 20, 50, 100, 200, 500 }.Contains(radiusKm.Value)
-            || !miejscowoscId.HasValue))
-            return BadRequest(new { message = "Wybierz miejscowosc i poprawny promien." });
-        var query = ApplyDetailFilters(ApplyPkdFilter(BaseCompanyQuery(), pkdIds),
-            address, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
-        if (radiusKm.HasValue)
+        IQueryable<CompanyShortDto> query;
+        try
         {
-            var center = await LocalityCenter(null, null, gminaId, miejscowoscId!.Value);
-            if (center == null)
-                return BadRequest(new { message = "Brak wspolrzednych dla wybranej miejscowosci." });
-            query = ApplyRadiusFilter(query, center, radiusKm.Value);
+            query = await new CompanySearchQuery(_db).BuildAsync(new SearchProfileCriteria
+            {
+                CompanyName = companyName ?? "", Address = address ?? "", HasPhone = hasPhone, HasEmail = hasEmail,
+                HasWebsite = hasWebsite, DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue,
+                DateFrom = startedFrom, DateTo = startedTo, WojewodztwoId = wojewodztwoId, PowiatId = powiatId,
+                GminaId = gminaId, MiejscowoscId = miejscowoscId,
+                HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
+            }, pkdIds, modifiedWithinDays, addressLocality);
         }
-        else if (addressLocality)
+        catch (ArgumentException exception)
         {
-            query = query.Where(company => _db.CompanyAddresses.Any(link => link.CompanyId == company.Id
-                && link.Address.MiejscowoscId == miejscowoscId
-                && (!gminaId.HasValue || link.Address.GminaId == gminaId)));
-        }
-        else
-        {
-            query = ApplyAdministrativeFilter(query, wojewodztwoId, powiatId, gminaId, miejscowoscId);
-        }
-        if (!string.IsNullOrWhiteSpace(companyName) && companyName.Trim().Length >= 3)
-            query = query.Where(x => x.Name.Contains(companyName.Trim()));
-        if (modifiedWithinDays.HasValue)
-            query = query.Where(row => _db.Companies.Any(company => company.Id == row.Id
-                && company.DataModifiedOn.HasValue
-                && company.DataModifiedOn >= DateTime.Now.AddDays(-modifiedWithinDays.Value)
-                && company.DataModifiedOn <= DateTime.Now));
-
-        if (downloadCsv)
-        {
-            var rows = await query.ApplyCompanyShortSort(sortBy, direction).Take(recordLimit.Value).ToListAsync();
-            return CreateCsv(rows);
+            return BadRequest(new { message = exception.Message });
         }
 
         var total = await query.OrderBy(x => x.Id).Select(x => x.Id).Take(recordLimit.Value).CountAsync();
@@ -153,114 +126,102 @@ public class CompaniesController : ControllerBase
         return Ok(new CompanyDetailsDto(company, pkds, addresses));
     }
 
-    private FileContentResult CreateCsv(IEnumerable<CompanyShortDto> rows)
+    [HttpPost("export")]
+    public async Task<IActionResult> Export(ExportCompaniesRequest request, CancellationToken cancellationToken)
     {
-        var csv = "Id;Name;Nip;FullAddress;Phone;Email;Www;DataAktywnosci;TypyDzialalnosci\n"
-            + string.Join("\n", rows.Select(x => string.Join(';', new[]
-            {
-                Csv(x.Id.ToString()), Csv(x.Name), Csv(x.Nip), Csv(x.FullAddress),
-                Csv(x.Phone), Csv(x.Email), Csv(x.Www),
-                Csv(x.DataAktywnosci?.ToString("yyyy-MM-dd")), Csv(x.TypyDzialalnosci)
-            })));
-        var encoding = new System.Text.UTF8Encoding(true);
-        return File(encoding.GetPreamble().Concat(encoding.GetBytes(csv)).ToArray(), "text/csv; charset=utf-8", "firmy.csv");
-    }
-
-    private IQueryable<CompanyShortDto> BaseCompanyQuery() =>
-        from row in _db.CompaniesShort
-        select new CompanyShortDto
+        var user = await _currentUserService.GetOrCreateAsync(User);
+        var isAdmin = await _db.AdminEmails.AnyAsync(x => x.Email == user.GoogleEmail, cancellationToken);
+        var hasPlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow, cancellationToken);
+        if (!isAdmin && !hasPlan) return StatusCode(402, new { message = "Plan wygasl." });
+        var limit = await PlanRecordLimits.ForUserAsync(_db, user.Id, isAdmin);
+        if (limit <= 0) return StatusCode(403, new { message = "Plan nie pozwala na eksport rekordow." });
+        var profile = await _db.SearchProfiles.AsNoTracking().Include(x => x.Criteria).Include(x => x.PkdCodes)
+            .AsSplitQuery().SingleOrDefaultAsync(x => x.Id == request.SearchProfileId && x.AppUserId == user.Id, cancellationToken);
+        if (profile == null) return NotFound(new { message = "Nie znaleziono zapisanego wyszukiwania." });
+        try
         {
-            Id = row.Id,
-            Name = row.Name,
-            Nip = row.Nip,
-            FullAddress = row.FullAddress,
-            Phone = row.Phone,
-            Email = row.Email,
-            Www = row.Www,
-            DataAktywnosci = row.DataAktywnosci,
-            TypyDzialalnosci = row.TypDzialalnosci
-        };
-
-    private IQueryable<CompanyShortDto> ApplyPkdFilter(IQueryable<CompanyShortDto> query, int[]? pkdIds)
-    {
-        var selectedPkdIds = pkdIds?.Where(x => x > 0).Distinct().ToArray() ?? Array.Empty<int>();
-        return selectedPkdIds.Length == 0
-            ? query
-            : query.Where(company => _db.CompanyPkds.Any(companyPkd =>
-                companyPkd.CompanyId == company.Id && selectedPkdIds.Contains(companyPkd.PkdCodeId)));
-    }
-
-    private IQueryable<CompanyShortDto> ApplyAdministrativeFilter(IQueryable<CompanyShortDto> query,
-        int? wojewodztwoId, int? powiatId, int? gminaId, int? miejscowoscId)
-    {
-        if (!wojewodztwoId.HasValue && !powiatId.HasValue && !gminaId.HasValue && !miejscowoscId.HasValue)
-            return query;
-        return query.Where(row => _db.Companies.Any(company => company.Id == row.Id
-            && (!wojewodztwoId.HasValue || company.WojewodztwoId == wojewodztwoId)
-            && (!powiatId.HasValue || company.PowiatId == powiatId)
-            && (!gminaId.HasValue || company.GminaId == gminaId)
-            && (!miejscowoscId.HasValue || company.MiejscowoscId == miejscowoscId)));
-    }
-
-    private async Task<Point?> LocalityCenter(int? wojewodztwoId, int? powiatId, int? gminaId, int miejscowoscId)
-    {
-        // The dictionary has no center point; estimate it from distinct valid address coordinates.
-        var coordinates = await _db.Adresy.AsNoTracking()
-            .Where(a => (!wojewodztwoId.HasValue || a.WojewodztwoId == wojewodztwoId)
-                && (!powiatId.HasValue || a.PowiatId == powiatId)
-                && (!gminaId.HasValue || a.GminaId == gminaId) && a.MiejscowoscId == miejscowoscId
-                && a.Latitude.HasValue && a.Longitude.HasValue
-                && a.Latitude >= -90 && a.Latitude <= 90 && a.Longitude >= -180 && a.Longitude <= 180
-                && (a.Latitude != 0 || a.Longitude != 0))
-            .Select(a => new { a.Latitude, a.Longitude }).Distinct()
-            .GroupBy(a => 1)
-            .Select(group => new { Latitude = group.Average(a => a.Latitude), Longitude = group.Average(a => a.Longitude) })
-            .SingleOrDefaultAsync();
-        return coordinates?.Longitude == null || coordinates.Latitude == null
-            ? null : new Point((double)coordinates.Longitude.Value, (double)coordinates.Latitude.Value) { SRID = 4326 };
-    }
-
-    private IQueryable<CompanyShortDto> ApplyRadiusFilter(IQueryable<CompanyShortDto> query, Point center, int radiusKm)
-    {
-        var radiusMeters = radiusKm * 1000d;
-        // Keep distance evaluation in SQL: geography.STDistance returns meters, unlike client-side NTS.
-        return query.Where(company => _db.CompanyAddresses.Any(link => link.CompanyId == company.Id
-            && link.Address.Location != null && link.Address.Location.Distance(center) <= radiusMeters));
-    }
-
-    private static IQueryable<CompanyShortDto> ApplyDetailFilters(
-        IQueryable<CompanyShortDto> query, string? address, bool? hasPhone, bool? hasEmail,
-        bool? hasWebsite, DateOnly? startedFrom, DateOnly? startedTo)
-    {
-        if (!string.IsNullOrWhiteSpace(address))
-            query = query.Where(x => x.FullAddress.Contains(address.Trim()));
-        if (hasPhone.HasValue)
-            query = hasPhone.Value ? query.Where(x => x.Phone != null && x.Phone.Trim() != "")
-                : query.Where(x => x.Phone == null || x.Phone.Trim() == "");
-        if (hasEmail.HasValue)
-            query = hasEmail.Value ? query.Where(x => x.Email != null && x.Email.Trim() != "")
-                : query.Where(x => x.Email == null || x.Email.Trim() == "");
-        if (hasWebsite.HasValue)
-            query = hasWebsite.Value ? query.Where(x => x.Www != null && x.Www.Trim() != "")
-                : query.Where(x => x.Www == null || x.Www.Trim() == "");
-        if (startedFrom.HasValue && startedTo.HasValue)
-        {
-            var from = startedFrom.Value.ToDateTime(TimeOnly.MinValue);
-            query = query.Where(x => x.DataAktywnosci >= from);
-            if (startedTo.Value == DateOnly.MaxValue)
-                query = query.Where(x => x.DataAktywnosci <= DateTime.MaxValue);
-            else
-            {
-                var until = startedTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue);
-                query = query.Where(x => x.DataAktywnosci < until);
-            }
+            await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+            var lockName = "CSVExport:" + profile.Id;
+            await _db.Database.ExecuteSqlInterpolatedAsync($@"
+                DECLARE @result int;
+                EXEC @result = sys.sp_getapplock @Resource={lockName}, @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
+                IF @result < 0 THROW 50001, 'CSV export lock unavailable', 1;", cancellationToken);
+            var quota = await CsvExportLimits.ForSearchAsync(_db, user.Id, profile.Id, cancellationToken);
+            if (quota.Remaining == 0)
+                return StatusCode(409, new { message = "Osiagnieto limit eksportow CSV dla tego wyszukiwania." });
+            var query = await new CompanySearchQuery(_db).BuildAsync(profile.Criteria ?? new SearchProfileCriteria(),
+                profile.PkdCodes.Select(x => x.PkdCodeId).ToArray(), request.ModifiedWithinDays);
+            var ids = await query.ApplyCompanyShortSort(request.SortBy, request.Direction).Select(x => x.Id)
+                .Take(limit).ToListAsync(cancellationToken);
+            if (ids.Count == 0) return BadRequest(new { message = "Brak rekordow do eksportu." });
+            var csv = await _csvExporter.ExportAsync(user, profile, ids, request.ModifiedWithinDays, cancellationToken, request.SearchName);
+            await transaction.CommitAsync(cancellationToken);
+            return File(csv.Content, "text/csv; charset=utf-8", csv.Name);
         }
-        return query;
+        catch (ArgumentException exception)
+        {
+            return BadRequest(new { message = exception.Message });
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or DbUpdateException)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<CompaniesController>>().LogError(exception, "CSV export failed for search {SearchId}", profile.Id);
+            return StatusCode(500, new { message = "Nie udalo sie zapisac pliku CSV." });
+        }
     }
 
-    private static string Csv(string? value)
+    [HttpGet("export-quota")]
+    public async Task<ActionResult<CsvExportQuota>> ExportQuota([FromQuery] int searchProfileId, CancellationToken cancellationToken)
     {
-        value ??= "";
-        return "\"" + value.Replace("\"", "\"\"") + "\"";
+        try
+        {
+        var user = await _currentUserService.GetOrCreateAsync(User);
+        if (!await _db.SearchProfiles.AnyAsync(p => p.Id == searchProfileId && p.AppUserId == user.Id, cancellationToken))
+            return NotFound();
+        return Ok(await CsvExportLimits.ForSearchAsync(_db, user.Id, searchProfileId, cancellationToken));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return new EmptyResult();
+        }
+    }
+
+    [HttpGet("exports")]
+    public async Task<ActionResult<IReadOnlyList<CsvExportDto>>> Exports([FromQuery] int searchProfileId,
+        [FromQuery] string sortBy = "createdOn", [FromQuery] string direction = "desc", CancellationToken cancellationToken = default)
+    {
+        try
+        {
+        var user = await _currentUserService.GetOrCreateAsync(User);
+        if (sortBy is not ("csvFileName" or "createdOn" or "numberOfRecords") || direction is not ("asc" or "desc"))
+            return BadRequest(new { message = "Niepoprawne sortowanie eksportow." });
+        if (!await _db.SearchProfiles.AnyAsync(p => p.Id == searchProfileId && p.AppUserId == user.Id, cancellationToken))
+            return NotFound();
+        var query = _db.CsvExports.AsNoTracking().Where(e => e.SearchProfileId == searchProfileId);
+        var ordered = sortBy == "csvFileName"
+            ? direction == "asc" ? query.OrderBy(e => e.CsvFileName) : query.OrderByDescending(e => e.CsvFileName)
+            : sortBy == "numberOfRecords"
+                ? direction == "asc" ? query.OrderBy(e => e.NumberOfRecords) : query.OrderByDescending(e => e.NumberOfRecords)
+                : direction == "asc" ? query.OrderBy(e => e.CreatedOn) : query.OrderByDescending(e => e.CreatedOn);
+        return Ok(await ordered.ThenBy(e => e.EksportCsvId)
+            .Select(e => new CsvExportDto(e.EksportCsvId, user.Id, searchProfileId, e.CsvFileName, e.CreatedOn, e.NumberOfRecords))
+            .ToListAsync(cancellationToken));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return new EmptyResult();
+        }
+    }
+
+    [HttpGet("DownloadCSV")]
+    public async Task<IActionResult> DownloadCSV([FromQuery] int userId, [FromQuery] int searchProfileId,
+        [FromQuery] string fileName, CancellationToken cancellationToken)
+    {
+        var user = await _currentUserService.GetOrCreateAsync(User);
+        if (userId != user.Id) return Forbid();
+        var ownsExport = await _db.CsvExports.AsNoTracking().AnyAsync(e => e.SearchProfileId == searchProfileId
+            && e.CsvFileName == fileName && e.SearchProfile!.AppUserId == user.Id, cancellationToken);
+        if (!ownsExport) return NotFound();
+        var path = _csvExporter.FindFile(user.Id, searchProfileId, fileName);
+        return path == null ? NotFound() : PhysicalFile(path, "text/csv; charset=utf-8", fileName, enableRangeProcessing: true);
     }
 }
