@@ -125,6 +125,11 @@ textarea { resize: vertical; }
   padding: 22px;
 }
 .sidebar-title { color: #93c5fd; font-weight: 800; margin-bottom: 18px; }
+.sidebar-nav-link { display: block; padding: 10px 12px; border-radius: 4px; color: #e2e8f0; text-decoration: none; font-weight: 600; }
+.sidebar-nav-link:hover, .sidebar-nav-link:focus-visible { background: #24324a; color: white; }
+.sidebar-nav-link.active { background: #0f8f6a; color: white; }
+.sidebar-subnav { list-style: none; margin: 4px 0 16px 16px; padding: 0 0 0 8px; border-left: 1px solid #475569; }
+.sidebar-heading .sidebar-nav-link { flex: 1; }
 .search-item {
   width: 100%;
   text-align: left;

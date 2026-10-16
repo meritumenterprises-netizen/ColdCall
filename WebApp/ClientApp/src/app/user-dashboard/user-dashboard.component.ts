@@ -1,7 +1,14 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { Observable, of, Subscription, timer } from 'rxjs';
-import { finalize, switchMap } from 'rxjs/operators';
-import { AddressLevel, AddressOption, ApiService, CompanyFilters, CompanyShort, Pkd, SearchProfile, SortableColumn } from '../services/api.service';
+import { from, Observable, of, Subscription, timer } from 'rxjs';
+import { catchError, concatMap, finalize, map, switchMap } from 'rxjs/operators';
+import { AddressLevel, AddressOption, ApiService, CompanyFilters, CompanyShort, Pkd, SearchCriteria, SearchProfile, SortableColumn } from '../services/api.service';
+
+interface ResultTab {
+  key: string;
+  label: string;
+  days: number | undefined;
+  page: number;
+}
 
 @Component({
   selector: 'app-user-dashboard',
@@ -10,19 +17,32 @@ import { AddressLevel, AddressOption, ApiService, CompanyFilters, CompanyShort, 
 })
 export class UserDashboardComponent implements OnInit, OnDestroy {
   searches: SearchProfile[] = [];
+  searchRecordCounts: { [id: number]: number | null } = {};
+  private searchCountsRequest: Subscription | null = null;
+  private searchesLoaded = false;
+  @ViewChild('searchNameInput', { static: true }) searchNameInput: ElementRef;
   allPkds: Pkd[] = [];
   selectedPkds: Pkd[] = [];
   pkdTerm = '';
   pkdDescription = '';
   classifyingPkd = false;
   @ViewChild('pkdErrorDialog', { static: true }) pkdErrorDialog: ElementRef;
+  @ViewChild('saveSearchDialog', { static: true }) saveSearchDialog: ElementRef;
   pkdClassificationMessage = '';
   pkdClassificationError = '';
   private pkdClassificationRequest: Subscription | null = null;
   restoringSearch = false;
   private searchesRequest: Subscription | null = null;
   private restoreSearchRequest: Subscription | null = null;
-  activeFilterTab: 'pkd' | 'criteria' | 'address' = 'pkd';
+  activeDashboardTab: 'search' | 'export' = 'search';
+  activeFilterTab: 'pkd' | 'criteria' | 'address' = 'criteria';
+  readonly resultTabs: ResultTab[] = [
+    { key: 'all', label: 'Wszystkie', days: undefined, page: 1 },
+    { key: '30', label: 'Nowe od 30 dni', days: 30, page: 1 },
+    { key: '7', label: 'Nowe od 7 dni', days: 7, page: 1 }
+  ];
+  activeResultTab = this.resultTabs[0];
+  private allResultsCountRequest: Subscription | null = null;
   addressFields: { level: AddressLevel; label: string; options: AddressOption[]; visible: AddressOption[];
     selectedId: number | null; term: string; loading: boolean; error: string; request: Subscription | null }[] =
     [
@@ -35,8 +55,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   radiusEnabled = false;
   radiusKm = 1;
   private addressFiltersChanged = false;
-  private recordLimitChanged = false;
-  readonly recordLimitOptions = [100, 500, 1000, 2000, 5000];
+  maxRecordLimit = 0;
   readonly radiusOptions = [1, 5, 10, 20, 50, 100, 200, 500];
   pkdSuggestions: Pkd[] = [];
   maxSelectedPkds = 10;
@@ -50,12 +69,14 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   readonly pageSize = 10;
   readonly loadingRows = Array.from({ length: 10 }, (_, index) => index);
   loading = false;
+  private refreshingSearchCount = false;
   private companiesRequest: Subscription | null = null;
   page = 1;
   sortBy = 'dataAktywnosci';
   direction = 'desc';
   searchName = '';
   currentSearchId: number | null = null;
+  private nextDraftId = -1;
   savingSearch = false;
   searchSaved = false;
 
@@ -65,7 +86,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private companyNameDelay: Subscription | null = null;
   error = '';
   filterError = '';
-  recordLimitError = '';
   filterDraft: CompanyFilters = { companyName: '', address: '', hasPhone: null, hasEmail: null, hasWebsite: null, recordLimit: 1000 };
   appliedFilters: CompanyFilters = { ...this.filterDraft };
   private lastUpdatedFilterState: string | null = null;
@@ -88,6 +108,11 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   constructor(private api: ApiService) {}
 
   ngOnInit() {
+    const user = this.api.user();
+    this.maxRecordLimit = user && Number.isInteger(user.maxNumberOfExportedRecords)
+      ? Math.max(0, user.maxNumberOfExportedRecords) : 0;
+    this.filterDraft.recordLimit = this.maxRecordLimit;
+    this.appliedFilters = { ...this.filterDraft };
     this.lastUpdatedFilterState = this.filterState();
     this.loadSearches();
     this.loadPkds();
@@ -97,14 +122,136 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.restoringSearch = true;
     this.searchesRequest = this.api.searches().subscribe(profiles => {
       this.searches = profiles;
+      this.searchesLoaded = true;
       if (profiles.length) { this.selectSearch(profiles[0]); }
       else { this.restoringSearch = false; this.loadAddressOptions(0); this.loadCompanies(); }
+      this.refreshSearchCounts(profiles);
     }, () => {
       this.restoringSearch = false;
       this.loadAddressOptions(0);
       this.loadCompanies();
       this.filterError = 'Nie udalo sie pobrac zapisanych wyszukiwan.';
     });
+  }
+
+  searchRecordLabel(search: SearchProfile) {
+    if (search.id === this.currentSearchId && ((!this.activeResultTab.days && this.refreshingSearchCount) || this.restoringSearch)) { return '... rekord\u00f3w'; }
+    const count = this.searchRecordCounts[search.id];
+    return typeof count === 'number' ? this.formatNumber(count) + ' rekord\u00f3w'
+      : count === null ? '- rekord\u00f3w' : '... rekord\u00f3w';
+  }
+
+  private refreshSearchCounts(profiles: SearchProfile[]) {
+    if (this.searchCountsRequest) { this.searchCountsRequest.unsubscribe(); }
+    // Sequential background requests avoid blocking the first grid or flooding SQL.
+    this.searchCountsRequest = from(profiles).pipe(concatMap(profile => {
+      if (profile.id === this.currentSearchId || profile.id <= 0) { return of(undefined); }
+      const criteria = profile.criteria;
+      const filters: CompanyFilters = {
+        companyName: criteria && criteria.companyName || '', address: '', recordLimit: this.maxRecordLimit,
+        hasPhone: criteria && criteria.hasPhone != null ? criteria.hasPhone : null,
+        hasEmail: criteria && criteria.hasEmail != null ? criteria.hasEmail : null,
+        hasWebsite: criteria && criteria.hasWebsite != null ? criteria.hasWebsite : null,
+        startedFrom: criteria && criteria.dateRangeEnabled ? criteria.dateFrom || undefined : undefined,
+        startedTo: criteria && criteria.dateRangeEnabled ? criteria.dateTo || undefined : undefined,
+        wojewodztwoId: criteria && criteria.wojewodztwoId || undefined,
+        powiatId: criteria && criteria.powiatId || undefined,
+        gminaId: criteria && criteria.gminaId || undefined,
+        miejscowoscId: criteria && criteria.miejscowoscId || undefined,
+        radiusKm: criteria && criteria.hasFirmyWPromieniu ? criteria.firmyWPromieniu || 1 : undefined
+      };
+      return this.api.companies(1, criteria && criteria.sortColumn || 'dataAktywnosci',
+        criteria && criteria.sortDirection || 'desc', profile.pkdCodes.map(pkd => pkd.id), filters).pipe(
+        map(result => {
+          if (profile.id !== this.currentSearchId) { this.searchRecordCounts[profile.id] = result.total; }
+        }),
+        catchError(() => {
+          if (profile.id !== this.currentSearchId) { this.searchRecordCounts[profile.id] = null; }
+          return of(undefined);
+        }));
+    })).subscribe();
+  }
+
+  get canAddSearch() {
+    const user = this.api.user();
+    return this.searchesLoaded && !!user && user.hasActivePlan && this.searches.length < user.maxNumberOfSearches;
+  }
+
+  get addSearchHint() {
+    const user = this.api.user();
+    const remaining = user && user.hasActivePlan ? Math.max(0, user.maxNumberOfSearches - this.searches.length) : 0;
+    return 'Dodaj nowe wyszukiwanie. Pozostała liczba dodatkowych wyszukiwań w aktualnym planie: ' + remaining;
+  }
+
+  private get canPersistNewSearch() {
+    const user = this.api.user();
+    return this.searchesLoaded && !!user && user.hasActivePlan
+      && this.searches.filter(search => search.id > 0).length < user.maxNumberOfSearches;
+  }
+
+  private rememberDraft() {
+    if (this.currentSearchId === null || this.currentSearchId > 0) { return; }
+    const index = this.searches.findIndex(search => search.id === this.currentSearchId);
+    if (index >= 0) {
+      this.searches[index] = { id: this.currentSearchId, name: this.searchName,
+        pkdCodes: this.selectedPkds.slice(), criteria: this.currentCriteria() };
+    }
+  }
+
+  newSearch() {
+    if (!this.canAddSearch || this.savingSearch || this.restoringSearch || this.classifyingPkd) { return; }
+    this.rememberDraft();
+    if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
+    if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
+    if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
+    this.addressFields.forEach(field => {
+      if (field.request) { field.request.unsubscribe(); field.request = null; }
+      field.options = []; field.visible = []; field.selectedId = null; field.term = '';
+      field.loading = false; field.error = '';
+    });
+    this.currentSearchId = this.nextDraftId--;
+    this.searchName = 'Nowe wyszukiwanie';
+    let suffix = 2;
+    while (this.searches.some(search => search.name.trim().toLowerCase() === this.searchName.toLowerCase())) {
+      this.searchName = 'Nowe wyszukiwanie (' + suffix++ + ')';
+    }
+    this.searchSaved = false;
+    this.savedSearchState = null;
+    this.selectedPkds = [];
+    this.selectedPkdId = null;
+    this.pkdTerm = '';
+    this.pkdDescription = '';
+    this.pkdHint = null;
+    this.pkdClassificationError = '';
+    this.filterDraft = { companyName: '', address: '', hasPhone: null, hasEmail: null,
+      hasWebsite: null, recordLimit: this.maxRecordLimit };
+    this.appliedFilters = { ...this.filterDraft };
+    this.dateRangeEnabled = false; this.dateFrom = ''; this.dateTo = '';
+    this.radiusEnabled = false; this.radiusKm = 1;
+    this.sortBy = 'dataAktywnosci'; this.direction = 'desc';
+    this.activeFilterTab = 'criteria';
+    this.activeResultTab = this.resultTabs[0];
+    this.error = ''; this.filterError = '';
+    this.selectedCompanyId = null; this.detailsCompany = null;
+    this.addressFiltersChanged = false;
+    this.lastUpdatedFilterState = this.filterState();
+    this.resultTabs.forEach(tab => tab.page = 1);
+    this.page = 1;
+    this.searches.unshift({ id: this.currentSearchId, name: this.searchName,
+      pkdCodes: [], criteria: this.currentCriteria() });
+    this.updatePkdSuggestions();
+    this.loadAddressOptions(0);
+    this.loadCompanies();
+    this.searchNameInput.nativeElement.focus();
+  }
+
+  navigateDashboardTabs(event: KeyboardEvent) {
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) < 0) { return; }
+    event.preventDefault();
+    this.activeDashboardTab = event.key === 'Home' ? 'search' : event.key === 'End' ? 'export' :
+      this.activeDashboardTab === 'search' ? 'export' : 'search';
+    const buttons = (event.currentTarget as HTMLElement).parentElement.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    buttons[this.activeDashboardTab === 'search' ? 0 : 1].focus();
   }
 
   selectFilterTab(tab: 'pkd' | 'criteria' | 'address') {
@@ -115,7 +262,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   navigateFilterTabs(event: KeyboardEvent) {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) === -1) { return; }
     event.preventDefault();
-    const tabs: ('pkd' | 'criteria' | 'address')[] = ['pkd', 'criteria', 'address'];
+    const tabs: ('pkd' | 'criteria' | 'address')[] = ['criteria', 'address', 'pkd'];
     const index = tabs.indexOf(this.activeFilterTab);
     const tab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] :
       tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
@@ -170,7 +317,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     });
     if (!this.radiusAvailable) { this.radiusEnabled = false; }
     if (field.selectedId !== null && index < this.addressFields.length - 1) { this.loadAddressOptions(index + 1); }
-    if (refresh) { this.updateFilters(false); }
+    if (refresh) { this.updateFilters(); }
   }
 
   setRadiusEnabled(enabled: boolean) {
@@ -178,14 +325,14 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.radiusEnabled === enabled) { return; }
     this.radiusEnabled = enabled;
     this.addressFiltersChanged = true;
-    this.updateFilters(false);
+    this.updateFilters();
   }
 
   setRadiusKm(km: number) {
     if (this.radiusKm === km) { return; }
     this.radiusKm = km;
     this.addressFiltersChanged = true;
-    this.updateFilters(false);
+    this.updateFilters();
   }
 
   loadPkds() {
@@ -195,17 +342,49 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadCompanies() {
+  selectResultTab(tab: ResultTab) {
+    if (tab === this.activeResultTab) { return; }
+    this.activeResultTab.page = this.page;
+    this.activeResultTab = tab;
+    this.page = tab.page;
+    this.selectedCompanyId = null;
+    this.detailsCompany = null;
+    this.loadCompanies();
+  }
+
+  navigateResultTabs(event: KeyboardEvent) {
+    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) < 0) { return; }
+    event.preventDefault();
+    const index = this.resultTabs.indexOf(this.activeResultTab);
+    const count = this.resultTabs.length;
+    const tab = event.key === 'Home' ? this.resultTabs[0] : event.key === 'End' ? this.resultTabs[count - 1] :
+      this.resultTabs[(index + (event.key === 'ArrowRight' ? 1 : count - 1)) % count];
+    this.selectResultTab(tab);
+    const buttons = (event.currentTarget as HTMLElement).parentElement.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    buttons[this.resultTabs.indexOf(tab)].focus();
+  }
+
+  loadCompanies(refreshSearchCount = true) {
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
+    if (refreshSearchCount && this.allResultsCountRequest) { this.allResultsCountRequest.unsubscribe(); }
     this.error = '';
     this.loading = true;
-    this.companiesRequest = this.api.companies(this.page, this.sortBy, this.direction, this.selectedPkds.map(x => x.id), this.appliedFilters)
-      .pipe(finalize(() => this.loading = false))
+    this.refreshingSearchCount = refreshSearchCount;
+    if (refreshSearchCount && this.activeResultTab.days && this.page === 1 && this.currentSearchId !== null) {
+      this.allResultsCountRequest = this.api.companies(1, this.sortBy, this.direction,
+        this.selectedPkds.map(x => x.id), this.appliedFilters).subscribe(
+        result => { if (this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = result.total; } },
+        () => { if (this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; } });
+    }
+    this.companiesRequest = this.api.companies(this.page, this.sortBy, this.direction, this.selectedPkds.map(x => x.id), this.appliedFilters, this.activeResultTab.days)
+      .pipe(finalize(() => { this.loading = false; this.refreshingSearchCount = false; }))
       .subscribe(result => {
       this.companies = result.items;
       if (!this.companies.some(row => row.id === this.selectedCompanyId)) { this.selectedCompanyId = null; }
       this.total = result.total;
+      if (refreshSearchCount && !this.activeResultTab.days && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = result.total; }
       this.page = result.page;
+      this.activeResultTab.page = this.page;
       if (result.sortableColumns && result.sortableColumns.length) {
         this.columns = result.sortableColumns.filter(column => column.key !== 'id' && column.key !== 'nip')
           .map(column => column.key === 'typyDzialalnosci' ? { key: 'details', label: 'Szczeg\u00f3\u0142y' } :
@@ -214,17 +393,22 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     }, err => {
       this.companies = [];
       this.total = 0;
+      if (refreshSearchCount && !this.activeResultTab.days && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; }
       this.error = err.status === 402 ? 'Plan wygasl. Przejdz do zakupow, aby odblokowac wyniki.' :
         err.status === 400 && err.error && err.error.message ? err.error.message : 'Nie udalo sie pobrac firm.';
     });
   }
 
   ngOnDestroy() {
+    if (this.csvRequest) { this.csvRequest.unsubscribe(); }
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     if (this.saveSearchRequest) { this.saveSearchRequest.unsubscribe(); }
     if (this.searchesRequest) { this.searchesRequest.unsubscribe(); }
+    if (this.searchCountsRequest) { this.searchCountsRequest.unsubscribe(); }
+    if (this.allResultsCountRequest) { this.allResultsCountRequest.unsubscribe(); }
     if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
     this.pkdErrorDialog.nativeElement.close();
+    this.saveSearchDialog.nativeElement.close();
     if (this.pkdClassificationRequest) { this.pkdClassificationRequest.unsubscribe(); }
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     this.addressFields.forEach(field => { if (field.request) { field.request.unsubscribe(); } });
@@ -241,7 +425,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     const checkbox = event.target as HTMLInputElement;
     checkbox.checked = this.filterDraft[key] === true;
     checkbox.indeterminate = this.filterDraft[key] === null;
-    this.updateFilters(false);
+    this.updateFilters();
   }
 
   presenceLabel(value: boolean | null) {
@@ -250,7 +434,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   setDateRangeEnabled(enabled: boolean) {
     this.dateRangeEnabled = enabled;
-    if (!enabled) { this.updateFilters(false); return; }
+    if (!enabled) { this.updateFilters(); return; }
     if (!this.dateFrom) { this.dateFrom = '2020-01-01'; }
     if (!this.dateTo) {
       const parts = new Intl.DateTimeFormat('en-GB', {
@@ -258,11 +442,11 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       }).formatToParts(new Date());
       this.dateTo = ['year', 'month', 'day'].map(type => parts.find(part => part.type === type)!.value).join('-');
     }
-    this.updateFilters(false);
+    this.updateFilters();
   }
 
   get filtersChanged() {
-    return this.recordLimitChanged || this.addressFiltersChanged || this.lastUpdatedFilterState === null || this.filterState() !== this.lastUpdatedFilterState;
+    return this.addressFiltersChanged || this.lastUpdatedFilterState === null || this.filterState() !== this.lastUpdatedFilterState;
   }
 
   private filterState(recordLimit = this.filterDraft.recordLimit) {
@@ -282,10 +466,10 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  updateFilters(applyRecordLimit = true) {
-    if ((applyRecordLimit && this.loading) || !this.filtersChanged) { return; }
+  updateFilters() {
+    if (!this.filtersChanged) { return; }
     if (!this.validateFilters()) { return; }
-    const limit = Number(applyRecordLimit ? this.filterDraft.recordLimit : this.appliedFilters.recordLimit);
+    const limit = this.maxRecordLimit;
     this.appliedFilters = {
       ...this.filterDraft, companyName: (this.filterDraft.companyName || '').trim().length >= 3 ? this.filterDraft.companyName.trim() : '', address: '', recordLimit: limit,
       wojewodztwoId: this.addressFields[0].selectedId || undefined,
@@ -299,7 +483,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     };
     this.lastUpdatedFilterState = this.filterState(limit);
     this.addressFiltersChanged = false;
-    if (applyRecordLimit) { this.recordLimitChanged = false; }
+    this.resultTabs.forEach(tab => tab.page = 1);
     this.page = 1;
     this.loadCompanies();
   }
@@ -312,19 +496,11 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   private validateFilters() {
     this.filterError = '';
-    if (!this.validateRecordLimit()) { return false; }
     if (this.dateRangeEnabled && (!this.validDate(this.dateFrom) || !this.validDate(this.dateTo) || this.dateTo <= this.dateFrom)) {
       this.filterError = 'Podaj poprawne daty YYYY-MM-DD. Data do musi by\u0107 p\u00f3\u017aniejsza ni\u017c data od.';
       return false;
     }
     return true;
-  }
-
-  setRecordLimit(value: number) {
-    if (this.filterDraft.recordLimit === value) { return; }
-    this.filterDraft.recordLimit = value;
-    this.recordLimitChanged = true;
-    this.validateRecordLimit();
   }
 
   setCompanyName(event: Event) {
@@ -333,7 +509,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     if (value.length > 0 && !value.trim()) { return; }
     if (value.trim().length >= 3 || !value.trim() || !!this.appliedFilters.companyName) {
-      this.companyNameDelay = timer(3000).subscribe(() => this.updateFilters(false));
+      this.companyNameDelay = timer(3000).subscribe(() => this.updateFilters());
     }
   }
 
@@ -347,22 +523,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     return input.value;
   }
 
-  private validateRecordLimit() {
-    const limit = Number(this.filterDraft.recordLimit);
-    this.recordLimitError = limit > 10000
-      ? 'Nie mo\u017cna jednorazowo wy\u015bwietli\u0107 wi\u0119cej ni\u017c 10 000 rekord\u00f3w. Nale\u017cy zaw\u0119zi\u0107 kryteria poszukiwania.'
-      : !Number.isInteger(limit) || limit < 1
-        ? 'Liczba rekord\u00f3w musi by\u0107 dodatni\u0105 liczb\u0105 ca\u0142kowit\u0105.' : '';
-    return !this.recordLimitError;
-  }
-
   findPkd() {
     this.pkdHint = null;
     this.updatePkdSuggestions();
   }
 
   checkPkdDescription() {
-    if (!this.pkdDescription.length || this.classifyingPkd) { return; }
+    if (!this.pkdDescription.length || this.filtersLocked) { return; }
     this.clearPkds();
     this.classifyingPkd = true;
     this.pkdClassificationMessage = '';
@@ -384,6 +551,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
           this.selectedPkds = this.selectedPkds.concat(additions.slice(0, available));
           this.selectedPkdId = additions[0].id;
           this.updatePkdSuggestions();
+          this.resultTabs.forEach(tab => tab.page = 1);
           this.page = 1;
           this.loadCompanies();
         }
@@ -439,6 +607,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
     if (!this.selectedPkds.some(x => x.id === pkd.id)) {
       this.selectedPkds = this.sortPkds(this.selectedPkds.concat(pkd));
+      this.resultTabs.forEach(tab => tab.page = 1);
       this.page = 1;
       this.loadCompanies();
     }
@@ -458,6 +627,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.pkdHint = null;
     this.selectedPkds = this.selectedPkds.filter(x => x.id !== pkd.id);
     this.selectedPkdId = this.selectedPkds.length ? this.selectedPkds[0].id : null;
+    this.resultTabs.forEach(tab => tab.page = 1);
     this.page = 1;
     this.loadCompanies();
     this.updatePkdSuggestions();
@@ -473,6 +643,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (!this.selectedPkds.length) { return; }
     this.selectedPkds = [];
     this.selectedPkdId = null;
+    this.resultTabs.forEach(tab => tab.page = 1);
     this.page = 1;
     this.loadCompanies();
     this.updatePkdSuggestions();
@@ -480,9 +651,12 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   selectSearch(profile: SearchProfile) {
     if (this.savingSearch || this.classifyingPkd) { return; }
+    if (profile.id === this.currentSearchId) { return; }
+    this.rememberDraft();
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
-    this.searchSaved = false;
+    this.searchSaved = profile.id > 0;
     this.currentSearchId = profile.id;
+    this.activeResultTab = this.resultTabs[0];
     if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     this.restoringSearch = true;
@@ -503,7 +677,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       hasPhone: criteria && criteria.hasPhone != null ? criteria.hasPhone : null,
       hasEmail: criteria && criteria.hasEmail != null ? criteria.hasEmail : null,
       hasWebsite: criteria && criteria.hasWebsite != null ? criteria.hasWebsite : null,
-      recordLimit: criteria && this.recordLimitOptions.includes(criteria.recordLimit) ? criteria.recordLimit : 1000
+      recordLimit: this.maxRecordLimit
     };
     this.dateRangeEnabled = criteria ? criteria.dateRangeEnabled : false;
     this.dateFrom = criteria && criteria.dateRangeEnabled ? criteria.dateFrom || '' : '';
@@ -514,7 +688,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       startedTo: this.dateRangeEnabled ? this.dateTo : undefined
     };
     this.filterError = '';
-    this.recordLimitError = '';
     this.pkdHint = null;
     this.updatePkdSuggestions();
     const ids = criteria ? [criteria.wojewodztwoId, criteria.powiatId, criteria.gminaId, criteria.miejscowoscId] : [];
@@ -526,9 +699,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       });
       this.appliedFilters.radiusKm = this.radiusEnabled && this.addressFields[3].selectedId !== null ? this.radiusKm : undefined;
       this.lastUpdatedFilterState = this.filterState();
-      this.savedSearchState = this.searchState();
+      this.savedSearchState = profile.id > 0 ? this.searchState() : null;
       this.addressFiltersChanged = false;
-      this.recordLimitChanged = false;
+      this.resultTabs.forEach(tab => tab.page = 1);
       this.page = 1;
       this.restoringSearch = false;
       this.loadCompanies();
@@ -552,11 +725,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       }));
   }
 
-  saveSearch() {
-    if (!this.canSaveSearch || !this.validateFilters()) { return; }
-    const savedState = this.searchState();
-    this.error = '';
-    const criteria = {
+  private currentCriteria(): SearchCriteria {
+    return {
       sortColumn: this.sortBy, sortDirection: this.direction, companyName: this.filterDraft.companyName || '', address: '',
       hasPhone: this.filterDraft.hasPhone, hasEmail: this.filterDraft.hasEmail, hasWebsite: this.filterDraft.hasWebsite,
       dateRangeEnabled: this.dateRangeEnabled, dateFrom: this.dateRangeEnabled ? this.dateFrom : null,
@@ -565,12 +735,46 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       gminaId: this.addressFields[2].selectedId, miejscowoscId: this.addressFields[3].selectedId,
       hasFirmyWPromieniu: this.radiusEnabled, firmyWPromieniu: this.radiusKm
     };
+  }
+
+  saveSearch() {
+    if (!this.canSaveSearch || !this.validateFilters()) { return; }
+    if (this.currentSearchId === null || this.currentSearchId < 0) {
+      const dialog = this.saveSearchDialog.nativeElement as HTMLDialogElement;
+      if (!dialog.open) { dialog.showModal(); }
+      return;
+    }
+    this.persistSearch();
+  }
+
+  confirmSaveSearch() {
+    const dialog = this.saveSearchDialog.nativeElement as HTMLDialogElement;
+    if (!dialog.open) { return; }
+    dialog.close();
+    this.persistSearch();
+  }
+
+  cancelSaveSearch() {
+    this.saveSearchDialog.nativeElement.close();
+  }
+
+  private persistSearch() {
+    if (!this.canSaveSearch || !this.validateFilters()) { return; }
+    const savedState = this.searchState();
+    const draftId = this.currentSearchId;
+    const persistedId = draftId !== null && draftId > 0 ? draftId : null;
+    this.error = '';
+    const criteria = this.currentCriteria();
     this.savingSearch = true;
-    this.saveSearchRequest = this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id), criteria, this.currentSearchId)
+    this.saveSearchRequest = this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id), criteria, persistedId)
       .pipe(finalize(() => this.savingSearch = false)).subscribe(profile => {
-        const index = this.searches.findIndex(search => search.id === profile.id);
+        const index = this.searches.findIndex(search => search.id === draftId || search.id === profile.id);
         if (index < 0) { this.searches.unshift(profile); }
         else { this.searches[index] = profile; }
+        if (draftId !== null && this.searchRecordCounts[draftId] !== undefined) {
+          this.searchRecordCounts[profile.id] = this.searchRecordCounts[draftId];
+          if (draftId < 0) { delete this.searchRecordCounts[draftId]; }
+        }
         this.currentSearchId = profile.id;
         this.savedSearchState = savedState;
         this.searchSaved = true;
@@ -579,6 +783,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   get canSaveSearch() {
     return !!this.searchName.trim() && !this.savingSearch && !this.restoringSearch && !this.classifyingPkd
+      && ((this.currentSearchId !== null && this.currentSearchId > 0) || this.canPersistNewSearch)
       && (this.savedSearchState === null || this.searchState() !== this.savedSearchState);
   }
 
@@ -590,6 +795,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (column === 'details' || this.loading) { return; }
     this.direction = this.sortBy === column && this.direction === 'asc' ? 'desc' : 'asc';
     this.sortBy = column;
+    this.resultTabs.forEach(tab => tab.page = 1);
     this.page = 1;
     this.loadCompanies();
   }
@@ -607,19 +813,25 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (/^\+48\d{9}$/.test(phone)) { return phone.replace(/^(\+48)(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4'); }
     return /^\d{9}$/.test(phone) ? phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') : value;
   }
-  next() { if (this.page < this.totalPages()) { this.page++; this.loadCompanies(); } }
-  prev() { if (this.page > 1) { this.page--; this.loadCompanies(); } }
-  last() { this.page = this.totalPages(); this.loadCompanies(); }
+  next() { if (!this.loading && this.page < this.totalPages()) { this.page++; this.loadCompanies(false); } }
+  prev() { if (!this.loading && this.page > 1) { this.page--; this.loadCompanies(false); } }
+  last() { if (!this.loading) { this.page = this.totalPages(); this.loadCompanies(false); } }
+
+  exportingCsv = false;
+  private csvRequest: Subscription | null = null;
 
   exportCsv() {
-    this.api.exportCompanies(this.selectedPkds.map(x => x.id)).subscribe(blob => {
+    if (this.loading || this.total <= 0 || this.exportingCsv) { return; }
+    this.exportingCsv = true;
+    this.csvRequest = this.api.exportCompanies(this.selectedPkds.map(x => x.id), this.appliedFilters,
+      this.activeResultTab.days, this.sortBy, this.direction).pipe(finalize(() => this.exportingCsv = false)).subscribe(blob => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = 'firmy.csv';
       link.click();
-      window.URL.revokeObjectURL(url);
-    });
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    }, () => this.error = 'Nie udało się wyeksportować wyników do CSV.');
   }
 
   private sortPkds(pkds: Pkd[]) {

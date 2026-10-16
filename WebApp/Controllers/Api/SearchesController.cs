@@ -70,6 +70,10 @@ public class SearchesController : ControllerBase
             return StatusCode(StatusCodes.Status402PaymentRequired, new { message = "Plan wygasl." });
         }
 
+        var maximumRecordLimit = await PlanRecordLimits.ForUserAsync(_db, user.Id, false);
+        if (maximumRecordLimit <= 0)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Plan nie pozwala na pobieranie rekordow." });
+        criteria.RecordLimit = maximumRecordLimit;
         var currentCount = await _db.SearchProfiles.CountAsync(x => x.AppUserId == user.Id);
         if (!id.HasValue && currentCount >= activePlan.PlanDefinition.MaxNumberOfSearches)
         {

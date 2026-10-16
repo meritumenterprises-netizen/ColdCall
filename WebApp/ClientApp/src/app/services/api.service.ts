@@ -49,7 +49,8 @@ export interface SearchCriteria {
 }
 export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; }
-export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; plan?: any; }
+export interface CurrentPlan { code: string; descriptionHtml: string; maxNumberOfSearches: number; expiresAtUtc: string; }
+export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; }
 export interface AuthConfig { googleClientId: string; }
@@ -126,9 +127,14 @@ export class ApiService {
     return this.http.post<SearchProfile>(this.url('/api/searches'), { name, pkdCodeIds, criteria }, this.headers());
   }
 
-  companies(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters): Observable<PagedResult<CompanyShort>> {
-    let params = new HttpParams().set('page', String(page)).set('pageSize', '10').set('sortBy', sortBy).set('direction', direction)
-      .set('recordLimit', String(filters && filters.recordLimit != null ? filters.recordLimit : 1000));
+  companies(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters, modifiedWithinDays?: number): Observable<PagedResult<CompanyShort>> {
+    const params = this.companyParams(page, sortBy, direction, pkdIds, filters, modifiedWithinDays);
+    return this.http.get<PagedResult<CompanyShort>>(this.url('/api/companies'), { ...this.headers(), params });
+  }
+
+  private companyParams(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters, modifiedWithinDays?: number): HttpParams {
+    let params = new HttpParams().set('page', String(page)).set('pageSize', '10').set('sortBy', sortBy).set('direction', direction);
+    if (modifiedWithinDays != null) { params = params.set('modifiedWithinDays', String(modifiedWithinDays)); }
     pkdIds.forEach(id => params = params.append('pkdIds', String(id)));
     if (filters) {
       if (filters.companyName && filters.companyName.trim().length >= 3) { params = params.set('companyName', filters.companyName.trim()); }
@@ -143,7 +149,7 @@ export class ApiService {
         params = params.set('startedFrom', filters.startedFrom).set('startedTo', filters.startedTo);
       }
     }
-    return this.http.get<PagedResult<CompanyShort>>(this.url('/api/companies'), { ...this.headers(), params });
+    return params;
   }
 
   companyDetails(id: number): Observable<CompanyDetails> {
@@ -156,10 +162,9 @@ export class ApiService {
     return this.http.put<{ notes: string }>(this.url('/api/companies/' + id + '/notes'), { notes }, this.headers());
   }
 
-  exportCompanies(pkdIds: number[]) {
-    let params = new HttpParams();
-    pkdIds.forEach(id => params = params.append('pkdIds', String(id)));
-    return this.http.get(this.url('/api/companies/export'), { ...this.headers(), params, responseType: 'blob' });
+  exportCompanies(pkdIds: number[], filters?: CompanyFilters, modifiedWithinDays?: number, sortBy = 'dataAktywnosci', direction = 'desc') {
+    const params = this.companyParams(1, sortBy, direction, pkdIds, filters, modifiedWithinDays).set('downloadCsv', 'true');
+    return this.http.get(this.url('/api/companies'), { ...this.headers(), params, responseType: 'blob' });
   }
 
   plans(): Observable<Plan[]> { return this.http.get<Plan[]>(this.url('/api/plans'), this.headers()); }

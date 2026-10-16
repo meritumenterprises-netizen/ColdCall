@@ -1,7 +1,19 @@
-.toolbar { display: flex; align-items: flex-end; gap: 10px; }
-.toolbar .save-search { flex: 0 1 600px; min-width: 0; }
-.toolbar .save-search input { width: 600px; max-width: 100%; box-sizing: border-box; }
-.toolbar > button { flex: 0 0 100px; width: 100px; min-width: 100px; padding-left: 8px; padding-right: 8px; }
+.workspace { padding-top: 5px; }
+.sidebar-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 18px; }
+.sidebar-heading .sidebar-title { margin: 0; }
+.add-search { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; height: 28px; padding: 0; border: 1px solid #667085; border-radius: 4px; background: transparent; color: white; font-size: 24px; line-height: 1; cursor: pointer; }
+.add-search:hover { background: #344054; }
+.add-search:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.add-search:disabled { opacity: .5; cursor: not-allowed; }
+.toolbar { display: grid; grid-template-columns: max-content minmax(0, 600px) 100px; align-items: center; gap: 10px; }
+.toolbar > label { margin: 0; white-space: nowrap; }
+.toolbar > input { width: 100%; min-width: 0; max-width: 600px; box-sizing: border-box; }
+.toolbar > button { width: 100px; min-width: 100px; padding-left: 8px; padding-right: 8px; }
+@media (max-width: 480px) {
+  .toolbar { gap: 6px; }
+  .toolbar > label { font-size: 12px; }
+  .toolbar > input { padding-left: 6px; padding-right: 6px; }
+}
 
 .filters-layout {
   border: 0;
@@ -18,6 +30,11 @@
 .pkd-error-dialog::backdrop { background: rgba(15, 25, 20, .45); }
 .pkd-error-dialog h2 { margin: 0 0 16px; font-size: 18px; }
 .pkd-error-dialog p { overflow-wrap: anywhere; }
+.save-search-dialog { width: 460px; max-width: calc(100vw - 32px); box-sizing: border-box; border: 0; border-radius: 8px; padding: 24px; color: inherit; }
+.save-search-dialog::backdrop { background: rgba(15, 25, 20, .45); }
+.save-search-dialog h2 { margin: 0 0 16px; font-size: 18px; }
+.save-search-dialog p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+.save-search-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .pkd-filter-panel {
   width: 100%;
   max-width: 100%;
@@ -58,10 +75,6 @@
 .company-name-filter { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .company-name-filter label { flex: 0 0 auto; margin: 0; }
 .company-name-filter input { flex: 1; width: 100%; }
-.filter-actions { display: flex; align-items: flex-end; gap: 12px; margin-top: 14px; }
-.record-limit-filter { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; flex: 0 1 200px; }
-.record-limit-filter label { margin: 0; font-size: 14px; }
-.record-limit-filter select { width: 200px; min-width: 0; max-width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px; border: 1px solid #cbd5e1; border-radius: 4px; background: white; }
 .presence-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; min-height: 24px; }
 .presence-filter label { flex: 1; margin: 0; }
 .presence-filter input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border-radius: 0; accent-color: #087f5b; cursor: pointer; }
@@ -77,7 +90,6 @@
 .date-range input:disabled { background: #e2e8f0; color: #64748b; }
 .date-range label { color: #637168; font-weight: normal; margin: 0; white-space: nowrap; }
 .filter-error { margin: 12px 0; font-size: 13px; color: #a32e2e; overflow-wrap: anywhere; }
-.update-filters { min-width: 120px; font-size: 14px; margin: 0; }
 @media (max-width: 1200px) {
   .filters-layout { width: 100%; }
 }
@@ -142,7 +154,7 @@
 .company-details-button img { width: 20px; height: 20px; }
 
 .companies-grid-table {
-  height: 486px;
+  height: auto;
   max-height: none;
   font-size: 14px;
 }
@@ -165,7 +177,7 @@
 }
 
 .companies-grid-table td {
-  height: 32px;
+  height: 37px;
   padding: 2px 12px;
 }
 
@@ -194,4 +206,14 @@
 
 @media (prefers-reduced-motion: reduce) {
   .grid-spinner { animation-duration: 2s; }
+}
+.pager { flex-wrap: wrap; }
+.pager .export-csv { margin-right: auto; }
+.dashboard-tabs { margin-bottom: 16px; }
+.dashboard-panel[hidden] { display: none !important; }
+#dashboard-export-panel { min-height: 160px; }
+.company-name-filter input:disabled, .pkd-search-row input:disabled {
+  background: #e2e8f0;
+  color: #64748b;
+  cursor: not-allowed;
 }

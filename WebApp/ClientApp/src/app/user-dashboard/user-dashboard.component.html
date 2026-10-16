@@ -1,49 +1,60 @@
 <div class="app-layout">
   <aside class="sidebar">
-    <div class="sidebar-title">Wyszukania</div>
-    <button class="search-item" *ngFor="let search of searches" (click)="selectSearch(search)" [disabled]="savingSearch || classifyingPkd">
-      <strong>{{ search.name }}</strong>
-      <span>{{ search.pkdCodes.length }} PKD</span>
+    <nav aria-label="Nawigacja użytkownika">
+    <div class="sidebar-heading">
+      <a class="sidebar-title sidebar-nav-link" routerLink="/dashboard" aria-current="page">Wyszukiwania</a>
+      <button *ngIf="canAddSearch" type="button" class="add-search" [title]="addSearchHint"
+              aria-label="Dodaj nowe wyszukiwanie" [disabled]="savingSearch || restoringSearch || classifyingPkd"
+              (click)="newSearch()">+</button>
+    </div>
+    </nav>
+    <button class="search-item" *ngFor="let search of searches" (click)="selectSearch(search)"
+            [class.active]="currentSearchId === search.id" [attr.aria-current]="currentSearchId === search.id ? 'true' : null"
+            [disabled]="savingSearch || classifyingPkd">
+      <strong>{{ (currentSearchId === search.id ? searchName : search.name) || 'Nowe wyszukiwanie' }}</strong>
+      <span>{{ searchRecordLabel(search) }}</span>
     </button>
   </aside>
 
   <main class="workspace">
-    <header class="workspace-head">
-      <div>
-        <h1>Szukaj firm</h1>
-      </div>
-    </header>
-
+    <div class="filter-tabs dashboard-tabs" role="tablist" aria-label="Dashboard">
+      <button type="button" id="dashboard-search-tab" role="tab" aria-controls="dashboard-search-panel"
+              [attr.aria-selected]="activeDashboardTab === 'search'" [attr.tabindex]="activeDashboardTab === 'search' ? 0 : -1"
+              (click)="activeDashboardTab = 'search'" (keydown)="navigateDashboardTabs($event)">Wyszukiwanie</button>
+      <button type="button" id="dashboard-export-tab" role="tab" aria-controls="dashboard-export-panel"
+              [attr.aria-selected]="activeDashboardTab === 'export'" [attr.tabindex]="activeDashboardTab === 'export' ? 0 : -1"
+              (click)="activeDashboardTab = 'export'" (keydown)="navigateDashboardTabs($event)">Eksport CSV</button>
+    </div>
+    <section id="dashboard-search-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="dashboard-search-tab"
+             [hidden]="activeDashboardTab !== 'search'">
     <section class="toolbar">
-      <div class="save-search">
-        <label>Nazwa wyszukiwania</label>
-        <input name="searchName" [ngModel]="searchName" (input)="setSearchName($event)" placeholder="typ dzia&#322;alno&#347;ci albo s&#322;owa kluczowe">
-      </div>
+      <label for="search-name">Nazwa wyszukiwania</label>
+      <input #searchNameInput id="search-name" name="searchName" [ngModel]="searchName" (input)="setSearchName($event)" placeholder="typ dzia&#322;alno&#347;ci albo s&#322;owa kluczowe">
       <button class="primary-button" (click)="saveSearch()" [disabled]="!canSaveSearch">Zapisz</button>
     </section>
 
     <div class="filters-layout">
     <div class="filter-tabs" role="tablist" aria-label="Filtry firm">
-      <button type="button" id="pkd-tab" role="tab" aria-controls="pkd-panel"
-              [attr.aria-selected]="activeFilterTab === 'pkd'" [attr.tabindex]="activeFilterTab === 'pkd' ? 0 : -1"
-              (click)="selectFilterTab('pkd')" (keydown)="navigateFilterTabs($event)">PKD</button>
       <button type="button" id="criteria-tab" role="tab" aria-controls="criteria-panel"
               [attr.aria-selected]="activeFilterTab === 'criteria'" [attr.tabindex]="activeFilterTab === 'criteria' ? 0 : -1"
               (click)="selectFilterTab('criteria')" (keydown)="navigateFilterTabs($event)">Kryteria</button>
       <button type="button" id="address-tab" role="tab" aria-controls="address-panel"
               [attr.aria-selected]="activeFilterTab === 'address'" [attr.tabindex]="activeFilterTab === 'address' ? 0 : -1"
               (click)="selectFilterTab('address')" (keydown)="navigateFilterTabs($event)">Adres</button>
+      <button type="button" id="pkd-tab" role="tab" aria-controls="pkd-panel"
+              [attr.aria-selected]="activeFilterTab === 'pkd'" [attr.tabindex]="activeFilterTab === 'pkd' ? 0 : -1"
+              (click)="selectFilterTab('pkd')" (keydown)="navigateFilterTabs($event)">PKD</button>
     </div>
-    <fieldset class="filter-controls" [disabled]="filtersLocked" [attr.inert]="filtersLocked ? '' : null" [attr.aria-busy]="classifyingPkd || restoringSearch">
+    <fieldset class="filter-controls" [disabled]="filtersLocked" [attr.aria-busy]="classifyingPkd || restoringSearch">
     <section class="pkd-filter-panel" id="pkd-panel" role="tabpanel" aria-labelledby="pkd-tab" [hidden]="activeFilterTab !== 'pkd'">
       <div class="pkd-search-row">
         <div class="pkd-filter-search">
           <label for="pkd-term">Nazwa kodu PKD</label>
-          <input id="pkd-term" name="pkdTerm" [(ngModel)]="pkdTerm" (input)="findPkd()" placeholder="Wpisz tekst">
+          <input id="pkd-term" name="pkdTerm" [(ngModel)]="pkdTerm" [disabled]="filtersLocked" (input)="findPkd()" placeholder="Wpisz tekst">
         </div>
         <div class="pkd-description">
           <label for="pkd-description">Opisz typ dzia&#322;alno&#347;ci</label>
-          <input id="pkd-description" name="pkdDescription" [(ngModel)]="pkdDescription" autocomplete="off"
+          <input id="pkd-description" name="pkdDescription" [(ngModel)]="pkdDescription" [disabled]="filtersLocked" autocomplete="off"
                  (keydown.enter)="$event.preventDefault(); checkPkdDescription()">
         </div>
         <button type="button" class="primary-button" [disabled]="!pkdDescription.length || classifyingPkd" (click)="checkPkdDescription()"><ng-container *ngIf="!classifyingPkd">Sprawd&#378;</ng-container><ng-container *ngIf="classifyingPkd">Sprawdzanie...</ng-container></button>
@@ -53,7 +64,7 @@
       <div class="pkd-transfer">
         <div class="pkd-listbox">
           <label>Kody PKD</label>
-          <div class="pkd-options" role="listbox" aria-label="Kody PKD" [attr.tabindex]="classifyingPkd ? -1 : 0" [attr.aria-disabled]="classifyingPkd"
+          <div class="pkd-options" role="listbox" aria-label="Kody PKD" tabindex="0"
                [attr.aria-activedescendant]="foundPkdId ? 'found-pkd-' + foundPkdId : null"
                (keydown)="navigatePkd($event, false)" (scroll)="pkdHint = null" (mouseleave)="hidePkdHint($event)">
             <div *ngFor="let pkd of pkdSuggestions" class="pkd-option" role="option" [id]="'found-pkd-' + pkd.id"
@@ -64,14 +75,14 @@
         </div>
 
         <div class="pkd-transfer-actions">
-          <button class="ghost-button compact" [disabled]="loading || !foundPkdId || selectedPkds.length >= maxSelectedPkds" (click)="addSelectedFoundPkd()">&gt;</button>
-          <button class="ghost-button compact" [disabled]="loading || !selectedPkdId" (click)="removeSelectedPkd()">&lt;</button>
-          <button class="ghost-button compact" [disabled]="loading || !selectedPkds.length" (click)="clearPkds()">Wyczy&#347;&#263;</button>
+          <button class="ghost-button compact" [disabled]="filtersLocked || loading || !foundPkdId || selectedPkds.length >= maxSelectedPkds" (click)="addSelectedFoundPkd()">&gt;</button>
+          <button class="ghost-button compact" [disabled]="filtersLocked || loading || !selectedPkdId" (click)="removeSelectedPkd()">&lt;</button>
+          <button class="ghost-button compact" [disabled]="filtersLocked || loading || !selectedPkds.length" (click)="clearPkds()">Wyczy&#347;&#263;</button>
         </div>
 
         <div class="pkd-listbox">
           <label>Wybrane PKD (max.10)</label>
-          <div class="pkd-options" role="listbox" aria-label="Wybrane PKD" [attr.tabindex]="classifyingPkd ? -1 : 0" [attr.aria-disabled]="classifyingPkd"
+          <div class="pkd-options" role="listbox" aria-label="Wybrane PKD" tabindex="0"
                [attr.aria-activedescendant]="selectedPkdId ? 'selected-pkd-' + selectedPkdId : null"
                (keydown)="navigatePkd($event, true)" (scroll)="pkdHint = null" (mouseleave)="hidePkdHint($event)">
             <div *ngFor="let pkd of selectedPkds" class="pkd-option" role="option" [id]="'selected-pkd-' + pkd.id"
@@ -119,10 +130,10 @@
     </section>
 
     <form class="company-filter-panel" id="criteria-panel" role="tabpanel" aria-labelledby="criteria-tab"
-          [hidden]="activeFilterTab !== 'criteria'" (ngSubmit)="updateFilters(false)">
+          [hidden]="activeFilterTab !== 'criteria'" (ngSubmit)="updateFilters()">
       <div class="company-name-filter">
         <label for="company-name">Nazwa firmy</label>
-        <input id="company-name" name="companyName" [ngModel]="filterDraft.companyName" maxlength="1000" placeholder="Min. 3 znaki"
+        <input id="company-name" name="companyName" [ngModel]="filterDraft.companyName" [disabled]="filtersLocked" maxlength="1000" placeholder="Min. 3 znaki"
                (input)="setCompanyName($event)"
                (keydown.enter)="$event.preventDefault()">
       </div>
@@ -155,29 +166,28 @@
         </div>
         <div class="date-range">
           <div><label for="started-from">Od</label>
-            <input id="started-from" name="dateFrom" [ngModel]="dateFrom" (ngModelChange)="dateFrom = $event; updateFilters(false)" [disabled]="!dateRangeEnabled"
+            <input id="started-from" name="dateFrom" [ngModel]="dateFrom" (ngModelChange)="dateFrom = $event; updateFilters()" [disabled]="!dateRangeEnabled"
                    placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"></div>
           <div><label for="started-to">Do</label>
-            <input id="started-to" name="dateTo" [ngModel]="dateTo" (ngModelChange)="dateTo = $event; updateFilters(false)" [disabled]="!dateRangeEnabled"
+            <input id="started-to" name="dateTo" [ngModel]="dateTo" (ngModelChange)="dateTo = $event; updateFilters()" [disabled]="!dateRangeEnabled"
                    placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"></div>
         </div>
       </div>
     </form>
-    <div class="filter-actions">
-      <div class="record-limit-filter">
-        <label for="record-limit">Liczba rekord&#243;w</label>
-        <select id="record-limit" name="recordLimit"
-               [ngModel]="filterDraft.recordLimit" (ngModelChange)="setRecordLimit($event)"
-               [attr.aria-invalid]="!!recordLimitError" [attr.aria-describedby]="recordLimitError ? 'record-limit-error' : null">
-          <option *ngFor="let limit of recordLimitOptions" [ngValue]="limit">{{ limit }}</option>
-        </select>
-      </div>
-      <button type="button" class="primary-button update-filters" (click)="updateFilters()" [disabled]="loading || !filtersChanged">Aktualizuj</button>
-    </div>
-    <div *ngIf="recordLimitError" id="record-limit-error" class="filter-error" role="alert">{{ recordLimitError }}</div>
     <div *ngIf="filterError" class="filter-error" role="alert">{{ filterError }}</div>
     </fieldset>
     </div>
+
+    <dialog #saveSearchDialog class="save-search-dialog" role="alertdialog"
+            aria-labelledby="save-search-title" aria-describedby="save-search-message"
+            (cancel)="$event.preventDefault(); cancelSaveSearch()">
+      <h2 id="save-search-title">Zapis wyszukiwania</h2>
+      <p id="save-search-message">Zapisane zostan&#261; kryteria wyszukiwania i nie b&#281;dzie mo&#380;na ich zmieni&#263; po zapisie</p>
+      <div class="save-search-dialog-actions">
+        <button type="button" class="primary-button" (click)="confirmSaveSearch()">OK</button>
+        <button type="button" class="ghost-button" autofocus (click)="cancelSaveSearch()">Anuluj</button>
+      </div>
+    </dialog>
 
     <dialog #pkdErrorDialog class="pkd-error-dialog" aria-labelledby="pkd-error-title" aria-describedby="pkd-error-message" (cancel)="$event.preventDefault()">
       <h2 id="pkd-error-title">B&#322;&#261;d wyszukiwania opisu dzia&#322;alno&#347;ci</h2>
@@ -191,6 +201,20 @@
 
     <div class="error" *ngIf="error">{{ error }}</div>
 
+    <div class="filter-tabs result-tabs" role="tablist" aria-label="Wyniki wyszukiwania">
+      <button *ngFor="let tab of resultTabs" type="button" role="tab" [id]="'results-tab-' + tab.key"
+              [attr.aria-controls]="'results-panel-' + tab.key" [attr.aria-selected]="activeResultTab === tab"
+              [attr.tabindex]="activeResultTab === tab ? 0 : -1"
+              (click)="selectResultTab(tab)" (keydown)="navigateResultTabs($event)">{{ tab.label }}</button>
+    </div>
+    <section *ngFor="let tab of resultTabs" role="tabpanel" [id]="'results-panel-' + tab.key"
+             [attr.aria-labelledby]="'results-tab-' + tab.key" [hidden]="activeResultTab !== tab">
+      <ng-container *ngIf="activeResultTab === tab">
+        <ng-container *ngTemplateOutlet="resultsGrid"></ng-container>
+      </ng-container>
+    </section>
+
+    <ng-template #resultsGrid>
     <section class="companies-grid-panel" [attr.aria-busy]="loading">
       <div class="data-panel companies-grid-table">
       <table>
@@ -242,12 +266,17 @@
     </section>
 
     <footer class="pager">
+      <button type="button" class="export-csv" [disabled]="loading || total <= 0 || exportingCsv" (click)="exportCsv()">Eksport do CSV</button>
       <span>{{ formatNumber(total) }} rekord&#243;w</span>
       <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>
       <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
       <button (click)="next()" [disabled]="loading || page >= totalPages()">Nast&#281;pna</button>
     </footer>
-  </main>
-</div>
+    </ng-template>
 <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name"
                      (closed)="detailsCompany = null"></app-company-details>
+</section>
+<section id="dashboard-export-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="dashboard-export-tab"
+         [hidden]="activeDashboardTab !== 'export'"></section>
+  </main>
+</div>
