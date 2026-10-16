@@ -4,9 +4,9 @@
       <a class="sidebar-nav-link" routerLink="/profile">Profil</a>
       <ul class="sidebar-subnav">
         <li><a class="sidebar-nav-link" routerLink="/profile/data" routerLinkActive="active" [attr.aria-current]="isDataPanel ? 'page' : null">Dane</a></li>
-        <li><a class="sidebar-nav-link" routerLink="/profile/plan" routerLinkActive="active" [attr.aria-current]="!isDataPanel ? 'page' : null">Plan</a></li>
+        <li *ngIf="profile && !profile.isAdmin"><a class="sidebar-nav-link" routerLink="/profile/plan" routerLinkActive="active" [attr.aria-current]="!isDataPanel ? 'page' : null">Plan</a></li>
       </ul>
-      <a class="sidebar-nav-link" routerLink="/dashboard">Wyszukiwania</a>
+      <a *ngIf="profile && !profile.isAdmin" class="sidebar-nav-link" routerLink="/dashboard">Wyszukiwania</a>
     </nav>
   </aside>
   <main class="workspace profile-content" [attr.aria-busy]="loading">
@@ -24,14 +24,19 @@
         <input type="checkbox" checked disabled>Administrator
       </label>
       <ng-container *ngIf="!isDataPanel">
+      <p *ngIf="profile && profile.isAdmin">Administrator nie korzysta z &#380;adnego planu.</p>
+      <ng-container *ngIf="profile && !profile.isAdmin">
       <ng-container *ngIf="plan; else noPlan">
         <p class="plan-name"><strong>{{ plan.code }}</strong></p>
+        <p class="plan-expiration" [class.expired]="plan.isExpired">
+          <ng-container *ngIf="plan.isExpired">Wygas&#322;:</ng-container><ng-container *ngIf="!plan.isExpired">Wygasa:</ng-container> {{ plan.expiresAtUtc | date:'dd.MM.yyyy HH:mm' }}
+        </p>
         <div class="plan-description" [innerHTML]="plan.descriptionHtml"></div>
       </ng-container>
       <ng-template #noPlan>
         <p>Brak aktywnego planu.</p>
-        <a routerLink="/plans">Wybierz plan</a>
       </ng-template>
+      </ng-container>
       </ng-container>
     </ng-container>
   </main>

@@ -1,0 +1,46 @@
+.admin-company-grid { overflow-x: auto; }
+.admin-company-grid table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.admin-company-grid td, .admin-company-grid th { padding: 6px 8px; border-bottom: 1px solid #cbd5e1; }
+.admin-company-grid th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.admin-company-grid tbody tr { cursor: pointer; }
+.admin-company-grid tbody tr.selected { background: #d1fae5; }
+.admin-company-grid td:last-child button { width: 28px; height: 28px; padding: 0; }
+.admin-users-grid { overflow-x: auto; }
+.admin-users-grid table { width: 100%; min-width: 620px; border-collapse: collapse; }
+.admin-users-grid td, .admin-users-grid th { padding: 10px 12px; border-bottom: 1px solid #cbd5e1; text-align: left; }
+.admin-users-grid th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.admin-users-grid .expired { color: #b91c1c; }
+.admin-filters { width: 50%; min-width: 0; margin-bottom: 20px; }
+.admin-filter-tabs { display: flex; border-bottom: 1px solid #cbd5e1; margin-bottom: 12px; }
+.admin-filter-tabs button { padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #475569; cursor: pointer; }
+.admin-filter-tabs button.active { border-bottom-color: #0f8f6a; color: #0f8f6a; }
+.admin-filters label { font-size: 14px; font-weight: 600; }
+.admin-filters input[type="checkbox"] { flex: 0 0 16px; width: 16px; height: 16px; margin: 0 8px 0 0; padding: 0; accent-color: #0f8f6a; }
+.admin-presence { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; }
+.admin-presence label, .admin-date-range label, .admin-radius label { display: flex; align-items: center; }
+.admin-date-range, .admin-radius { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+.admin-date-range input:not([type="checkbox"]) { width: 150px; margin-left: 6px; }
+.admin-radius select { width: 90px; }
+.admin-address-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.admin-address-fields select { margin: 8px 0; }
+.admin-address-fields label { display: block; }
+.admin-pkd-search { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.admin-pkd-search label { flex: 1; min-width: 150px; }
+.admin-pkd-transfer { display: grid; grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr); gap: 10px; margin-top: 12px; }
+.admin-pkd-transfer select { font-size: 12px; margin-top: 6px; height: 150px; }
+.admin-pkd-search input { font-size: 12px; }
+.admin-pkd-actions { display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+.admin-pkd-actions button { padding: 6px; }
+@media (max-width: 1000px) { .admin-filters { width: 100%; } }
+@media (max-width: 700px) { .admin-address-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .admin-address-fields { grid-template-columns: 1fr; } }
+.admin-company-actions { white-space: nowrap; }
+.admin-company-grid .admin-company-actions button { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; width: 28px; height: 28px; padding: 0; }
+.admin-company-actions button + button { margin-left: 6px; }
+.admin-company-actions img { display: block; width: 18px; height: 18px; margin: 0; flex: 0 0 18px; }
+.admin-user-actions { white-space: nowrap; }
+.admin-user-actions button + button { margin-left: 8px; }
+.delete-csv-dialog { width: 480px; max-width: calc(100vw - 32px); padding: 24px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
+.delete-csv-dialog h2 { font-size: 22px; margin-top: 0; }
+.delete-csv-dialog::backdrop { background: #0008; }
+.delete-csv-actions { display: flex; justify-content: flex-end; gap: 12px; }

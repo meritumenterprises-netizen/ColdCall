@@ -49,9 +49,10 @@ export interface SearchCriteria {
 }
 export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; order: number; canPurchase: boolean; }
-export interface CurrentPlan { code: string; descriptionHtml: string; maxNumberOfSearches: number; expiresAtUtc: string; }
+export interface CurrentPlan { code: string; descriptionHtml: string; maxNumberOfSearches: number; expiresAtUtc: string; isExpired?: boolean; }
 export interface UserProfile { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }
-export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; }
+export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
+export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; }
 export interface AuthConfig { googleClientId: string; }
@@ -79,6 +80,9 @@ export class ApiService {
   }
 
   isLoggedIn() { return !!this.token; }
+  acceptTrial(token: string, termsAccepted: boolean) {
+    return this.http.post(this.url('/api/auth/accept-trial'), { token, termsAccepted }, this.headers());
+  }
   companyCount(): Observable<{ count: number }> {
     return this.http.get<{ count: number }>(this.url('/api/statistics/companies'));
   }
@@ -93,6 +97,15 @@ export class ApiService {
   }
   websiteHref(website: string): string {
     return /^https?:\/\//i.test(website) ? website : 'https://' + website;
+  }
+
+  formatPhone(value: string | null | undefined) {
+    if (!value) { return ''; }
+    const phone = value.trim();
+    if (/^48\d{9}$/.test(phone)) { return phone.replace(/^48(\d{3})(\d{3})(\d{3})$/, '+48 $1 $2 $3'); }
+    if (/^0048\d{9}$/.test(phone)) { return phone.replace(/^0048(\d{3})(\d{3})(\d{3})$/, '+48 $1 $2 $3'); }
+    if (/^\+48\d{9}$/.test(phone)) { return phone.replace(/^(\+48)(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4'); }
+    return /^\d{9}$/.test(phone) ? phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') : value;
   }
 
   headers() {
@@ -206,13 +219,20 @@ export class ApiService {
     }, this.headers());
   }
 
-  adminCompanies(page: number, sortBy: string, direction: string, filter: string, pkdIds: number[] = []): Observable<PagedResult<Company>> {
-    let params = new HttpParams().set('page', String(page)).set('pageSize', '10').set('sortBy', sortBy).set('direction', direction).set('filter', filter);
-    pkdIds.forEach(id => params = params.append('pkdIds', String(id)));
+  adminCompanies(page: number, sortBy: string, direction: string, filter: string, pkdIds: number[] = [], filters?: CompanyFilters, nip = '', blockedByRODO: boolean | null = null): Observable<PagedResult<Company>> {
+    let params = this.companyParams(page, sortBy, direction, pkdIds, filters).set('filter', filter).set('nip', nip);
+    if (blockedByRODO !== null) { params = params.set('blockedByRODO', String(blockedByRODO)); }
     return this.http.get<PagedResult<Company>>(this.url('/api/admin/companies'), { ...this.headers(), params });
   }
   updateCompany(company: Company) { return this.http.put(this.url('/api/admin/companies/' + company.id), company, this.headers()); }
+  updateCompanyRodo(id: number, blockedByRODO: boolean): Observable<{ blockedByRODO: boolean }> {
+    return this.http.put<{ blockedByRODO: boolean }>(this.url('/api/admin/companies/' + id + '/rodo'), { blockedByRODO }, this.headers());
+  }
   businessTypes(): Observable<BusinessType[]> { return this.http.get<BusinessType[]>(this.url('/api/admin/business-types'), this.headers()); }
   users(): Observable<AppUser[]> { return this.http.get<AppUser[]>(this.url('/api/admin/users'), this.headers()); }
+  extendUserPlan(id: number) { return this.http.post(this.url('/api/admin/users/' + id + '/extend-plan'), {}, this.headers()); }
+  deleteUserCsvExports(id: number): Observable<{ deleted: number }> {
+    return this.http.delete<{ deleted: number }>(this.url('/api/admin/users/' + id + '/csv-exports'), this.headers());
+  }
   grantPlan(userId: number, planCode: string) { return this.http.post(this.url('/api/admin/users/grant-plan'), { userId, planCode }, this.headers()); }
 }

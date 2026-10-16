@@ -63,7 +63,9 @@ public partial class ColdCallDbContext : DbContext
         modelBuilder.Entity<PkdCode>().Property(x => x.CodeWithoutDots)
             .HasMaxLength(450)
             .HasComputedColumnSql("REPLACE([Code], N'.', N'')", stored: true);
-        modelBuilder.Entity<Company>().HasIndex(x => x.Nip);
+        modelBuilder.Entity<Company>().HasIndex(x => x.Nip)
+            .HasDatabaseName("IX_Companies_Nip")
+            .IsUnique(false).IsClustered(false).IsDescending(false);
         modelBuilder.Entity<Company>().Property(x => x.Name).HasMaxLength(1000).IsRequired();
         modelBuilder.Entity<Company>().Property(x => x.CreatedOn)
             .HasColumnType("datetime")

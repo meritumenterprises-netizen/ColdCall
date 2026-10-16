@@ -234,3 +234,5 @@
 }
 .csv-toast { position: fixed; right: 24px; bottom: 24px; max-width: calc(100vw - 48px); padding: 12px 18px; background: #166534; color: #fff; border-radius: 6px; box-shadow: 0 4px 16px #0003; z-index: 1000; }
 .csv-quota-summary { margin: 12px 0 0; font-size: 14px; font-weight: 600; }
+.search-plan-controls { border: 0; padding: 0; margin: 0; min-width: 0; }
+.search-plan-controls:disabled { opacity: .65; }

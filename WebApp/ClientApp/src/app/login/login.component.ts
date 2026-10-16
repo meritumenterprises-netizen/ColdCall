@@ -1,8 +1,8 @@
-import { AfterViewInit, ChangeDetectorRef, Component, NgZone, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { retry, timeout } from 'rxjs/operators';
+import { finalize, retry, switchMap, timeout } from 'rxjs/operators';
 import { Router } from '@angular/router';
-import { ApiService } from '../services/api.service';
+import { ApiService, TrialOffer } from '../services/api.service';
 
 declare const google: any;
 
@@ -11,6 +11,30 @@ declare const google: any;
   templateUrl: './login.component.html'
 })
 export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
+  @ViewChild('trialDialog', { static: true }) trialDialog: ElementRef;
+  trialOffer: TrialOffer | null = null;
+  trialTermsAccepted = false;
+  trialSaving = false;
+  trialError = '';
+  private trialRequest: Subscription | null = null;
+
+  acceptTrial() {
+    if (!this.trialOffer || !this.trialTermsAccepted || this.trialSaving) { return; }
+    this.trialSaving = true;
+    this.trialError = '';
+    this.trialRequest = this.api.acceptTrial(this.trialOffer.token, true).pipe(
+      switchMap(() => this.api.me()), finalize(() => this.trialSaving = false)
+    ).subscribe(() => {
+      this.trialDialog.nativeElement.close();
+      this.router.navigateByUrl('/dashboard');
+    }, err => this.trialError = err.error && err.error.message ? err.error.message : 'Nie udalo sie aktywowac planu probnego.');
+  }
+
+  declineTrial() {
+    if (this.trialSaving) { return; }
+    this.trialDialog.nativeElement.close();
+    this.router.navigateByUrl('/plans');
+  }
   companyCount: number | null = null;
   companyCountError = false;
   private countRequest: Subscription | null = null;
@@ -32,6 +56,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.trialRequest) { this.trialRequest.unsubscribe(); }
     if (this.countRequest) { this.countRequest.unsubscribe(); }
   }
 
@@ -106,6 +131,13 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
     }
     this.api.setToken(credential);
     this.api.me().subscribe(me => {
+      if (me.trialOffer) {
+        this.trialOffer = me.trialOffer;
+        this.trialTermsAccepted = false;
+        this.changeDetector.detectChanges();
+        this.trialDialog.nativeElement.showModal();
+        return;
+      }
       this.router.navigateByUrl(me.isAdmin ? '/admin' : (me.hasActivePlan ? '/dashboard' : '/plans'));
     }, error => {
       this.api.logout();

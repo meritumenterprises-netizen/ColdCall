@@ -324,3 +324,9 @@ tbody tr:hover { background: #f8fafc; }
 .company-count-label { margin-top: 8px; font-size: 16px; color: #dbeafe; }
 .company-count-retry { margin-top: 10px; border: 0; background: transparent; color: #6ee7b7; text-decoration: underline; cursor: pointer; }
 @media (max-width: 480px) { .company-count-card { padding: 16px; } .company-count-value { font-size: 32px; } }
+.trial-dialog { width: 520px; max-width: calc(100vw - 32px); max-height: calc(100vh - 48px); overflow: auto; box-sizing: border-box; padding: 24px; border: 1px solid #cbd5e1; border-radius: 8px; color: #111827; }
+.trial-dialog::backdrop { background: #0008; }
+.trial-dialog h2 { font-size: 24px; margin-top: 0; }
+.trial-terms { display: flex; align-items: center; justify-content: flex-start; gap: 8px; text-align: left; }
+.trial-terms input[type="checkbox"] { flex: 0 0 16px; width: 16px; height: 16px; min-width: 0; padding: 0; margin: 0; accent-color: #0f8f6a; }
+.trial-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }

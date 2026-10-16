@@ -22,3 +22,16 @@
     <div class="error" *ngIf="error">{{ error }}</div>
   </section>
 </section>
+<dialog #trialDialog class="trial-dialog" aria-labelledby="trial-title" (cancel)="$event.preventDefault(); declineTrial()">
+  <ng-container *ngIf="trialOffer">
+    <h2 id="trial-title">Plan pr&#243;bny {{ trialOffer.code }}</h2>
+    <div [innerHTML]="trialOffer.descriptionHtml"></div>
+    <p>Wygasa: <strong>{{ trialOffer.expiresAtUtc | date:'dd.MM.yyyy HH:mm' }}</strong></p>
+    <label class="trial-terms"><input type="checkbox" [(ngModel)]="trialTermsAccepted" [disabled]="trialSaving">Akceptuj&#281; warunki planu pr&#243;bnego.</label>
+    <div *ngIf="trialError" class="error" role="alert">{{ trialError }}</div>
+    <div class="trial-actions">
+      <button type="button" class="primary-button" [disabled]="!trialTermsAccepted || trialSaving" (click)="acceptTrial()">OK</button>
+      <button type="button" class="ghost-button" [disabled]="trialSaving" (click)="declineTrial()">Anuluj</button>
+    </div>
+  </ng-container>
+</dialog>
