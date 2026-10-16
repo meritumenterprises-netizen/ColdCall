@@ -2,7 +2,7 @@
   <aside class="sidebar">
     <div class="sidebar-title">Administrator</div>
     <button class="search-item" [class.active]="tab === 'companies'" (click)="tab = 'companies'">Firmy</button>
-    <button class="search-item" [class.active]="tab === 'users'" (click)="tab = 'users'">Uzytkownicy i plany</button>
+    <button class="search-item" [class.active]="tab === 'users'" (click)="tab = 'users'">U&#380;ytkownicy</button>
   </aside>
 
   <main class="workspace">
@@ -132,7 +132,11 @@
       <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name" (closed)="detailsCompany = null"></app-company-details>
     </section>
 
-    <section class="admin-users-grid" *ngIf="tab === 'users'" [attr.aria-busy]="usersLoading">
+      <div class="admin-user-email-filter" *ngIf="tab === 'users'">
+        <label for="admin-user-email">Email</label>
+        <input id="admin-user-email" type="text" [(ngModel)]="userEmailFilter" autocomplete="off">
+      </div>
+    <section class="admin-users-grid" *ngIf="tab === 'users'" [attr.aria-busy]="usersLoading" (scroll)="planHint = null">
       <table>
         <thead><tr>
           <th *ngFor="let col of userColumns" [attr.aria-sort]="usersSortBy === col.key ? (usersDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
@@ -145,10 +149,13 @@
         <tbody>
           <tr *ngIf="usersLoading"><td colspan="5" role="status">Wczytywanie...</td></tr>
           <ng-container *ngIf="!usersLoading">
-            <tr *ngFor="let row of userRows">
+            <tr *ngFor="let row of userRows; trackBy: trackUser">
               <td>{{ row.displayName || '-' }}</td>
               <td>{{ row.googleEmail }}</td>
-              <td>{{ row.planCode || '-' }}</td>
+              <td><span *ngIf="row.planCode; else noUserPlan" tabindex="0" class="admin-plan-label"
+                        (mouseenter)="showPlanHint($event, row.descriptionHtml)" (mouseleave)="planHint = null"
+                        (focus)="showPlanHint($event, row.descriptionHtml)" (blur)="planHint = null" (keydown.escape)="planHint = null"
+                        [attr.aria-describedby]="planHint ? 'admin-plan-tooltip' : null">{{ row.planCode }}</span><ng-template #noUserPlan>-</ng-template></td>
               <td [class.expired]="row.expired">{{ row.expiresAtUtc ? (row.expiresAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
               <td class="admin-user-actions">
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="extendPlan(row.id)">Przed&#322;u&#380; o 7 dni</button>
@@ -160,6 +167,8 @@
         </tbody>
       </table>
     </section>
+    <div *ngIf="tab === 'users' && planHint" id="admin-plan-tooltip" role="tooltip" class="admin-plan-tooltip"
+         [style.left.px]="planHint.left" [style.top.px]="planHint.top" [innerHTML]="planHint.html"></div>
     <dialog #deleteCsvDialog class="delete-csv-dialog" aria-labelledby="delete-csv-title" (cancel)="$event.preventDefault(); cancelDeleteCsv()">
       <h2 id="delete-csv-title">Usu&#324; eksporty CSV</h2>
       <p>Czy trwale usun&#261;&#263; wszystkie eksporty CSV u&#380;ytkownika {{ userToDelete ? userToDelete.googleEmail : '' }} z bazy i dysku?</p>

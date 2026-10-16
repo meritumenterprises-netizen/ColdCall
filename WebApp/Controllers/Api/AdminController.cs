@@ -185,7 +185,7 @@ public class AdminController : ControllerBase
                 x.GoogleEmail,
                 x.DisplayName,
                 x.Plans.OrderByDescending(p => p.ExpiresAtUtc)
-                    .Select(p => new UserPlanDto(p.PlanDefinition.Code, p.PurchasedAtUtc, p.ExpiresAtUtc, p.Source))
+                    .Select(p => new UserPlanDto(p.PlanDefinition.Code, p.PurchasedAtUtc, p.ExpiresAtUtc, p.Source, p.PlanDefinition.DescriptionHtml))
                     .ToList()))
             .ToListAsync();
     }
