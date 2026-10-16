@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { CanActivate, Router } from '@angular/router';
+import { ActivatedRouteSnapshot, CanActivate, Router, RouterStateSnapshot } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ApiService } from './services/api.service';
@@ -8,7 +8,7 @@ import { ApiService } from './services/api.service';
 export class AuthGuard implements CanActivate {
   constructor(private api: ApiService, private router: Router) {}
 
-  canActivate(): boolean | Observable<boolean> {
+  canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | Observable<boolean> {
     if (this.api.isAuthenticated()) {
       return true;
     }
@@ -18,7 +18,7 @@ export class AuthGuard implements CanActivate {
       return false;
     }
 
-    return this.api.me().pipe(
+    return this.api.me(!state.url.startsWith('/payment/success')).pipe(
       map(() => true),
       catchError(() => {
         this.api.logout();

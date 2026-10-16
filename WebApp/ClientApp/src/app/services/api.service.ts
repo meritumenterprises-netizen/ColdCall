@@ -53,7 +53,7 @@ export interface Plan { code: string; searchLimit: number; descriptionHtml: stri
 export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; expiresAtUtc: string; isExpired?: boolean; }
 export interface UserProfile { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
-export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
+export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string; descriptionHtml?: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; }
 export interface AuthConfig { googleClientId: string; }
@@ -61,6 +61,17 @@ export interface CsvExportRow { id: number; userId: number; searchProfileId: num
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
+  private purchasedPlan: CurrentPlan | null = null;
+
+  rememberPurchasedPlan() {
+    this.purchasedPlan = this.currentUser && this.currentUser.plan ? { ...this.currentUser.plan } : null;
+  }
+
+  takePurchasedPlan(): CurrentPlan | null {
+    const plan = this.purchasedPlan;
+    this.purchasedPlan = null;
+    return plan;
+  }
   private expiredTrialNotified = false;
   readonly expiredTrialNotice = new BehaviorSubject<boolean>(false);
 
@@ -75,6 +86,7 @@ export class ApiService {
   constructor(private http: HttpClient) {}
 
   setToken(token: string) {
+    this.purchasedPlan = null;
     this.expiredTrialNotified = false;
     this.expiredTrialNotice.next(false);
     this.csrfToken = ''; this.csrfRequest = null;
@@ -86,6 +98,7 @@ export class ApiService {
   }
 
   logout() {
+    this.purchasedPlan = null;
     this.expiredTrialNotified = false;
     this.expiredTrialNotice.next(false);
     this.localSession = false;
@@ -150,6 +163,7 @@ export class ApiService {
     return this.accountPost<{ message: string }>('register', { displayName, email, password });
   }
   loginLocal(email: string, password: string) {
+    this.purchasedPlan = null;
     this.expiredTrialNotified = false;
     this.expiredTrialNotice.next(false);
     this.csrfToken = ''; this.csrfRequest = null;
@@ -168,13 +182,13 @@ export class ApiService {
 
   authConfig(): Observable<AuthConfig> { return this.http.get<AuthConfig>(this.url('/auth-config.json')); }
   profile(): Observable<UserProfile> { return this.http.get<UserProfile>(this.url('/api/auth/profile'), this.headers()); }
-  me(): Observable<Me> {
+  me(notifyExpiredTrial = true): Observable<Me> {
     const csrf = this.localSession && !this.csrfToken ? this.refreshCsrf() : of(this.csrfToken);
     return csrf.pipe(switchMap(() => this.http.get<Me>(this.url('/api/auth/me'), this.headers())),
       tap(user => {
         this.currentUser = user;
         this.authenticated = true;
-        if (!user.isAdmin && !user.hasActivePlan && user.hasExpiredTrial && !this.expiredTrialNotified) {
+        if (notifyExpiredTrial && !user.isAdmin && !user.hasActivePlan && (user.hasExpiredPlan || user.hasExpiredTrial) && !this.expiredTrialNotified) {
           this.expiredTrialNotified = true;
           this.expiredTrialNotice.next(true);
         }
@@ -269,11 +283,12 @@ export class ApiService {
 
   plans(): Observable<Plan[]> { return this.http.get<Plan[]>(this.url('/api/plans'), this.headers()); }
   checkout(planCode: string) {
-    return this.http.post<any>(this.url('/api/plans/checkout'), {
-      planCode,
-      successUrl: location.origin + '/plans?success=true',
-      cancelUrl: location.origin + '/plans?canceled=true'
-    }, this.headers());
+    return this.http.post<{ url: string }>(this.url('/api/plans/checkout'), { planCode }, this.headers());
+  }
+
+  confirmCheckout(sessionId: string) {
+    const csrf = this.localSession && !this.csrfToken ? this.refreshCsrf() : of(this.csrfToken);
+    return csrf.pipe(switchMap(() => this.http.post<{ paid: boolean }>(this.url('/api/plans/confirm-checkout'), { sessionId }, this.headers())));
   }
 
   adminCompanies(page: number, sortBy: string, direction: string, filter: string, pkdIds: number[] = [], filters?: CompanyFilters, nip = '', blockedByRODO: boolean | null = null): Observable<PagedResult<Company>> {

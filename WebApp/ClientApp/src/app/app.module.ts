@@ -11,6 +11,7 @@ import { UserDashboardComponent } from './user-dashboard/user-dashboard.componen
 import { AddressListboxComponent } from './user-dashboard/address-listbox.component';
 import { AdminDashboardComponent } from './admin-dashboard/admin-dashboard.component';
 import { PlansComponent } from './plans/plans.component';
+import { PaymentSuccessComponent } from './plans/payment-success.component';
 import { ProfileComponent } from './profile/profile.component';
 import { AuthGuard } from './auth.guard';
 import { CompanyDetailsComponent } from './company-details/company-details.component';
@@ -24,6 +25,7 @@ import { CompanyDetailsComponent } from './company-details/company-details.compo
     AddressListboxComponent,
     AdminDashboardComponent,
     PlansComponent,
+    PaymentSuccessComponent,
     ProfileComponent,
     CompanyDetailsComponent
   ],
@@ -36,6 +38,7 @@ import { CompanyDetailsComponent } from './company-details/company-details.compo
       { path: 'dashboard', component: UserDashboardComponent, canActivate: [AuthGuard] },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [AuthGuard] },
       { path: 'plans', component: PlansComponent, canActivate: [AuthGuard] },
+      { path: 'payment/success', component: PaymentSuccessComponent, canActivate: [AuthGuard] },
       { path: 'profile', redirectTo: 'profile/plan', pathMatch: 'full' },
       { path: 'profile/plan', component: ProfileComponent, canActivate: [AuthGuard] },
       { path: 'profile/data', component: ProfileComponent, canActivate: [AuthGuard], data: { section: 'data' } },

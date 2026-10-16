@@ -95,4 +95,5 @@ public record DictionaryDto(int Id, string Name);
 
 public record BusinessTypeDto(int TypDzialalnosciId, string TypDzialalnosci);
 
-public record CheckoutRequest(string PlanCode, string SuccessUrl, string CancelUrl);
+public record CheckoutRequest(string PlanCode);
+public record ConfirmCheckoutRequest(string SessionId);
