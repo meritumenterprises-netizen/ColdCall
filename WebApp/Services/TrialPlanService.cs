@@ -15,10 +15,12 @@ public class TrialPlanService
 {
     private readonly ColdCallDbContext _db;
     private readonly ITimeLimitedDataProtector _protector;
+    private readonly CsvExportCleanupService _cleanup;
 
-    public TrialPlanService(ColdCallDbContext db, IDataProtectionProvider protection)
+    public TrialPlanService(ColdCallDbContext db, IDataProtectionProvider protection, CsvExportCleanupService cleanup)
     {
         _db = db;
+        _cleanup = cleanup;
         _protector = protection.CreateProtector("ColdCall.NewUserTrial.v1").ToTimeLimitedDataProtector();
     }
 
@@ -31,6 +33,37 @@ public class TrialPlanService
         var ticket = new TrialOfferTicket(userId, plan.Id, expiration);
         return new TrialOffer(plan.Code, plan.DescriptionHtml, expiration,
             _protector.Protect(JsonSerializer.Serialize(ticket), TimeSpan.FromMinutes(15)));
+    }
+
+    public async Task DeactivateExpiredAsync(int userId, CancellationToken token)
+    {
+        await _cleanup.DeleteForExpiredTrialAsync(userId, token);
+    }
+
+    public async Task EnsureAssignedAsync(int userId, CancellationToken token)
+    {
+        if (await _db.UserPlans.AnyAsync(p => p.AppUserId == userId, token)) return;
+        await using var transaction = await _db.Database.BeginTransactionAsync(token);
+        var resource = "TrialPlan:" + userId;
+        await _db.Database.ExecuteSqlInterpolatedAsync($@"
+            DECLARE @result int;
+            EXEC @result = sys.sp_getapplock @Resource={resource}, @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
+            IF @result < 0 THROW 50001, 'Trial assignment lock unavailable', 1;", token);
+        if (await _db.UserPlans.AnyAsync(p => p.AppUserId == userId, token)) return;
+        if (!await _db.Users.AnyAsync(u => u.Id == userId && u.IsEnabled && !u.IsAdmin, token)) return;
+        var plan = await _db.PlanDefinitions.AsNoTracking()
+            .Where(p => p.IsTrial && p.IsActive && p.ExpiresAfterDays > 0)
+            .OrderBy(p => p.Order).ThenBy(p => p.Id).FirstOrDefaultAsync(token);
+        if (plan == null) return;
+        var now = DateTime.UtcNow;
+        _db.UserPlans.Add(new UserPlan
+        {
+            AppUserId = userId, PlanDefinitionId = plan.Id, PurchasedAtUtc = now,
+            ExpiresAtUtc = now.AddDays(plan.ExpiresAfterDays!.Value),
+            PricePaid = 0, Source = "Trial", IsActive = true
+        });
+        await _db.SaveChangesAsync(token);
+        await transaction.CommitAsync(token);
     }
 
     public async Task<bool> AcceptAsync(int userId, TrialAcceptance acceptance, CancellationToken token)

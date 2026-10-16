@@ -4,7 +4,7 @@
       <span class="eyebrow">Miesieczny dostep</span>
       <h1>Wybierz plan</h1>
     </div>
-    <button class="ghost-button" routerLink="/dashboard">Wróć</button>
+    <button *ngIf="canReturnToDashboard" class="ghost-button" routerLink="/dashboard">Wróć</button>
   </header>
 
   <div class="error" *ngIf="error">{{ error }}</div>
