@@ -52,6 +52,10 @@ export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; crit
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; order: number; canPurchase: boolean; }
 export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; expiresAtUtc: string; isExpired?: boolean; }
 export interface UserProfile { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }
+export interface StripePurchase {
+  planCode: string; maxNumberOfSearches: number; maxNumberOfCSVExportsPerSearch: number | null;
+  maxNumberOfExportedRecords: number | null; amountPaid: number; paidAtUtc: string;
+}
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
 export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string; descriptionHtml?: string; }
@@ -182,6 +186,9 @@ export class ApiService {
 
   authConfig(): Observable<AuthConfig> { return this.http.get<AuthConfig>(this.url('/auth-config.json')); }
   profile(): Observable<UserProfile> { return this.http.get<UserProfile>(this.url('/api/auth/profile'), this.headers()); }
+  purchases(sortBy = 'paidAtUtc', direction = 'desc'): Observable<StripePurchase[]> {
+    return this.http.get<StripePurchase[]>(this.url('/api/auth/purchases'), { ...this.headers(), params: { sortBy, direction } });
+  }
   me(notifyExpiredTrial = true): Observable<Me> {
     const csrf = this.localSession && !this.csrfToken ? this.refreshCsrf() : of(this.csrfToken);
     return csrf.pipe(switchMap(() => this.http.get<Me>(this.url('/api/auth/me'), this.headers())),

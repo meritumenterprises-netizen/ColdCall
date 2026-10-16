@@ -29,7 +29,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   pkdDescription = '';
   classifyingPkd = false;
   @ViewChild('pkdErrorDialog', { static: true }) pkdErrorDialog: ElementRef;
-  @ViewChild('saveSearchDialog', { static: true }) saveSearchDialog: ElementRef;
   @ViewChild('duplicateExportDialog', { static: true }) duplicateExportDialog: ElementRef;
   pkdClassificationMessage = '';
   pkdClassificationError = '';
@@ -487,7 +486,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.allResultsCountRequest) { this.allResultsCountRequest.unsubscribe(); }
     if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
     this.pkdErrorDialog.nativeElement.close();
-    this.saveSearchDialog.nativeElement.close();
     if (this.pkdClassificationRequest) { this.pkdClassificationRequest.unsubscribe(); }
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     this.addressFields.forEach(field => { if (field.request) { field.request.unsubscribe(); } });
@@ -819,27 +817,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   saveSearch() {
-    if (!this.canSaveSearch || !this.validateFilters()) { return; }
-    if (this.currentSearchId === null || this.currentSearchId < 0) {
-      const dialog = this.saveSearchDialog.nativeElement as HTMLDialogElement;
-      if (!dialog.open) { dialog.showModal(); }
-      return;
-    }
-    this.persistSearch();
-  }
-
-  confirmSaveSearch() {
-    const dialog = this.saveSearchDialog.nativeElement as HTMLDialogElement;
-    if (!dialog.open) { return; }
-    dialog.close();
-    this.persistSearch();
-  }
-
-  cancelSaveSearch() {
-    this.saveSearchDialog.nativeElement.close();
-  }
-
-  private persistSearch() {
     if (!this.canSaveSearch || !this.validateFilters()) { return; }
     const savedState = this.searchState();
     const draftId = this.currentSearchId;

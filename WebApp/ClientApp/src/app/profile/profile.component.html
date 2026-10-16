@@ -4,13 +4,14 @@
       <a class="sidebar-nav-link" routerLink="/profile">Profil</a>
       <ul class="sidebar-subnav">
         <li><a class="sidebar-nav-link" routerLink="/profile/data" routerLinkActive="active" [attr.aria-current]="isDataPanel ? 'page' : null">Dane</a></li>
-        <li *ngIf="profile && !profile.isAdmin"><a class="sidebar-nav-link" routerLink="/profile/plan" routerLinkActive="active" [attr.aria-current]="!isDataPanel ? 'page' : null">Plan</a></li>
+        <li *ngIf="profile && !profile.isAdmin"><a class="sidebar-nav-link" routerLink="/profile/plan" routerLinkActive="active" [attr.aria-current]="isPlanPanel ? 'page' : null">Plan</a></li>
+        <li *ngIf="profile && !profile.isAdmin"><a class="sidebar-nav-link" routerLink="/profile/purchases" routerLinkActive="active" [attr.aria-current]="isPurchasesPanel ? 'page' : null">Zakupy</a></li>
       </ul>
       <a *ngIf="canSearch" class="sidebar-nav-link" routerLink="/dashboard">Wyszukiwania</a>
     </nav>
   </aside>
   <main class="workspace profile-content" [attr.aria-busy]="loading">
-    <h1>{{ isDataPanel ? 'Dane' : 'Plan' }}</h1>
+    <h1>{{ isDataPanel ? 'Dane' : isPurchasesPanel ? 'Zakupy' : 'Plan' }}</h1>
     <p *ngIf="loading" role="status">Wczytywanie...</p>
     <div *ngIf="error" role="alert" class="error">
       {{ error }} <button type="button" class="ghost-button" (click)="loadPlan()">Ponów</button>
@@ -23,7 +24,38 @@
       <label class="admin-status" *ngIf="isDataPanel && profile && profile.isAdmin">
         <input type="checkbox" checked disabled>Administrator
       </label>
-      <ng-container *ngIf="!isDataPanel">
+      <section *ngIf="isPurchasesPanel && profile && !profile.isAdmin" aria-label="Historia zakupów">
+        <div *ngIf="purchasesError" class="error" role="alert">
+          {{ purchasesError }} <button type="button" class="ghost-button" (click)="loadPurchases()">Ponów</button>
+        </div>
+        <div class="purchases-grid" [attr.aria-busy]="purchasesLoading">
+          <table class="purchases-table">
+            <thead><tr>
+              <th *ngFor="let column of purchaseColumns" scope="col"
+                [attr.aria-sort]="purchasesSortBy === column.key ? (purchasesDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+                <button type="button" (click)="sortPurchases(column.key)">
+                  {{ column.label }}<span class="purchase-sort" [class.selected]="purchasesSortBy === column.key" aria-hidden="true">{{ purchasesDirection === 'asc' ? '&#9650;' : '&#9660;' }}</span>
+                </button>
+              </th>
+            </tr></thead>
+            <tbody>
+              <tr *ngIf="purchasesLoading"><td [attr.colspan]="purchaseColumns.length" role="status">Wczytywanie...</td></tr>
+              <ng-container *ngIf="!purchasesLoading && !purchasesError">
+                <tr *ngFor="let purchase of purchases">
+                  <td>{{ purchase.planCode }}</td>
+                  <td>{{ formatLimit(purchase.maxNumberOfSearches) }}</td>
+                  <td>{{ formatLimit(purchase.maxNumberOfCSVExportsPerSearch) }}</td>
+                  <td>{{ formatLimit(purchase.maxNumberOfExportedRecords) }}</td>
+                  <td class="purchase-amount">{{ formatAmount(purchase.amountPaid) }}</td>
+                  <td>{{ purchase.paidAtUtc | date:'dd.MM.yyyy HH:mm' }}</td>
+                </tr>
+                <tr *ngIf="purchases.length === 0"><td [attr.colspan]="purchaseColumns.length">Brak zakupów.</td></tr>
+              </ng-container>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <ng-container *ngIf="isPlanPanel">
       <p *ngIf="profile && profile.isAdmin">Administrator nie korzysta z &#380;adnego planu.</p>
       <ng-container *ngIf="profile && !profile.isAdmin">
       <ng-container *ngIf="plan; else noPlan">
