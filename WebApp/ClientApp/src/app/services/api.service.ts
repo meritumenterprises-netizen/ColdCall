@@ -1,7 +1,8 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { Observable, of, throwError } from 'rxjs';
+import { catchError, map, shareReplay, switchMap, tap } from 'rxjs/operators';
+import { environment } from '../../environments/environment';
 
 export interface SortableColumn { key: string; label: string; }
 export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; }
@@ -49,7 +50,7 @@ export interface SearchCriteria {
 }
 export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; order: number; canPurchase: boolean; }
-export interface CurrentPlan { code: string; descriptionHtml: string; maxNumberOfSearches: number; expiresAtUtc: string; isExpired?: boolean; }
+export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; expiresAtUtc: string; isExpired?: boolean; }
 export interface UserProfile { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
 export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
@@ -63,30 +64,40 @@ export class ApiService {
   private token = localStorage.getItem('google_id_token') || '';
   private authenticated = false;
   private currentUser: Me | null = null;
+  private localSession = sessionStorage.getItem('coldcall_local_session') === '1';
+  private csrfToken = '';
+  private csrfRequest: Observable<string> | null = null;
 
   constructor(private http: HttpClient) {}
 
   setToken(token: string) {
+    this.csrfToken = ''; this.csrfRequest = null;
+    this.localSession = false;
+    sessionStorage.removeItem('coldcall_local_session');
     this.token = token;
     this.authenticated = false;
     localStorage.setItem('google_id_token', token);
   }
 
   logout() {
+    this.localSession = false;
+    this.csrfToken = '';
+    this.csrfRequest = null;
+    sessionStorage.removeItem('coldcall_local_session');
     this.token = '';
     this.authenticated = false;
     this.currentUser = null;
     localStorage.removeItem('google_id_token');
   }
 
-  isLoggedIn() { return !!this.token; }
+  isLoggedIn() { return !!this.token || this.localSession; }
   acceptTrial(token: string, termsAccepted: boolean) {
     return this.http.post(this.url('/api/auth/accept-trial'), { token, termsAccepted }, this.headers());
   }
   companyCount(): Observable<{ count: number }> {
     return this.http.get<{ count: number }>(this.url('/api/statistics/companies'));
   }
-  hasToken() { return !!this.token; }
+  hasToken() { return !!this.token || this.localSession; }
   isAuthenticated() { return this.authenticated; }
   isAdmin() { return this.authenticated && !!this.currentUser && this.currentUser.isAdmin; }
   isNonAdmin() { return this.authenticated && !!this.currentUser && !this.currentUser.isAdmin; }
@@ -109,15 +120,47 @@ export class ApiService {
   }
 
   headers() {
-    return { headers: new HttpHeaders({ Authorization: 'Bearer ' + this.token }) };
+    let headers = new HttpHeaders();
+    if (this.token) { headers = headers.set('Authorization', 'Bearer ' + this.token); }
+    if (this.csrfToken) { headers = headers.set('X-CSRF-TOKEN', this.csrfToken); }
+    return { headers, withCredentials: true };
   }
 
-  private url(path: string) { return path; }
+  private url(path: string) { return (environment.apiBaseUrl || '').replace(/\/$/, '') + path; }
+
+  refreshCsrf(): Observable<string> {
+    this.csrfRequest = this.http.get<{ token: string }>(this.url('/api/account/csrf'), this.headers()).pipe(
+      map(response => response.token), tap(token => this.csrfToken = token),
+      catchError(err => { this.csrfRequest = null; return throwError(err); }), shareReplay(1));
+    return this.csrfRequest;
+  }
+  private accountPost<T>(path: string, body: any): Observable<T> {
+    const token = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
+    return token.pipe(switchMap(() => this.http.post<T>(this.url('/api/account/' + path), body, this.headers())));
+  }
+  registerLocal(displayName: string, email: string, password: string) {
+    return this.accountPost<{ message: string }>('register', { displayName, email, password });
+  }
+  loginLocal(email: string, password: string) {
+    this.csrfToken = ''; this.csrfRequest = null;
+    this.authenticated = false; this.currentUser = null;
+    this.token = ''; localStorage.removeItem('google_id_token');
+    return this.accountPost<{ trialOffer?: TrialOffer }>('login', { email, password }).pipe(
+      tap(() => { this.localSession = true; sessionStorage.setItem('coldcall_local_session', '1'); this.csrfToken = ''; this.csrfRequest = null; }),
+      switchMap(result => this.refreshCsrf().pipe(map(() => result)))
+    );
+  }
+  forgotPassword(email: string) { return this.accountPost<{ message: string }>('forgot-password', { email }); }
+  resendConfirmation(email: string) { return this.accountPost<{ message: string }>('resend-confirmation', { email }); }
+  confirmEmail(email: string, token: string) { return this.accountPost<{ message: string }>('confirm-email', { email, token }); }
+  resetPassword(email: string, token: string, password: string) { return this.accountPost<{ message: string }>('reset-password', { email, token, password }); }
+  logoutSession() { return this.accountPost<any>('logout', {}).pipe(tap(() => this.logout())); }
 
   authConfig(): Observable<AuthConfig> { return this.http.get<AuthConfig>(this.url('/auth-config.json')); }
   profile(): Observable<UserProfile> { return this.http.get<UserProfile>(this.url('/api/auth/profile'), this.headers()); }
   me(): Observable<Me> {
-    return this.http.get<Me>(this.url('/api/auth/me'), this.headers()).pipe(
+    const csrf = this.localSession && !this.csrfToken ? this.refreshCsrf() : of(this.csrfToken);
+    return csrf.pipe(switchMap(() => this.http.get<Me>(this.url('/api/auth/me'), this.headers())),
       tap(user => {
         this.currentUser = user;
         this.authenticated = true;

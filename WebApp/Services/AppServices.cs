@@ -25,6 +25,13 @@ public class CurrentUserService : ICurrentUserService
 
     public async Task<AppUser> GetOrCreateAsync(ClaimsPrincipal principal)
     {
+        var localId = principal.FindFirstValue(LocalAuthentication.UserIdClaim);
+        if (int.TryParse(localId, out var userId))
+        {
+            var localUser = await _db.Users.SingleOrDefaultAsync(u => u.Id == userId && u.IsEnabled)
+                ?? throw new UnauthorizedAccessException("Konto jest niedostepne.");
+            return localUser;
+        }
         var email = principal.FindFirstValue(ClaimTypes.Email)
             ?? principal.FindFirstValue("email")
             ?? throw new InvalidOperationException("Token Google nie zawiera adresu email.");
@@ -43,6 +50,9 @@ public class CurrentUserService : ICurrentUserService
             _db.Users.Add(user);
             WasCreated = true;
         }
+        else if (user.GoogleSubject.StartsWith("local:", StringComparison.Ordinal))
+            throw new UnauthorizedAccessException("To konto korzysta z logowania haslem.");
+        if (!user.IsEnabled) throw new UnauthorizedAccessException("Konto jest zablokowane.");
 
         user.LastLoginAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync();

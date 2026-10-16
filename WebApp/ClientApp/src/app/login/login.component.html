@@ -11,11 +11,36 @@
   </div>
 
   <section class="login-card">
-    <span class="eyebrow">Google Authentication</span>
-    <h2>Zaloguj sie</h2>
-    <p class="form-hint">Wybierz konto Google z listy, aby przejsc do aplikacji.</p>
-    <p class="form-hint">Google OAuth origin: {{ currentOrigin }}</p>
-    <div class="google-login-box">
+    <div class="local-auth-tabs">
+      <button type="button" [class.active]="localMode === 'login'" [disabled]="localBusy" (click)="setLocalMode('login')">Logowanie</button>
+      <button type="button" [class.active]="localMode === 'register'" [disabled]="localBusy" (click)="setLocalMode('register')">Rejestracja</button>
+    </div>
+    <h2>{{ localMode === 'register' ? 'Utwórz konto' : localMode === 'forgot' ? 'Odzyskaj hasło' : localMode === 'reset' ? 'Ustaw nowe hasło' : 'Zaloguj się' }}</h2>
+    <form #localForm="ngForm" (ngSubmit)="submitLocalAuth()">
+      <fieldset class="local-auth-fields" [disabled]="localBusy">
+        <label *ngIf="localMode === 'register'" for="register-name">Imi&#281; i nazwisko</label>
+        <input *ngIf="localMode === 'register'" id="register-name" name="displayName" [(ngModel)]="localDisplayName" required minlength="2" maxlength="200" autocomplete="name">
+        <label for="local-email">Email</label>
+        <input id="local-email" name="email" type="email" [(ngModel)]="localEmail" required email maxlength="254" autocomplete="username" [readOnly]="localMode === 'reset'">
+        <ng-container *ngIf="localMode !== 'forgot'">
+          <label for="local-password">{{ localMode === 'reset' ? 'Nowe hasło' : 'Hasło' }}</label>
+          <input id="local-password" name="password" type="password" [(ngModel)]="localPassword" required [minlength]="localMode === 'login' ? 1 : 12" maxlength="128" [attr.autocomplete]="localMode === 'login' ? 'current-password' : 'new-password'">
+        </ng-container>
+        <ng-container *ngIf="localMode === 'register' || localMode === 'reset'">
+          <label for="local-password-confirm">Powt&#243;rz has&#322;o</label>
+          <input id="local-password-confirm" name="confirmPassword" type="password" [(ngModel)]="localPasswordConfirmation" required minlength="12" maxlength="128" autocomplete="new-password">
+        </ng-container>
+        <button type="submit" class="primary-button local-auth-submit" [disabled]="localBusy || localForm.invalid">{{ localBusy ? 'Proszę czekać...' : localMode === 'register' ? 'Zarejestruj się' : localMode === 'forgot' ? 'Wyślij link' : localMode === 'reset' ? 'Zapisz hasło' : 'Zaloguj się' }}</button>
+      </fieldset>
+    </form>
+    <div *ngIf="localError" class="error" role="alert">{{ localError }}</div>
+    <div *ngIf="localMessage" class="message" role="status">{{ localMessage }}</div>
+    <div class="local-auth-links">
+      <button *ngIf="localMode === 'login'" type="button" [disabled]="localBusy" (click)="setLocalMode('forgot')">Nie pami&#281;tam has&#322;a</button>
+      <button *ngIf="localMode === 'login' && localEmail" type="button" [disabled]="localBusy" (click)="resendConfirmation()">Wy&#347;lij ponownie potwierdzenie emaila</button>
+      <button *ngIf="localMode === 'forgot' || localMode === 'reset'" type="button" [disabled]="localBusy" (click)="setLocalMode('login')">Wr&#243;&#263; do logowania</button>
+    </div>
+    <div class="google-login-box" [hidden]="localMode === 'reset'">
       <div id="googleSignInButton"></div>
       <span *ngIf="isLoading && !error">Ladowanie Google...</span>
     </div>
@@ -34,4 +59,9 @@
       <button type="button" class="ghost-button" [disabled]="trialSaving" (click)="declineTrial()">Anuluj</button>
     </div>
   </ng-container>
+</dialog>
+<dialog #googleRequiredDialog class="trial-dialog" aria-labelledby="google-required-title">
+  <h2 id="google-required-title">Logowanie Google</h2>
+  <p>zaloguj si&#281; przez Google</p>
+  <div class="trial-actions"><button type="button" class="primary-button" (click)="googleRequiredDialog.close()">OK</button></div>
 </dialog>

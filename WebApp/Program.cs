@@ -7,6 +7,11 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.IdentityModel.Tokens;
 using Stripe;
+using ColdCall.Models;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Identity;
+using System.Threading.RateLimiting;
 
 var initializeDatabase = args.Contains("--initialize-database", StringComparer.OrdinalIgnoreCase);
 var angularDevelopment = args.Contains("--angular-dev-server", StringComparer.OrdinalIgnoreCase);
@@ -17,6 +22,39 @@ var builder = WebApplication.CreateBuilder(args.Where(arg =>
 builder.Services.AddControllers();
 builder.Services.AddDbContext<ColdCallDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Firmy")));
+builder.Services.AddDbContext<LocalAuthDbContext>((services, options) =>
+    options.UseSqlServer(services.GetRequiredService<ColdCallDbContext>().Database.GetDbConnection()));
+builder.Services.AddIdentityCore<LocalAccount>(options =>
+{
+    options.User.RequireUniqueEmail = true;
+    options.Password.RequiredLength = 12;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = false;
+    options.Password.RequireDigit = false;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+}).AddEntityFrameworkStores<LocalAuthDbContext>().AddDefaultTokenProviders();
+builder.Services.Configure<DataProtectionTokenProviderOptions>(options => options.TokenLifespan = TimeSpan.FromHours(1));
+builder.Services.AddScoped<IAuthEmailSender, AuthEmailSender>();
+builder.Services.AddAntiforgery(options =>
+{
+    options.HeaderName = "X-CSRF-TOKEN";
+    options.Cookie.Name = "__Host-FindMeNow.Antiforgery";
+    options.Cookie.Path = "/";
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.HttpOnly = true;
+    options.Cookie.SameSite = builder.Configuration.GetValue<bool>("LocalAuth:CrossSiteCookies") ? SameSiteMode.None : SameSiteMode.Lax;
+});
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("local-auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
+        }));
+});
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<AdminAccessService>();
@@ -31,14 +69,31 @@ builder.Services.AddCors(options =>
     options.AddPolicy("LocalAngular", policy =>
     {
         policy
-            .WithOrigins("http://localhost:4200", "https://localhost:4200")
+            .WithOrigins(builder.Configuration.GetSection("LocalAuth:AllowedOrigins").Get<string[]>()
+                ?? new[] { "http://localhost:4200", "https://localhost:4200" })
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod().AllowCredentials().WithExposedHeaders("Content-Disposition");
     });
 });
 
 builder.Services
-    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddAuthentication("ColdCallAuth")
+    .AddPolicyScheme("ColdCallAuth", "Google or local session", options => options.ForwardDefaultSelector = context =>
+        context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+            ? JwtBearerDefaults.AuthenticationScheme : LocalAuthentication.Scheme)
+    .AddCookie(LocalAuthentication.Scheme, options =>
+    {
+        options.Cookie.Name = "__Host-FindMeNow.Session";
+        options.Cookie.Path = "/";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+        options.Cookie.SameSite = builder.Configuration.GetValue<bool>("LocalAuth:CrossSiteCookies") ? SameSiteMode.None : SameSiteMode.Lax;
+        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.SlidingExpiration = true;
+        options.Events.OnValidatePrincipal = LocalAuthentication.ValidateCookie;
+        options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = 401; return Task.CompletedTask; };
+        options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return Task.CompletedTask; };
+    })
     .AddJwtBearer(options =>
     {
         var googleClientId = builder.Configuration["Google:ClientId"];
@@ -107,6 +162,11 @@ if (useBuiltFrontend &&
     throw new InvalidOperationException(
         "Frontend build missing. Run npm run build in ClientApp once, or use --angular-dev-server in Development.");
 
+app.Use(async (context, next) =>
+{
+    context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    await next();
+});
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 if (useBuiltFrontend)
@@ -131,8 +191,26 @@ app.Use(async (context, next) =>
 
 app.UseRouting();
 app.UseCors("LocalAngular");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(async (context, next) =>
+{
+    if ((context.User.HasClaim(claim => claim.Type == LocalAuthentication.UserIdClaim)
+            || context.Request.Path.StartsWithSegments("/api/account"))
+        && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method)
+        && !HttpMethods.IsOptions(context.Request.Method))
+    {
+        try { await context.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(context); }
+        catch (AntiforgeryValidationException)
+        {
+            context.Response.StatusCode = 400;
+            await context.Response.WriteAsJsonAsync(new { code = "InvalidCsrfToken", message = "Odswiez sesje i sprobuj ponownie." });
+            return;
+        }
+    }
+    await next();
+});
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();

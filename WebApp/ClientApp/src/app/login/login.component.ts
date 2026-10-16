@@ -1,8 +1,8 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { finalize, retry, switchMap, timeout } from 'rxjs/operators';
-import { Router } from '@angular/router';
-import { ApiService, TrialOffer } from '../services/api.service';
+import { finalize, retry, switchMap, tap, timeout } from 'rxjs/operators';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ApiService, Me, TrialOffer } from '../services/api.service';
 
 declare const google: any;
 
@@ -11,6 +11,75 @@ declare const google: any;
   templateUrl: './login.component.html'
 })
 export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
+  @ViewChild('googleRequiredDialog', { static: true }) googleRequiredDialog: ElementRef;
+  localMode: 'login' | 'register' | 'forgot' | 'reset' = 'login';
+  localEmail = '';
+  localDisplayName = '';
+  localPassword = '';
+  localPasswordConfirmation = '';
+  localBusy = false;
+  localError = '';
+  localMessage = '';
+  private resetToken = '';
+  private localRequest: Subscription | null = null;
+
+  setLocalMode(mode: 'login' | 'register' | 'forgot' | 'reset') {
+    if (this.localBusy) { return; }
+    this.localMode = mode; this.localError = ''; this.localMessage = '';
+    this.localPassword = ''; this.localPasswordConfirmation = '';
+  }
+
+  private handleAuthenticated(me: Me, offer?: TrialOffer) {
+    const trial = offer || me.trialOffer;
+    if (trial) {
+      this.trialOffer = trial;
+      this.trialTermsAccepted = false;
+      this.changeDetector.detectChanges();
+      this.trialDialog.nativeElement.showModal();
+      return;
+    }
+    this.router.navigateByUrl(me.isAdmin ? '/admin' : (me.hasActivePlan ? '/dashboard' : '/plans'));
+  }
+
+  submitLocalAuth() {
+    if (this.localBusy) { return; }
+    this.localError = ''; this.localMessage = '';
+    const email = this.localEmail.trim();
+    if (/@(?:gmail|googlemail)\.com$/i.test(email)) { this.googleRequiredDialog.nativeElement.showModal(); return; }
+    if ((this.localMode === 'register' || this.localMode === 'reset') && this.localPassword !== this.localPasswordConfirmation) {
+      this.localError = 'Hasla musza byc takie same.'; return;
+    }
+    if (this.localMode === 'login') {
+      this.localBusy = true;
+      this.localRequest = this.api.loginLocal(email, this.localPassword).pipe(
+        switchMap(result => this.api.me().pipe(tap(me => this.handleAuthenticated(me, result.trialOffer)))),
+        finalize(() => this.localBusy = false)
+      ).subscribe(() => this.localPassword = '', err => this.handleLocalError(err));
+      return;
+    }
+    const request = this.localMode === 'register' ? this.api.registerLocal(this.localDisplayName, email, this.localPassword)
+      : this.localMode === 'forgot' ? this.api.forgotPassword(email) : this.api.resetPassword(email, this.resetToken, this.localPassword);
+    const wasReset = this.localMode === 'reset';
+    this.localBusy = true;
+    this.localRequest = request.pipe(finalize(() => this.localBusy = false)).subscribe(result => {
+      this.localMessage = result.message;
+      this.localPassword = ''; this.localPasswordConfirmation = '';
+      if (wasReset) { this.localMode = 'login'; this.resetToken = ''; }
+    }, err => this.handleLocalError(err));
+  }
+
+  resendConfirmation() {
+    if (this.localBusy) { return; }
+    this.localBusy = true; this.localError = '';
+    this.localRequest = this.api.resendConfirmation(this.localEmail.trim()).pipe(finalize(() => this.localBusy = false))
+      .subscribe(result => this.localMessage = result.message, err => this.handleLocalError(err));
+  }
+
+  private handleLocalError(err: any) {
+    if (err.error && err.error.code === 'GoogleSignInRequired') { this.googleRequiredDialog.nativeElement.showModal(); return; }
+    this.localError = err.status === 429 ? 'Zbyt wiele prob. Sprobuj ponownie za minute.'
+      : err.error && err.error.message ? err.error.message : 'Nie udalo sie wykonac operacji. Sprobuj ponownie.';
+  }
   @ViewChild('trialDialog', { static: true }) trialDialog: ElementRef;
   trialOffer: TrialOffer | null = null;
   trialTermsAccepted = false;
@@ -42,6 +111,18 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadCompanyCount();
+    const query = this.route.snapshot.queryParams;
+    if (query.email && query.token && (query.mode === 'confirm-email' || query.mode === 'reset-password')) {
+      this.localEmail = query.email;
+      this.resetToken = query.token;
+      this.router.navigateByUrl('/', { replaceUrl: true });
+      if (query.mode === 'reset-password') { this.localMode = 'reset'; }
+      else {
+        this.localBusy = true;
+        this.localRequest = this.api.confirmEmail(this.localEmail, this.resetToken).pipe(finalize(() => this.localBusy = false))
+          .subscribe(result => { this.localMessage = result.message; this.resetToken = ''; }, err => this.handleLocalError(err));
+      }
+    }
   }
 
   loadCompanyCount() {
@@ -56,6 +137,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.localRequest) { this.localRequest.unsubscribe(); }
     if (this.trialRequest) { this.trialRequest.unsubscribe(); }
     if (this.countRequest) { this.countRequest.unsubscribe(); }
   }
@@ -68,6 +150,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   constructor(
     private api: ApiService,
     private router: Router,
+    private route: ActivatedRoute,
     private zone: NgZone,
     private changeDetector: ChangeDetectorRef) {}
 
@@ -113,7 +196,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
             text: 'signin_with',
             shape: 'rectangular',
             logo_alignment: 'left',
-            width: 320
+            width: Math.min(320, document.getElementById('googleSignInButton').parentElement.clientWidth || Math.max(200, window.innerWidth - 104))
           }
         );
         this.setStatus(false);
@@ -131,14 +214,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
     }
     this.api.setToken(credential);
     this.api.me().subscribe(me => {
-      if (me.trialOffer) {
-        this.trialOffer = me.trialOffer;
-        this.trialTermsAccepted = false;
-        this.changeDetector.detectChanges();
-        this.trialDialog.nativeElement.showModal();
-        return;
-      }
-      this.router.navigateByUrl(me.isAdmin ? '/admin' : (me.hasActivePlan ? '/dashboard' : '/plans'));
+      this.handleAuthenticated(me);
     }, error => {
       this.api.logout();
       this.error = this.describeLoginError(error);

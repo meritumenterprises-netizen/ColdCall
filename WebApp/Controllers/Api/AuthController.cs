@@ -10,6 +10,7 @@ namespace ColdCall.Controllers.Api;
 [ApiController]
 [Route("api/auth")]
 [Authorize]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public class AuthController : ControllerBase
 {
     private readonly ColdCallDbContext _db;
@@ -51,6 +52,7 @@ public class AuthController : ControllerBase
             plan = activePlan == null ? null : new
             {
                 activePlan.PlanDefinition.Code,
+                activePlan.PlanDefinition.IsTrial,
                 activePlan.PlanDefinition.DescriptionHtml,
                 activePlan.PlanDefinition.MaxNumberOfSearches,
                 activePlan.ExpiresAtUtc
@@ -77,13 +79,14 @@ public class AuthController : ControllerBase
             .Select(x => new
             {
                 x.PlanDefinition.Code,
+                x.PlanDefinition.IsTrial,
                 x.PlanDefinition.DescriptionHtml,
                 x.PlanDefinition.MaxNumberOfSearches,
                 x.ExpiresAtUtc
             }).FirstOrDefaultAsync();
         var profilePlan = plan == null ? null : new
         {
-            plan.Code, plan.DescriptionHtml, plan.MaxNumberOfSearches,
+            plan.Code, plan.IsTrial, plan.DescriptionHtml, plan.MaxNumberOfSearches,
             ExpiresAtUtc = DateTime.SpecifyKind(plan.ExpiresAtUtc, DateTimeKind.Utc),
             IsExpired = plan.ExpiresAtUtc <= DateTime.UtcNow
         };
