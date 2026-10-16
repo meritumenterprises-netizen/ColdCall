@@ -1,0 +1,31 @@
+<div class="app-layout profile-layout">
+  <aside class="sidebar">
+    <nav aria-label="Nawigacja użytkownika">
+      <a class="sidebar-nav-link" routerLink="/profile">Profil</a>
+      <ul class="sidebar-subnav">
+        <li><a class="sidebar-nav-link" routerLink="/profile/plan" routerLinkActive="active" aria-current="page">Plan</a></li>
+      </ul>
+      <a class="sidebar-nav-link" routerLink="/dashboard">Wyszukiwania</a>
+    </nav>
+  </aside>
+  <main class="workspace profile-content" [attr.aria-busy]="loading">
+    <h1>Plan</h1>
+    <p *ngIf="loading" role="status">Wczytywanie...</p>
+    <div *ngIf="error" role="alert" class="error">
+      {{ error }} <button type="button" class="ghost-button" (click)="loadPlan()">Ponów</button>
+    </div>
+    <ng-container *ngIf="!loading && !error">
+      <ng-container *ngIf="plan; else noPlan">
+        <dl>
+          <dt>Nazwa planu</dt><dd>{{ plan.code }}</dd>
+          <dt>Data wygaśnięcia</dt><dd><time [attr.datetime]="plan.expiresAtUtc">{{ plan.expiresAtUtc | date:'yyyy-MM-dd HH:mm' }}</time></dd>
+          <dt>Opis</dt><dd class="plan-description" [innerHTML]="plan.descriptionHtml"></dd>
+        </dl>
+      </ng-container>
+      <ng-template #noPlan>
+        <p>Brak aktywnego planu.</p>
+        <a routerLink="/plans">Wybierz plan</a>
+      </ng-template>
+    </ng-container>
+  </main>
+</div>

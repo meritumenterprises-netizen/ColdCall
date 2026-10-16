@@ -1,0 +1,12 @@
+.profile-layout { min-height: calc(100vh - 72px); }
+.sidebar a { display: block; text-decoration: none; }
+.profile-content { min-width: 0; }
+h1 { font-size: 24px; margin: 0 0 24px; }
+dl { margin: 0; max-width: 800px; }
+dt { font-weight: 700; color: #475569; margin-top: 20px; }
+dd { margin: 6px 0 0; overflow-wrap: anywhere; }
+.plan-description { line-height: 1.6; }
+.plan-description ::ng-deep img { max-width: 100%; height: auto; }
+@media (max-width: 900px) {
+  .profile-layout { grid-template-rows: auto 1fr; }
+}

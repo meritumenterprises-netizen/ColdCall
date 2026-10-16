@@ -37,3 +37,14 @@ button {
   height: 28px;
   width: 28px;
 }
+.topbar nav { align-items: center; }
+.user-menu { position: relative; min-width: 0; display: flex; align-items: center; }
+.user-chip { max-width: 100%; text-align: left; }
+.user-chip > span:first-of-type { overflow-wrap: anywhere; }
+.user-menu-links { position: absolute; right: 0; top: calc(100% + 10px); z-index: 100; min-width: 150px; background: white; color: #111827; border: 1px solid #cbd5e1; border-radius: 4px; box-shadow: 0 4px 12px #0002; padding: 4px; }
+.user-menu-links a { display: block; padding: 10px 12px; color: #111827; text-decoration: none; }
+.user-menu-links a:hover, .user-menu-links a:focus-visible { background: #e2e8f0; }
+@media (max-width: 600px) {
+  .topbar { height: auto; min-height: 64px; padding-top: 12px; padding-bottom: 12px; flex-wrap: wrap; gap: 12px; }
+  .topbar nav { flex-wrap: wrap; min-width: 0; }
+}

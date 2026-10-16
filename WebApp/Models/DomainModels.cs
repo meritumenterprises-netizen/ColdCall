@@ -6,6 +6,7 @@ public class AppUser
     public string GoogleSubject { get; set; } = "";
     public string GoogleEmail { get; set; } = "";
     public bool UsesGmail { get; set; } = true;
+    public bool IsAdmin { get; set; }
     public string? DisplayName { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime LastLoginAtUtc { get; set; } = DateTime.UtcNow;
@@ -170,6 +171,7 @@ public class PlanDefinition
 public class UserPlan
 {
     public int Id { get; set; }
+    public bool? IsActive { get; set; }
     public int AppUserId { get; set; }
     public AppUser AppUser { get; set; } = null!;
     public int PlanDefinitionId { get; set; }

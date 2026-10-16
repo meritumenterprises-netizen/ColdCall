@@ -32,6 +32,7 @@ public class AuthController : ControllerBase
             .OrderByDescending(x => x.ExpiresAtUtc)
             .FirstOrDefaultAsync();
 
+        var maxNumberOfExportedRecords = await PlanRecordLimits.ForUserAsync(_db, user.Id, isAdmin);
         return Ok(new
         {
             user.Id,
@@ -41,9 +42,12 @@ public class AuthController : ControllerBase
             PictureUrl = User.FindFirstValue("picture"),
             isAdmin,
             hasActivePlan = activePlan != null,
+            maxNumberOfSearches = activePlan?.PlanDefinition.MaxNumberOfSearches ?? 0,
+            maxNumberOfExportedRecords,
             plan = activePlan == null ? null : new
             {
                 activePlan.PlanDefinition.Code,
+                activePlan.PlanDefinition.DescriptionHtml,
                 activePlan.PlanDefinition.MaxNumberOfSearches,
                 activePlan.ExpiresAtUtc
             }

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ElementRef, HostListener, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService } from '../services/api.service';
 
@@ -9,6 +9,21 @@ import { ApiService } from '../services/api.service';
 })
 export class NavMenuComponent {
   isExpanded = false;
+  userMenuOpen = false;
+  @ViewChild('userMenuButton', { static: false }) userMenuButton: ElementRef;
+
+  @HostListener('document:click', ['$event'])
+  closeUserMenu(event: MouseEvent) {
+    if (!(event.target as HTMLElement).closest('.user-menu')) { this.userMenuOpen = false; }
+  }
+
+  @HostListener('document:keydown.escape')
+  escapeUserMenu() {
+    if (this.userMenuOpen) {
+      this.userMenuOpen = false;
+      if (this.userMenuButton) { this.userMenuButton.nativeElement.focus(); }
+    }
+  }
 
   constructor(public api: ApiService, private router: Router) {}
 
@@ -25,6 +40,7 @@ export class NavMenuComponent {
   }
 
   logout() {
+    this.userMenuOpen = false;
     this.api.logout();
     this.router.navigateByUrl('/');
   }

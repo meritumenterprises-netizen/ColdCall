@@ -4,10 +4,17 @@
     <a *ngIf="api.isAdmin()" routerLink="/dashboard" routerLinkActive="active">Firmy</a>
     <a routerLink="/plans" routerLinkActive="active">Plany</a>
     <a *ngIf="api.isAdmin()" routerLink="/admin" routerLinkActive="active">Admin</a>
-    <span class="user-chip" *ngIf="api.user()">
-      <img *ngIf="api.user()?.pictureUrl" [src]="api.user()?.pictureUrl" alt="">
-      <span>{{ api.user()?.displayName || api.user()?.googleEmail }}</span>
-    </span>
+    <div class="user-menu" *ngIf="api.user()">
+      <button #userMenuButton type="button" class="user-chip" [attr.aria-expanded]="userMenuOpen" aria-controls="user-menu-links"
+              (click)="userMenuOpen = !userMenuOpen">
+        <img *ngIf="api.user()?.pictureUrl" [src]="api.user()?.pictureUrl" alt="">
+        <span>{{ api.user()?.displayName || api.user()?.googleEmail }}</span>
+        <span aria-hidden="true">&#9662;</span>
+      </button>
+      <div id="user-menu-links" class="user-menu-links" *ngIf="userMenuOpen">
+        <a routerLink="/profile" (click)="userMenuOpen = false">Profil</a>
+      </div>
+    </div>
     <button type="button" (click)="logout()">Wyloguj</button>
   </nav>
 </header>

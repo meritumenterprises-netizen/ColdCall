@@ -1,0 +1,23 @@
+USE [Firmy_temp];
+GO
+
+SET LOCK_TIMEOUT 15000;
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET QUOTED_IDENTIFIER ON;
+SET NUMERIC_ROUNDABORT OFF;
+
+IF NOT EXISTS (
+    SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID(N'ColdCall.Companies')
+      AND name = N'IX_Companies_DataModifiedOn'
+)
+    CREATE NONCLUSTERED INDEX IX_Companies_DataModifiedOn
+        ON ColdCall.Companies (DataModifiedOn ASC)
+        WITH (MAXDOP = 2);
+
+SET LOCK_TIMEOUT -1;
+GO

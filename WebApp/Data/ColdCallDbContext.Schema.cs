@@ -42,6 +42,8 @@ public partial class ColdCallDbContext
                 .HasConstraintName("FK_CompanyUserNotes_Users").OnDelete(DeleteBehavior.NoAction);
         });
         modelBuilder.Entity<AppUser>().Property(x => x.GoogleEmail).HasMaxLength(450);
+        modelBuilder.Entity<AppUser>().Property(x => x.IsAdmin).HasColumnType("bit").IsRequired()
+            .HasDefaultValue(false);
         modelBuilder.Entity<AppUser>().Property(x => x.UsesGmail).HasColumnType("bit").IsRequired()
             .HasDefaultValue(true).HasSentinel(true);
         modelBuilder.Entity<AdminEmail>().Property(x => x.Email).HasMaxLength(450);
@@ -75,6 +77,7 @@ public partial class ColdCallDbContext
         modelBuilder.Entity<SearchProfilePkd>().HasIndex(x => x.PkdCodeId);
         modelBuilder.Entity<SearchProfile>().HasIndex(x => x.AppUserId);
         modelBuilder.Entity<UserPlan>().HasIndex(x => x.AppUserId);
+        modelBuilder.Entity<UserPlan>().Property(x => x.IsActive).HasColumnType("bit").IsRequired(false);
         modelBuilder.Entity<UserPlan>().HasIndex(x => x.PlanDefinitionId);
         modelBuilder.Entity<Adres>(entity =>
         {

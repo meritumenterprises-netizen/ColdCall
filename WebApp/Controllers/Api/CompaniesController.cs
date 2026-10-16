@@ -35,14 +35,16 @@ public class CompaniesController : ControllerBase
         [FromQuery] bool? hasWebsite = null,
         [FromQuery] DateOnly? startedFrom = null,
         [FromQuery] DateOnly? startedTo = null,
-        [FromQuery] int? recordLimit = 1000,
+        [FromQuery] int? recordLimit = null,
         [FromQuery] string? companyName = null,
         [FromQuery] int? wojewodztwoId = null,
         [FromQuery] int? powiatId = null,
         [FromQuery] int? gminaId = null,
         [FromQuery] int? miejscowoscId = null,
         [FromQuery] int? radiusKm = null,
-        [FromQuery] bool addressLocality = false)
+        [FromQuery] bool addressLocality = false,
+        [FromQuery] int? modifiedWithinDays = null,
+        [FromQuery] bool downloadCsv = false)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         var hasActivePlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow);
@@ -53,9 +55,13 @@ public class CompaniesController : ControllerBase
         }
 
         pageSize = 10;
-        recordLimit ??= 1000;
-        if (recordLimit is <= 0) return BadRequest(new { message = "Record limit must be positive." });
-        if (recordLimit > 10000) return BadRequest(new { message = "Nie mo\u017cna jednorazowo wy\u015bwietli\u0107 wi\u0119cej ni\u017c 10 000 rekord\u00f3w. Nale\u017cy zaw\u0119zi\u0107 kryteria poszukiwania." });
+        var maximumRecordLimit = await PlanRecordLimits.ForUserAsync(_db, user.Id, isAdmin);
+        if (maximumRecordLimit <= 0)
+            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Plan nie pozwala na pobieranie rekordow." });
+        // The plan, not a request parameter or a saved search, determines the result cap.
+        recordLimit = maximumRecordLimit;
+        if (modifiedWithinDays.HasValue && modifiedWithinDays is not (7 or 30))
+            return BadRequest(new { message = "Dopuszczalne okresy aktywnosci to 7 lub 30 dni." });
         if (startedFrom.HasValue != startedTo.HasValue || (startedFrom.HasValue && startedTo <= startedFrom))
             return BadRequest(new { message = "Both dates are required and the end date must be later than the start date." });
         if (new[] { wojewodztwoId, powiatId, gminaId, miejscowoscId }.Any(id => id is <= 0))
@@ -86,8 +92,19 @@ public class CompaniesController : ControllerBase
         }
         if (!string.IsNullOrWhiteSpace(companyName) && companyName.Trim().Length >= 3)
             query = query.Where(x => x.Name.Contains(companyName.Trim()));
+        if (modifiedWithinDays.HasValue)
+            query = query.Where(row => _db.Companies.Any(company => company.Id == row.Id
+                && company.DataModifiedOn.HasValue
+                && company.DataModifiedOn >= DateTime.Now.AddDays(-modifiedWithinDays.Value)
+                && company.DataModifiedOn <= DateTime.Now));
 
-        var total = await query.Select(x => x.Id).Take(recordLimit.Value).CountAsync();
+        if (downloadCsv)
+        {
+            var rows = await query.ApplyCompanyShortSort(sortBy, direction).Take(recordLimit.Value).ToListAsync();
+            return CreateCsv(rows);
+        }
+
+        var total = await query.OrderBy(x => x.Id).Select(x => x.Id).Take(recordLimit.Value).CountAsync();
         page = Math.Clamp(page, 1, Math.Max(1, (int)Math.Ceiling(total / (double)pageSize)));
         var offset = (page - 1) * pageSize;
         var items = await query
@@ -136,12 +153,8 @@ public class CompaniesController : ControllerBase
         return Ok(new CompanyDetailsDto(company, pkds, addresses));
     }
 
-    [HttpGet("export")]
-    public async Task<IActionResult> Export([FromQuery] int[]? pkdIds = null)
+    private FileContentResult CreateCsv(IEnumerable<CompanyShortDto> rows)
     {
-        var query = ApplyPkdFilter(BaseCompanyQuery(), pkdIds);
-
-        var rows = await query.OrderBy(x => x.Name).ThenBy(x => x.Id).ToListAsync();
         var csv = "Id;Name;Nip;FullAddress;Phone;Email;Www;DataAktywnosci;TypyDzialalnosci\n"
             + string.Join("\n", rows.Select(x => string.Join(';', new[]
             {
@@ -149,7 +162,8 @@ public class CompaniesController : ControllerBase
                 Csv(x.Phone), Csv(x.Email), Csv(x.Www),
                 Csv(x.DataAktywnosci?.ToString("yyyy-MM-dd")), Csv(x.TypyDzialalnosci)
             })));
-        return File(System.Text.Encoding.UTF8.GetBytes(csv), "text/csv", "firmy.csv");
+        var encoding = new System.Text.UTF8Encoding(true);
+        return File(encoding.GetPreamble().Concat(encoding.GetBytes(csv)).ToArray(), "text/csv; charset=utf-8", "firmy.csv");
     }
 
     private IQueryable<CompanyShortDto> BaseCompanyQuery() =>
