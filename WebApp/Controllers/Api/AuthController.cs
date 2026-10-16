@@ -46,6 +46,9 @@ public class AuthController : ControllerBase
 
         var maxNumberOfExportedRecords = await PlanRecordLimits.ForUserAsync(_db, user.Id, isAdmin);
         TrialOffer? trialOffer = null;
+        var hasExpiredPlan = !isAdmin && activePlan == null && await _db.UserPlans.AnyAsync(
+            p => p.AppUserId == user.Id && p.ExpiresAtUtc <= DateTime.UtcNow,
+            HttpContext.RequestAborted);
         var hasExpiredTrial = !isAdmin && activePlan == null && await _db.UserPlans.AnyAsync(
             p => p.AppUserId == user.Id && p.PlanDefinition.IsTrial && p.ExpiresAtUtc <= DateTime.UtcNow,
             HttpContext.RequestAborted);
@@ -59,6 +62,7 @@ public class AuthController : ControllerBase
             isAdmin,
             hasActivePlan = activePlan != null,
             hasExpiredTrial,
+            hasExpiredPlan,
             trialOffer,
             maxNumberOfSearches = activePlan?.PlanDefinition.MaxNumberOfSearches ?? 0,
             maxNumberOfExportedRecords,

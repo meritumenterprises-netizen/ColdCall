@@ -62,6 +62,8 @@ builder.Services.AddScoped<CompanyCsvExportService>();
 builder.Services.AddScoped<CsvExportCleanupService>();
 builder.Services.AddDataProtection();
 builder.Services.AddScoped<TrialPlanService>();
+builder.Services.AddScoped<IStripeCheckoutGateway, StripeCheckoutGateway>();
+builder.Services.AddScoped<StripePaymentService>();
 builder.Services.AddHttpClient<PkdClassifier>(client => client.Timeout = TimeSpan.FromMinutes(2));
 builder.Services.AddSpaStaticFiles(configuration => configuration.RootPath = "ClientApp/dist");
 builder.Services.AddCors(options =>
@@ -293,6 +295,7 @@ static async Task EnsureDatabaseSchemaAsync(ColdCallDbContext db)
         await EnsureDictionaryNamesAsync(connection);
         await EnsureSearchProfileCriteriaAsync(connection);
         await ExecuteSchemaResourceAsync(connection, "CompanyUserNotes");
+        await ExecuteSchemaResourceAsync(connection, "StripePayments");
         await EnsurePlanDefinitionsDescriptionHtmlColumnAsync(connection);
     }
     finally

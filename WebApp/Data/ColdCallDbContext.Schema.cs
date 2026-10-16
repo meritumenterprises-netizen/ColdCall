@@ -28,6 +28,19 @@ public partial class ColdCallDbContext
 
     private static void ConfigureDatabaseSchema(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<StripePayment>(entity =>
+        {
+            entity.ToTable("StripePayments", "ColdCall");
+            entity.HasKey(p => p.StripeSessionId).HasName("PK_StripePayments");
+            entity.Property(p => p.StripeSessionId).HasMaxLength(255).ValueGeneratedNever();
+            entity.Property(p => p.PaidAtUtc).HasColumnType("datetime2");
+            entity.Property(p => p.AmountPaid).HasColumnType("decimal(18,2)");
+            entity.HasIndex(p => p.AppUserId).HasDatabaseName("IX_StripePayments_AppUserId");
+            entity.HasOne(p => p.AppUser).WithMany().HasForeignKey(p => p.AppUserId)
+                .HasConstraintName("FK_StripePayments_Users").OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(p => p.PlanDefinition).WithMany().HasForeignKey(p => p.PlanDefinitionId)
+                .HasConstraintName("FK_StripePayments_PlanDefinitions").OnDelete(DeleteBehavior.NoAction);
+        });
         modelBuilder.Entity<CsvExport>(entity =>
         {
             entity.ToTable("CSVExport", "ColdCall");

@@ -18,7 +18,7 @@
       </div>
       <div class="plan-description" [innerHTML]="plan.descriptionHtml"></div>
       <div *ngIf="!plan.activeUntil" class="price">{{ plan.price | number:'1.0-0' }} {{ plan.currency }}</div>
-      <button *ngIf="!plan.activeUntil" class="primary-button" [disabled]="!plan.canPurchase" (click)="buy(plan)">Kup</button>
+      <button *ngIf="!plan.activeUntil" class="primary-button" [disabled]="!plan.canPurchase || buying" (click)="buy(plan)">Kup</button>
     </article>
   </section>
 </main>

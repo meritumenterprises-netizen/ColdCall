@@ -43,3 +43,12 @@
     </ng-container>
   </main>
 </div>
+<dialog #purchaseDialog class="trial-dialog purchase-dialog" aria-labelledby="purchase-title" (cancel)="$event.preventDefault()">
+  <ng-container *ngIf="purchasedPlan">
+    <h2 id="purchase-title">Zakupiłeś plan {{ purchasedPlan.code }}.</h2>
+    <div class="plan-description" [innerHTML]="purchasedPlan.descriptionHtml"></div>
+    <p>Wygasa: <strong>{{ purchasedPlan.expiresAtUtc | date:'dd.MM.yyyy HH:mm' }}</strong></p>
+    <p>kliknij OK żeby przenieść się do wyszukiwań</p>
+    <div class="trial-actions"><button type="button" class="primary-button" (click)="acknowledgePurchase()">OK</button></div>
+  </ng-container>
+</dialog>

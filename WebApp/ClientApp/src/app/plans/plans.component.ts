@@ -9,6 +9,7 @@ import { ApiService, Plan } from '../services/api.service';
 export class PlansComponent implements OnInit {
   plans: Plan[] = [];
   error = '';
+  buying = false;
 
   constructor(private api: ApiService) {}
 
@@ -24,10 +25,15 @@ export class PlansComponent implements OnInit {
   }
 
   buy(plan: Plan) {
-    if (!plan.canPurchase) { return; }
+    if (!plan.canPurchase || this.buying) { return; }
+    this.buying = true;
+    this.error = '';
 
     this.api.checkout(plan.code).subscribe(result => {
       if (result.url) { location.href = result.url; }
-    }, err => this.error = err.error && err.error.message ? err.error.message : 'Nie udalo sie rozpoczac platnosci Stripe.');
+    }, err => {
+      this.buying = false;
+      this.error = err.error && err.error.message ? err.error.message : 'Nie udalo sie rozpoczac platnosci Stripe.';
+    });
   }
 }

@@ -22,6 +22,7 @@ public partial class ColdCallDbContext : DbContext
     public DbSet<SearchProfilePkd> SearchProfilePkds => Set<SearchProfilePkd>();
     public DbSet<PlanDefinition> PlanDefinitions => Set<PlanDefinition>();
     public DbSet<UserPlan> UserPlans => Set<UserPlan>();
+    public DbSet<StripePayment> StripePayments => Set<StripePayment>();
     public DbSet<Wojewodztwo> Wojewodztwa => Set<Wojewodztwo>();
     public DbSet<Miejscowosc> Miejscowosci => Set<Miejscowosc>();
     public DbSet<Gmina> Gminy => Set<Gmina>();

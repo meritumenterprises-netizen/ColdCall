@@ -1,0 +1,155 @@
+using System.Globalization;
+using ColdCall.Data;
+using ColdCall.Models;
+using Microsoft.EntityFrameworkCore;
+using Stripe;
+using Stripe.Checkout;
+
+namespace ColdCall.Services;
+
+public interface IStripeCheckoutGateway
+{
+    Task<Session> CreateAsync(SessionCreateOptions options, CancellationToken token);
+    Task<Session> GetAsync(string id, CancellationToken token);
+}
+
+public class StripeCheckoutGateway(IConfiguration configuration) : IStripeCheckoutGateway
+{
+    private SessionService Sessions()
+    {
+        var key = configuration["Stripe:SecretKey"];
+        if (string.IsNullOrWhiteSpace(key)) throw new InvalidOperationException("Nie skonfigurowano klucza Stripe.");
+        return new SessionService(new StripeClient(key));
+    }
+
+    public Task<Session> CreateAsync(SessionCreateOptions options, CancellationToken token) =>
+        Sessions().CreateAsync(options, cancellationToken: token);
+
+    public Task<Session> GetAsync(string id, CancellationToken token) =>
+        Sessions().GetAsync(id, cancellationToken: token);
+}
+
+public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway stripe, IConfiguration configuration)
+{
+    public async Task<Session> CreateAsync(AppUser user, string planCode, CancellationToken token)
+    {
+        var plan = await db.PlanDefinitions.AsNoTracking().SingleOrDefaultAsync(p => p.Code == planCode, token);
+        if (user.IsAdmin || !user.IsEnabled || plan == null || !plan.IsActive || plan.IsTrial || !plan.ShowInOffer
+            || plan.ExpiresAfterDays is not > 0 || plan.Price <= 0 || !string.Equals(plan.Currency, "PLN", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Ten plan nie jest dostepny do zakupu.");
+        var current = await db.UserPlans.AsNoTracking().Where(p => p.AppUserId == user.Id && p.ExpiresAtUtc > DateTime.UtcNow)
+            .OrderByDescending(p => p.ExpiresAtUtc).Select(p => p.PlanDefinition).FirstOrDefaultAsync(token);
+        var specificUpgradeCodes = PlanOfferRules.UpgradeCodesFor(current?.Code);
+        var allowed = current == null || current.IsTrial ? !plan.IsUpgrade
+            : plan.IsUpgrade && (specificUpgradeCodes.Length > 0
+                ? specificUpgradeCodes.Contains(plan.Code)
+                : plan.UpgradeFrom == (current.IsUpgrade ? current.UpgradeFrom : current.Id)
+                    && plan.MaxNumberOfSearches > current.MaxNumberOfSearches);
+        if (!allowed) throw new InvalidOperationException("Wybrany plan nie jest dostepny dla Twojego aktualnego planu.");
+        if (!Uri.TryCreate(configuration["Stripe:FrontendUrl"], UriKind.Absolute, out var frontend)
+            || frontend.Scheme != Uri.UriSchemeHttps || !string.IsNullOrEmpty(frontend.Query) || !string.IsNullOrEmpty(frontend.Fragment))
+            throw new InvalidOperationException("Nie skonfigurowano adresu HTTPS witryny dla Stripe.");
+        var amount = checked((long)(plan.Price * 100));
+        if (amount != plan.Price * 100) throw new InvalidOperationException("Niepoprawna cena planu.");
+        return await stripe.CreateAsync(new SessionCreateOptions
+        {
+            Mode = "payment", CustomerEmail = user.GoogleEmail,
+            ClientReferenceId = user.Id.ToString(CultureInfo.InvariantCulture),
+            SuccessUrl = new Uri(frontend, "payment/success").AbsoluteUri + "?session_id={CHECKOUT_SESSION_ID}",
+            CancelUrl = new Uri(frontend, "plans").AbsoluteUri + "?canceled=true",
+            PaymentMethodTypes = new List<string> { "card", "blik" },
+            LineItems = new List<SessionLineItemOptions>
+            {
+                new() { Quantity = 1, PriceData = new SessionLineItemPriceDataOptions
+                {
+                    Currency = "pln", UnitAmount = amount,
+                    ProductData = new SessionLineItemPriceDataProductDataOptions { Name = plan.Code }
+                } }
+            },
+            Metadata = new Dictionary<string, string>
+            {
+                ["application"] = "ColdCall", ["userId"] = user.Id.ToString(CultureInfo.InvariantCulture),
+                ["planId"] = plan.Id.ToString(CultureInfo.InvariantCulture),
+                ["expiresAfterDays"] = plan.ExpiresAfterDays.Value.ToString(CultureInfo.InvariantCulture),
+                ["amount"] = amount.ToString(CultureInfo.InvariantCulture)
+            }
+        }, token);
+    }
+
+    public async Task<bool> FulfillAsync(string sessionId, int? expectedUserId, CancellationToken token)
+    {
+        if (string.IsNullOrWhiteSpace(sessionId) || sessionId.Length > 255 || !sessionId.StartsWith("cs_", StringComparison.Ordinal))
+            throw new InvalidOperationException("Niepoprawna sesja platnosci.");
+        var session = await stripe.GetAsync(sessionId, token);
+        var metadata = session.Metadata ?? new Dictionary<string, string>();
+        if (session.Mode != "payment" || metadata.GetValueOrDefault("application") != "ColdCall"
+            || !int.TryParse(metadata.GetValueOrDefault("userId"), out var userId)
+            || !int.TryParse(metadata.GetValueOrDefault("planId"), out var planId)
+            || !int.TryParse(metadata.GetValueOrDefault("expiresAfterDays"), out var days) || days <= 0
+            || !long.TryParse(metadata.GetValueOrDefault("amount"), out var amount) || amount <= 0
+            || session.ClientReferenceId != userId.ToString(CultureInfo.InvariantCulture))
+            throw new InvalidOperationException("Niepoprawne dane sesji Stripe.");
+        if (expectedUserId.HasValue && expectedUserId != userId) throw new UnauthorizedAccessException();
+        if (session.PaymentStatus != "paid" || session.Status != "complete") return false;
+        if (session.AmountTotal != amount || session.Currency != "pln")
+            throw new InvalidOperationException("Kwota lub waluta platnosci nie zgadza sie z zakupem.");
+        await using var transaction = await db.Database.BeginTransactionAsync(token);
+        foreach (var resource in new[] { "StripeSession:" + sessionId, "TrialPlan:" + userId })
+            await db.Database.ExecuteSqlInterpolatedAsync($@"
+                DECLARE @result int;
+                EXEC @result=sys.sp_getapplock @Resource={resource}, @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
+                IF @result < 0 THROW 50001, 'Payment assignment lock unavailable', 1;", token);
+        if (await db.StripePayments.AnyAsync(p => p.StripeSessionId == sessionId, token)) return true;
+        var purchasedPlan = await db.PlanDefinitions.AsNoTracking()
+            .SingleOrDefaultAsync(p => p.Id == planId && !p.IsTrial, token);
+        if (!await db.Users.AnyAsync(u => u.Id == userId && u.IsEnabled && !u.IsAdmin, token)
+            || purchasedPlan == null || purchasedPlan.ExpiresAfterDays is not > 0)
+            throw new InvalidOperationException("Nie znaleziono uzytkownika lub zakupionego planu.");
+        var now = DateTime.UtcNow;
+        var legacy = await db.UserPlans.AsNoTracking().FirstOrDefaultAsync(p => p.StripeSessionId == sessionId, token);
+        if (legacy != null)
+        {
+            db.StripePayments.Add(new StripePayment
+            {
+                StripeSessionId = sessionId, AppUserId = legacy.AppUserId, PlanDefinitionId = legacy.PlanDefinitionId,
+                PaidAtUtc = legacy.PurchasedAtUtc, AmountPaid = legacy.PricePaid
+            });
+        }
+        else
+        {
+            var userPlan = await db.UserPlans.Where(p => p.AppUserId == userId)
+                .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id).FirstOrDefaultAsync(token);
+            if (userPlan != null) await db.Entry(userPlan).ReloadAsync(token);
+            var expirationBase = purchasedPlan.IsUpgrade && userPlan != null ? userPlan.ExpiresAtUtc : now;
+            if (userPlan == null)
+            {
+                userPlan = new UserPlan { AppUserId = userId };
+                db.UserPlans.Add(userPlan);
+            }
+            else if (userPlan.Source == "Stripe" && !string.IsNullOrWhiteSpace(userPlan.StripeSessionId)
+                && !await db.StripePayments.AnyAsync(p => p.StripeSessionId == userPlan.StripeSessionId, token))
+            {
+                db.StripePayments.Add(new StripePayment
+                {
+                    StripeSessionId = userPlan.StripeSessionId, AppUserId = userId, PlanDefinitionId = userPlan.PlanDefinitionId,
+                    PaidAtUtc = userPlan.PurchasedAtUtc, AmountPaid = userPlan.PricePaid
+                });
+            }
+            userPlan.PlanDefinitionId = planId;
+            userPlan.PurchasedAtUtc = now;
+            userPlan.ExpiresAtUtc = expirationBase.AddDays(purchasedPlan.ExpiresAfterDays.Value);
+            userPlan.PricePaid = amount / 100m;
+            userPlan.Source = "Stripe";
+            userPlan.StripeSessionId = sessionId;
+            userPlan.IsActive = true;
+            db.StripePayments.Add(new StripePayment
+            {
+                StripeSessionId = sessionId, AppUserId = userId, PlanDefinitionId = planId,
+                PaidAtUtc = now, AmountPaid = amount / 100m
+            });
+        }
+        await db.SaveChangesAsync(token);
+        await transaction.CommitAsync(token);
+        return true;
+    }
+}
