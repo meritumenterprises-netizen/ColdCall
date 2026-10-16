@@ -7,7 +7,6 @@ import { ApiService, Plan } from '../services/api.service';
 })
 export class PlansComponent implements OnInit {
   plans: Plan[] = [];
-  hasActivePlan = false;
   error = '';
 
   constructor(private api: ApiService) {}
@@ -15,12 +14,11 @@ export class PlansComponent implements OnInit {
   ngOnInit() {
     this.api.plans().subscribe(x => {
       this.plans = x;
-      this.hasActivePlan = x.some(plan => !!plan.activeUntil);
     });
   }
 
   buy(plan: Plan) {
-    if (this.hasActivePlan) { return; }
+    if (!plan.canPurchase) { return; }
 
     this.api.checkout(plan.code).subscribe(result => {
       if (result.url) { location.href = result.url; }

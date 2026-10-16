@@ -26,6 +26,9 @@ public class PlansController : ControllerBase
     public async Task<IReadOnlyList<PlanDto>> Get()
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
+        var currentPlanOrder = await _db.UserPlans
+            .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
+            .Select(x => (int?)x.PlanDefinition.Order).MaxAsync();
         var activePlansByDefinitionId = await _db.UserPlans
             .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
             .GroupBy(x => x.PlanDefinitionId)
@@ -41,7 +44,7 @@ public class PlansController : ControllerBase
 
         var plans = await _db.PlanDefinitions
             .Where(x => x.ShowInOffer && !x.IsTrial)
-            .OrderBy(x => x.MaxNumberOfSearches)
+            .OrderBy(x => x.Order).ThenBy(x => x.Id)
             .ToListAsync();
 
         return plans
@@ -51,7 +54,9 @@ public class PlansController : ControllerBase
                 x.DescriptionHtml,
                 x.Price,
                 x.Currency,
-                activeUntilByDefinitionId.TryGetValue(x.Id, out var activeUntil) ? activeUntil : null))
+                activeUntilByDefinitionId.TryGetValue(x.Id, out var activeUntil) ? activeUntil : null,
+                x.Order,
+                !currentPlanOrder.HasValue || x.Order > currentPlanOrder.Value))
             .ToList();
     }
 

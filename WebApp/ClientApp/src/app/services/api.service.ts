@@ -48,12 +48,14 @@ export interface SearchCriteria {
   dateRangeEnabled: boolean; dateFrom: string | null; dateTo: string | null; recordLimit: number;
 }
 export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; }
-export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; }
+export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; order: number; canPurchase: boolean; }
 export interface CurrentPlan { code: string; descriptionHtml: string; maxNumberOfSearches: number; expiresAtUtc: string; }
+export interface UserProfile { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }
 export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; }
 export interface AuthConfig { googleClientId: string; }
+export interface CsvExportRow { id: number; userId: number; searchProfileId: number; csvFileName: string; createdOn: string; numberOfRecords: number | null; }
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -77,6 +79,9 @@ export class ApiService {
   }
 
   isLoggedIn() { return !!this.token; }
+  companyCount(): Observable<{ count: number }> {
+    return this.http.get<{ count: number }>(this.url('/api/statistics/companies'));
+  }
   hasToken() { return !!this.token; }
   isAuthenticated() { return this.authenticated; }
   isAdmin() { return this.authenticated && !!this.currentUser && this.currentUser.isAdmin; }
@@ -97,6 +102,7 @@ export class ApiService {
   private url(path: string) { return path; }
 
   authConfig(): Observable<AuthConfig> { return this.http.get<AuthConfig>(this.url('/auth-config.json')); }
+  profile(): Observable<UserProfile> { return this.http.get<UserProfile>(this.url('/api/auth/profile'), this.headers()); }
   me(): Observable<Me> {
     return this.http.get<Me>(this.url('/api/auth/me'), this.headers()).pipe(
       tap(user => {
@@ -162,9 +168,33 @@ export class ApiService {
     return this.http.put<{ notes: string }>(this.url('/api/companies/' + id + '/notes'), { notes }, this.headers());
   }
 
-  exportCompanies(pkdIds: number[], filters?: CompanyFilters, modifiedWithinDays?: number, sortBy = 'dataAktywnosci', direction = 'desc') {
-    const params = this.companyParams(1, sortBy, direction, pkdIds, filters, modifiedWithinDays).set('downloadCsv', 'true');
-    return this.http.get(this.url('/api/companies'), { ...this.headers(), params, responseType: 'blob' });
+  exportCompanies(searchProfileId: number, modifiedWithinDays?: number, sortBy = 'dataAktywnosci', direction = 'desc', searchName?: string) {
+    return this.http.post(this.url('/api/companies/export'), { searchProfileId, modifiedWithinDays, sortBy, direction, searchName },
+      { ...this.headers(), responseType: 'blob', observe: 'response' });
+  }
+
+  checkCsvExport(searchProfileId: number): Observable<{ hash: string; exists: boolean }> {
+    return this.http.post<{ hash: string; exists: boolean }>(
+      this.url('/api/searches/' + searchProfileId + '/check-csv-export'), {}, this.headers());
+  }
+
+  csvExports(searchProfileId: number, sortBy: string, direction: string): Observable<CsvExportRow[]> {
+    return this.http.get<CsvExportRow[]>(this.url('/api/companies/exports'), { ...this.headers(),
+      params: { searchProfileId: String(searchProfileId), sortBy, direction } });
+  }
+
+  csvExportQuota(searchProfileId: number): Observable<{ used: number; limit: number | null; remaining: number | null }> {
+    return this.http.get<{ used: number; limit: number | null; remaining: number | null }>(
+      this.url('/api/companies/export-quota'), { ...this.headers(), params: { searchProfileId: String(searchProfileId) } });
+  }
+
+  csvDownloadUrl(row: CsvExportRow) {
+    return this.url('/api/companies/DownloadCSV') + '?userId=' + row.userId + '&searchProfileId=' + row.searchProfileId
+      + '&fileName=' + encodeURIComponent(row.csvFileName);
+  }
+
+  downloadCsv(row: CsvExportRow) {
+    return this.http.get(this.csvDownloadUrl(row), { ...this.headers(), responseType: 'blob' });
   }
 
   plans(): Observable<Plan[]> { return this.http.get<Plan[]>(this.url('/api/plans'), this.headers()); }

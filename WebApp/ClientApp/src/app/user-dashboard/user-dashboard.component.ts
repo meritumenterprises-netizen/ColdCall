@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { from, Observable, of, Subscription, timer } from 'rxjs';
-import { catchError, concatMap, finalize, map, switchMap } from 'rxjs/operators';
-import { AddressLevel, AddressOption, ApiService, CompanyFilters, CompanyShort, Pkd, SearchCriteria, SearchProfile, SortableColumn } from '../services/api.service';
+import { catchError, concatMap, finalize, map, switchMap, take, timeout } from 'rxjs/operators';
+import { AddressLevel, AddressOption, ApiService, CompanyFilters, CompanyShort, CsvExportRow, Pkd, SearchCriteria, SearchProfile, SortableColumn } from '../services/api.service';
 
 interface ResultTab {
   key: string;
@@ -28,6 +28,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   classifyingPkd = false;
   @ViewChild('pkdErrorDialog', { static: true }) pkdErrorDialog: ElementRef;
   @ViewChild('saveSearchDialog', { static: true }) saveSearchDialog: ElementRef;
+  @ViewChild('duplicateExportDialog', { static: true }) duplicateExportDialog: ElementRef;
   pkdClassificationMessage = '';
   pkdClassificationError = '';
   private pkdClassificationRequest: Subscription | null = null;
@@ -35,6 +36,14 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private searchesRequest: Subscription | null = null;
   private restoreSearchRequest: Subscription | null = null;
   activeDashboardTab: 'search' | 'export' = 'search';
+  csvExports: CsvExportRow[] = [];
+  exportsLoading = false;
+  exportsError = '';
+  exportsSortBy: 'csvFileName' | 'createdOn' | 'numberOfRecords' = 'createdOn';
+  exportsDirection: 'asc' | 'desc' = 'desc';
+  downloadingExportId: number | null = null;
+  private exportsRequest: Subscription | null = null;
+  private downloadRequest: Subscription | null = null;
   activeFilterTab: 'pkd' | 'criteria' | 'address' = 'criteria';
   readonly resultTabs: ResultTab[] = [
     { key: 'all', label: 'Wszystkie', days: undefined, page: 1 },
@@ -80,7 +89,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   savingSearch = false;
   searchSaved = false;
 
-  get filtersLocked() { return this.classifyingPkd || this.restoringSearch || this.searchSaved; }
+  get filtersLocked() { return this.classifyingPkd || this.restoringSearch || this.savingSearch || this.exportingCsv; }
   private savedSearchState: string | null = null;
   private saveSearchRequest: Subscription | null = null;
   private companyNameDelay: Subscription | null = null;
@@ -210,6 +219,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       field.loading = false; field.error = '';
     });
     this.currentSearchId = this.nextDraftId--;
+    this.loadCsvExports();
     this.searchName = 'Nowe wyszukiwanie';
     let suffix = 2;
     while (this.searches.some(search => search.name.trim().toLowerCase() === this.searchName.toLowerCase())) {
@@ -245,11 +255,64 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.searchNameInput.nativeElement.focus();
   }
 
+  selectDashboardTab(tab: 'search' | 'export') {
+    this.activeDashboardTab = tab;
+    this.loadCsvExports();
+  }
+
+  loadCsvExports(refreshQuota = true) {
+    if (refreshQuota) { this.loadCsvExportQuota(); }
+    if (this.exportsRequest) { this.exportsRequest.unsubscribe(); }
+    this.csvExports = [];
+    this.exportsError = '';
+    if (this.activeDashboardTab !== 'export' || !this.api.isAuthenticated() || this.currentSearchId === null || this.currentSearchId <= 0) {
+      this.exportsLoading = false;
+      return;
+    }
+    this.exportsLoading = true;
+    this.exportsRequest = this.api.csvExports(this.currentSearchId, this.exportsSortBy, this.exportsDirection)
+      .pipe(timeout(15000), take(1), finalize(() => this.exportsLoading = false)).subscribe(rows => {
+        this.exportsLoading = false;
+        this.csvExports = rows;
+      }, err => {
+        this.exportsLoading = false;
+        this.exportsError = err.name === 'TimeoutError'
+          ? 'Przekroczono czas oczekiwania na eksporty CSV. Sprobuj ponownie.'
+          : 'Nie udalo sie pobrac eksportow CSV.';
+      });
+  }
+
+  sortCsvExports(column: 'csvFileName' | 'createdOn' | 'numberOfRecords') {
+    if (this.exportsLoading) { return; }
+    this.exportsDirection = this.exportsSortBy === column && this.exportsDirection === 'asc' ? 'desc' : 'asc';
+    this.exportsSortBy = column;
+    this.loadCsvExports();
+  }
+
+  downloadCsvExport(event: Event, row: CsvExportRow) {
+    event.preventDefault();
+    if (!this.api.isAuthenticated() || this.downloadingExportId !== null) { return; }
+    this.downloadingExportId = row.id;
+    this.exportsError = '';
+    this.downloadRequest = this.api.downloadCsv(row).pipe(finalize(() => this.downloadingExportId = null))
+      .subscribe(blob => this.saveCsvFile(blob, row.csvFileName),
+        err => this.exportsError = err.status === 404 ? 'Nie znaleziono pliku CSV.' : 'Nie udało się pobrać pliku CSV.');
+  }
+
+  private saveCsvFile(blob: Blob, name: string) {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    link.click();
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+  }
+
   navigateDashboardTabs(event: KeyboardEvent) {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) < 0) { return; }
     event.preventDefault();
-    this.activeDashboardTab = event.key === 'Home' ? 'search' : event.key === 'End' ? 'export' :
-      this.activeDashboardTab === 'search' ? 'export' : 'search';
+    this.selectDashboardTab(event.key === 'Home' ? 'search' : event.key === 'End' ? 'export' :
+      this.activeDashboardTab === 'search' ? 'export' : 'search');
     const buttons = (event.currentTarget as HTMLElement).parentElement.querySelectorAll<HTMLButtonElement>('[role="tab"]');
     buttons[this.activeDashboardTab === 'search' ? 0 : 1].focus();
   }
@@ -400,7 +463,11 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.exportsRequest) { this.exportsRequest.unsubscribe(); }
+    if (this.downloadRequest) { this.downloadRequest.unsubscribe(); }
     if (this.csvRequest) { this.csvRequest.unsubscribe(); }
+    if (this.quotaRequest) { this.quotaRequest.unsubscribe(); }
+    if (this.toastTimer) { this.toastTimer.unsubscribe(); }
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     if (this.saveSearchRequest) { this.saveSearchRequest.unsubscribe(); }
     if (this.searchesRequest) { this.searchesRequest.unsubscribe(); }
@@ -650,12 +717,14 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   selectSearch(profile: SearchProfile) {
-    if (this.savingSearch || this.classifyingPkd) { return; }
+    if (this.savingSearch || this.classifyingPkd || this.exportingCsv) { return; }
     if (profile.id === this.currentSearchId) { return; }
     this.rememberDraft();
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     this.searchSaved = profile.id > 0;
     this.currentSearchId = profile.id;
+    this.activeDashboardTab = 'search';
+    this.loadCsvExports();
     this.activeResultTab = this.resultTabs[0];
     if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
@@ -776,6 +845,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
           if (draftId < 0) { delete this.searchRecordCounts[draftId]; }
         }
         this.currentSearchId = profile.id;
+        this.loadCsvExports();
         this.savedSearchState = savedState;
         this.searchSaved = true;
       }, err => this.error = err.error && err.error.message ? err.error.message : 'Nie udalo sie zapisac wyszukiwania.');
@@ -818,20 +888,112 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   last() { if (!this.loading) { this.page = this.totalPages(); this.loadCompanies(false); } }
 
   exportingCsv = false;
+  csvExportsRemaining: number | null = null;
+  csvQuotaLoading = false;
+  csvQuotaLoaded = false;
+  csvToast = '';
+  private quotaRequest: Subscription | null = null;
+  private quotaSearchId: number | null = null;
+  private quotaToastPending = false;
+  private toastTimer: Subscription | null = null;
+
+  private loadCsvExportQuota(showToast = false) {
+    if (this.csvQuotaLoading && this.quotaSearchId === this.currentSearchId) {
+      this.quotaToastPending = this.quotaToastPending || showToast;
+      return;
+    }
+    if (this.quotaRequest) { this.quotaRequest.unsubscribe(); }
+    this.quotaSearchId = this.currentSearchId;
+    this.quotaToastPending = showToast;
+    this.csvExportsRemaining = null;
+    this.csvQuotaLoaded = false;
+    this.csvQuotaLoading = false;
+    if (this.currentSearchId === null || this.currentSearchId <= 0) { return; }
+    this.csvQuotaLoading = true;
+    this.quotaRequest = this.api.csvExportQuota(this.currentSearchId)
+      .pipe(timeout(15000), take(1), finalize(() => this.csvQuotaLoading = false)).subscribe(quota => {
+        this.csvQuotaLoading = false;
+        this.csvExportsRemaining = quota.remaining;
+        this.csvQuotaLoaded = true;
+        if (this.quotaToastPending) {
+          this.quotaToastPending = false;
+          this.csvToast = quota.remaining == null ? 'Eksport CSV zapisany. Brak limitu eksportow w planie.'
+            : 'Eksport CSV zapisany. Pozostalo eksportow dla tego wyszukiwania: ' + this.formatNumber(quota.remaining) + '.';
+          if (this.toastTimer) { this.toastTimer.unsubscribe(); }
+          this.toastTimer = timer(6000).subscribe(() => this.csvToast = '');
+        }
+      }, () => {
+        this.csvExportsRemaining = 0;
+        this.error = 'Nie udalo sie pobrac limitu eksportow CSV.';
+      });
+  }
   private csvRequest: Subscription | null = null;
+  private pendingCsvExport: (() => void) | null = null;
+
+  confirmDuplicateExport() {
+    this.duplicateExportDialog.nativeElement.close();
+    const exportAction = this.pendingCsvExport;
+    this.pendingCsvExport = null;
+    if (exportAction) { exportAction(); }
+  }
+
+  cancelDuplicateExport() {
+    this.duplicateExportDialog.nativeElement.close();
+    this.pendingCsvExport = null;
+    this.exportingCsv = false;
+  }
 
   exportCsv() {
-    if (this.loading || this.total <= 0 || this.exportingCsv) { return; }
+    if (this.loading || this.total <= 0 || this.exportingCsv || this.csvQuotaLoading || this.csvExportsRemaining === 0) { return; }
+    if (!this.validateFilters()) { return; }
+    if (this.currentSearchId === null || this.currentSearchId <= 0) {
+      this.error = 'Zapisz wyszukiwanie przed eksportem do CSV.';
+      return;
+    }
+    this.error = '';
     this.exportingCsv = true;
-    this.csvRequest = this.api.exportCompanies(this.selectedPkds.map(x => x.id), this.appliedFilters,
-      this.activeResultTab.days, this.sortBy, this.direction).pipe(finalize(() => this.exportingCsv = false)).subscribe(blob => {
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'firmy.csv';
-      link.click();
-      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-    }, () => this.error = 'Nie udało się wyeksportować wyników do CSV.');
+    const searchId = this.currentSearchId;
+    const searchName = this.searchName.trim();
+    const days = this.activeResultTab.days;
+    const sortBy = this.sortBy;
+    const direction = this.direction;
+    const criteria = this.currentCriteria();
+    const savedState = this.searchState();
+    const prepareSearch = this.canSaveSearch
+      ? this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id), criteria, searchId).pipe(map(profile => {
+          const index = this.searches.findIndex(search => search.id === searchId);
+          if (index >= 0) { this.searches[index] = profile; }
+          this.savedSearchState = savedState;
+          return profile;
+        }))
+      : of(null);
+    this.csvRequest = prepareSearch.pipe(switchMap(() => this.api.checkCsvExport(searchId))).subscribe(result => {
+      const exportAction = () => this.performCsvExport(searchId, days, sortBy, direction, searchName);
+      if (result.exists) {
+        this.pendingCsvExport = exportAction;
+        this.duplicateExportDialog.nativeElement.showModal();
+      } else { exportAction(); }
+    }, () => {
+      this.exportingCsv = false;
+      this.error = 'Nie udalo sie sprawdzic poprzednich eksportow CSV.';
+    });
+  }
+
+  private performCsvExport(searchId: number, days: number | undefined, sortBy: string, direction: string, searchName: string) {
+    this.csvRequest = this.api.exportCompanies(searchId, days, sortBy, direction, searchName)
+      .pipe(finalize(() => this.exportingCsv = false)).subscribe(response => {
+      if (!response.body) { return; }
+      const disposition = response.headers.get('Content-Disposition') || '';
+      const utf8Name = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+      const plainName = /filename="([^"]+)"/i.exec(disposition);
+      this.saveCsvFile(response.body, utf8Name ? decodeURIComponent(utf8Name[1]) : plainName ? plainName[1] : 'firmy.CSV');
+      this.loadCsvExports(false);
+      this.loadCsvExportQuota(true);
+    }, err => {
+      this.loadCsvExportQuota();
+      this.error = err.status === 409 ? 'Osiagnieto limit eksportow CSV dla tego wyszukiwania.'
+        : 'Nie udalo sie zapisac lub pobrac eksportu CSV.';
+    });
   }
 
   private sortPkds(pkds: Pkd[]) {

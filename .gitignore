@@ -270,3 +270,8 @@ _Pvt_Extensions
 /ImportPRNGAdresy/PRNG.zip
 /ImportPRNGAdresy/PRNG_MIEJSCOWOSCI_SHP.shp
 /BusinessesEditor/BusinessesEditor.rar
+
+# Track only the CSV export directory placeholder, not generated user files.
+/WebApp/ClientApp/src/app/export/*
+!/WebApp/ClientApp/src/app/export/.gitkeep
+/WebApp/Export/

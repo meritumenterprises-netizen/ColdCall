@@ -135,6 +135,7 @@ public partial class ColdCallDbContext : DbContext
                 .HasConstraintName("FK_SearchProfileCriteria_Miejscowosci").OnDelete(DeleteBehavior.NoAction);
         });
         modelBuilder.Entity<PlanDefinition>().Property(x => x.DescriptionHtml).HasDefaultValue("");
+        modelBuilder.Entity<PlanDefinition>().Property(x => x.Order).HasColumnType("int").IsRequired().HasDefaultValue(0);
         modelBuilder.Entity<PlanDefinition>().Property(x => x.Price).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<PlanDefinition>().Property(x => x.IsTrial).HasDefaultValue(false);
         modelBuilder.Entity<PlanDefinition>().Property(x => x.ShowInOffer).HasDefaultValue(true).HasSentinel(true);

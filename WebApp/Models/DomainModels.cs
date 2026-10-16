@@ -7,6 +7,7 @@ public class AppUser
     public string GoogleEmail { get; set; } = "";
     public bool UsesGmail { get; set; } = true;
     public bool IsAdmin { get; set; }
+    public bool IsEnabled { get; set; } = true;
     public string? DisplayName { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime LastLoginAtUtc { get; set; } = DateTime.UtcNow;
@@ -94,6 +95,7 @@ public class CompanyPkd
 
 public class SearchProfile
 {
+    public string? SearchProfileHash { get; set; }
     public int Id { get; set; }
     public int AppUserId { get; set; }
     public AppUser AppUser { get; set; } = null!;
@@ -142,6 +144,7 @@ public class SearchProfilePkd
 
 public class PlanDefinition
 {
+    public int Order { get; set; }
     public PlanDefinition()
     {
     }

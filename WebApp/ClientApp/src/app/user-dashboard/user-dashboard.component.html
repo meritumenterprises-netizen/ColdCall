@@ -20,10 +20,10 @@
     <div class="filter-tabs dashboard-tabs" role="tablist" aria-label="Dashboard">
       <button type="button" id="dashboard-search-tab" role="tab" aria-controls="dashboard-search-panel"
               [attr.aria-selected]="activeDashboardTab === 'search'" [attr.tabindex]="activeDashboardTab === 'search' ? 0 : -1"
-              (click)="activeDashboardTab = 'search'" (keydown)="navigateDashboardTabs($event)">Wyszukiwanie</button>
+              (click)="selectDashboardTab('search')" (keydown)="navigateDashboardTabs($event)">Wyszukiwanie</button>
       <button type="button" id="dashboard-export-tab" role="tab" aria-controls="dashboard-export-panel"
               [attr.aria-selected]="activeDashboardTab === 'export'" [attr.tabindex]="activeDashboardTab === 'export' ? 0 : -1"
-              (click)="activeDashboardTab = 'export'" (keydown)="navigateDashboardTabs($event)">Eksport CSV</button>
+              (click)="selectDashboardTab('export')" (keydown)="navigateDashboardTabs($event)">Eksport CSV</button>
     </div>
     <section id="dashboard-search-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="dashboard-search-tab"
              [hidden]="activeDashboardTab !== 'search'">
@@ -182,10 +182,21 @@
             aria-labelledby="save-search-title" aria-describedby="save-search-message"
             (cancel)="$event.preventDefault(); cancelSaveSearch()">
       <h2 id="save-search-title">Zapis wyszukiwania</h2>
-      <p id="save-search-message">Zapisane zostan&#261; kryteria wyszukiwania i nie b&#281;dzie mo&#380;na ich zmieni&#263; po zapisie</p>
+      <p id="save-search-message">Czy zapisa&#263; kryteria wyszukiwania?</p>
       <div class="save-search-dialog-actions">
         <button type="button" class="primary-button" (click)="confirmSaveSearch()">OK</button>
         <button type="button" class="ghost-button" autofocus (click)="cancelSaveSearch()">Anuluj</button>
+      </div>
+    </dialog>
+
+    <dialog #duplicateExportDialog class="save-search-dialog" role="alertdialog"
+            aria-labelledby="duplicate-export-title" aria-describedby="duplicate-export-message"
+            (cancel)="$event.preventDefault(); cancelDuplicateExport()">
+      <h2 id="duplicate-export-title">Eksport CSV</h2>
+      <p id="duplicate-export-message">Eksport CSV dla takich kryteri&#243;w wyszukiwania ju&#380; istnieje. Czy chcesz kontynuowa&#263; z zapisem?</p>
+      <div class="save-search-dialog-actions">
+        <button type="button" class="primary-button" (click)="confirmDuplicateExport()">Tak</button>
+        <button type="button" class="ghost-button" autofocus (click)="cancelDuplicateExport()">Nie</button>
       </div>
     </dialog>
 
@@ -266,7 +277,7 @@
     </section>
 
     <footer class="pager">
-      <button type="button" class="export-csv" [disabled]="loading || total <= 0 || exportingCsv" (click)="exportCsv()">Eksport do CSV</button>
+      <button type="button" class="export-csv" [disabled]="loading || total <= 0 || exportingCsv || csvQuotaLoading || csvExportsRemaining === 0" (click)="exportCsv()">Eksport do CSV</button>
       <span>{{ formatNumber(total) }} rekord&#243;w</span>
       <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>
       <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
@@ -277,6 +288,49 @@
                      (closed)="detailsCompany = null"></app-company-details>
 </section>
 <section id="dashboard-export-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="dashboard-export-tab"
-         [hidden]="activeDashboardTab !== 'export'"></section>
+         [hidden]="activeDashboardTab !== 'export'">
+  <div *ngIf="exportsError" class="error" role="alert">{{ exportsError }}</div>
+  <button *ngIf="exportsError && !exportsLoading" type="button" class="ghost-button" (click)="loadCsvExports()">Pon&#243;w</button>
+  <div class="csv-exports-table" [attr.aria-busy]="exportsLoading">
+    <table>
+      <thead><tr>
+        <th scope="col" [attr.aria-sort]="exportsSortBy === 'csvFileName' ? (exportsDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+          <button type="button" (click)="sortCsvExports('csvFileName')" [disabled]="exportsLoading">Plik CSV
+            <span *ngIf="exportsSortBy === 'csvFileName'" aria-hidden="true"><ng-container *ngIf="exportsDirection === 'asc'">&#9650;</ng-container><ng-container *ngIf="exportsDirection === 'desc'">&#9660;</ng-container></span>
+          </button>
+        </th>
+        <th scope="col" [attr.aria-sort]="exportsSortBy === 'createdOn' ? (exportsDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+          <button type="button" (click)="sortCsvExports('createdOn')" [disabled]="exportsLoading">Utworzono
+            <span *ngIf="exportsSortBy === 'createdOn'" aria-hidden="true"><ng-container *ngIf="exportsDirection === 'asc'">&#9650;</ng-container><ng-container *ngIf="exportsDirection === 'desc'">&#9660;</ng-container></span>
+          </button>
+        </th>
+        <th scope="col" class="export-count" [attr.aria-sort]="exportsSortBy === 'numberOfRecords' ? (exportsDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+          <button type="button" (click)="sortCsvExports('numberOfRecords')" [disabled]="exportsLoading">Liczba firm
+            <span *ngIf="exportsSortBy === 'numberOfRecords'" aria-hidden="true"><ng-container *ngIf="exportsDirection === 'asc'">&#9650;</ng-container><ng-container *ngIf="exportsDirection === 'desc'">&#9660;</ng-container></span>
+          </button>
+        </th>
+      </tr></thead>
+      <tbody>
+        <tr *ngIf="exportsLoading"><td colspan="3" role="status">Wczytywanie...</td></tr>
+        <ng-container *ngIf="!exportsLoading">
+          <tr *ngFor="let row of csvExports">
+            <td><a [href]="api.csvDownloadUrl(row)" (click)="downloadCsvExport($event, row)"
+                   [attr.aria-disabled]="downloadingExportId !== null" title="Pobierz CSV">{{ row.csvFileName }}</a></td>
+            <td>{{ row.createdOn | date:'dd.MM.yyyy HH:mm:ss' }}</td>
+            <td class="export-count">{{ row.numberOfRecords == null ? '-' : formatNumber(row.numberOfRecords) }}</td>
+          </tr>
+          <tr *ngIf="!csvExports.length && !exportsError"><td colspan="3">Brak eksportów CSV.</td></tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+  <p *ngIf="currentSearchId > 0" class="csv-quota-summary" role="status" aria-live="polite">
+    Pozosta&#322;o eksport&#243;w CSV:
+    <ng-container *ngIf="csvQuotaLoading">Wczytywanie...</ng-container>
+    <ng-container *ngIf="!csvQuotaLoading && csvQuotaLoaded">{{ csvExportsRemaining === null ? 'Bez limitu' : formatNumber(csvExportsRemaining) }}</ng-container>
+    <ng-container *ngIf="!csvQuotaLoading && !csvQuotaLoaded">Nie uda&#322;o si&#281; pobra&#263; limitu.</ng-container>
+  </p>
+</section>
+    <div *ngIf="csvToast" class="csv-toast" role="status" aria-live="polite">{{ csvToast }}</div>
   </main>
 </div>
