@@ -9,102 +9,164 @@
     <header class="workspace-head">
       <div>
         <span class="eyebrow">Tryb administratora</span>
-        <h1>{{ tab === 'companies' ? 'Wyszukiwanie firm' : 'Plany uzytkownikow' }}</h1>
+        <h1 *ngIf="tab === 'companies'">Wyszukiwanie firm</h1>
       </div>
     </header>
 
     <div class="message" *ngIf="message">{{ message }}</div>
 
     <section *ngIf="tab === 'companies'">
-      <section class="pkd-filter-panel">
-        <div class="pkd-filter-search">
-          <label>PKD Typy filtr</label>
-          <input name="adminPkdTerm" [(ngModel)]="pkdTerm" (input)="findPkd()" placeholder="Wpisz tekst">
+      <div class="admin-filters">
+        <div class="admin-filter-tabs" role="tablist" aria-label="Filtry firm">
+          <button *ngFor="let filterTab of ['criteria', 'address', 'pkd', 'nip', 'rodo']" type="button" role="tab" [attr.aria-selected]="activeFilterTab === filterTab"
+                  [attr.aria-controls]="'admin-' + filterTab + '-panel'" [class.active]="activeFilterTab === filterTab" (click)="activeFilterTab = filterTab">
+            {{ filterTab === 'criteria' ? 'Kryteria' : filterTab === 'address' ? 'Adres' : filterTab === 'pkd' ? 'PKD' : filterTab === 'nip' ? 'NIP' : 'RODO' }}
+          </button>
         </div>
-
-        <div class="pkd-transfer">
-          <div class="pkd-listbox">
-            <label>Znalezione</label>
-            <select name="adminFoundPkdId" size="8" [(ngModel)]="foundPkdId">
-              <option *ngFor="let pkd of pkdSuggestions" [ngValue]="pkd.id">{{ pkdLabel(pkd) }}</option>
-            </select>
+        <section id="admin-nip-panel" role="tabpanel" [hidden]="activeFilterTab !== 'nip'">
+          <label for="admin-nip">NIP</label>
+          <input id="admin-nip" [(ngModel)]="nipTerm" (ngModelChange)="updateFilters(true)" (keydown.enter)="$event.preventDefault(); updateFilters()" inputmode="numeric" maxlength="20" autocomplete="off">
+        </section>
+        <section id="admin-rodo-panel" role="tabpanel" [hidden]="activeFilterTab !== 'rodo'">
+          <div class="admin-presence">
+            <label><input type="checkbox" [checked]="blockedByRodoFilter === true" [indeterminate]="blockedByRodoFilter === null"
+                          [attr.aria-checked]="blockedByRodoFilter === null ? 'mixed' : blockedByRodoFilter" (change)="cycleRodoFilter()">Zablokowane przez RODO</label>
+            <span aria-live="polite">{{ blockedByRodoFilter === null ? 'Wszystkie' : blockedByRodoFilter ? 'Zablokowane' : 'Odblokowane' }}</span>
           </div>
-
-          <div class="pkd-transfer-actions">
-            <button class="ghost-button compact" [disabled]="!foundPkdId || selectedPkds.length >= maxSelectedPkds" (click)="addSelectedFoundPkd()">&gt;</button>
-            <button class="ghost-button compact" [disabled]="!selectedPkdId" (click)="removeSelectedPkd()">&lt;</button>
-            <button class="ghost-button compact" [disabled]="!selectedPkds.length" (click)="clearPkds()">Wyczy&#347;&#263;</button>
+        </section>
+        <section id="admin-criteria-panel" role="tabpanel" [hidden]="activeFilterTab !== 'criteria'">
+          <label for="admin-company-name">Nazwa firmy</label>
+          <input id="admin-company-name" [(ngModel)]="filters.companyName" (ngModelChange)="updateFilters(true)" (keydown.enter)="$event.preventDefault(); updateFilters()" placeholder="Min. 3 znaki" maxlength="1000">
+          <div class="admin-presence" *ngFor="let key of ['hasPhone', 'hasEmail', 'hasWebsite']">
+            <label><input type="checkbox" [checked]="filters[key] === true" [indeterminate]="filters[key] === null" [attr.aria-checked]="filters[key] === null ? 'mixed' : filters[key]" (change)="cyclePresence(key)">{{ key === 'hasPhone' ? 'Telefon' : key === 'hasEmail' ? 'Email' : 'Witryna WWW' }}</label>
+            <span>{{ presenceLabel(filters[key]) }}</span>
           </div>
-
-          <div class="pkd-listbox">
-            <label>Wybrane PKD</label>
-            <select name="adminSelectedPkdId" size="8" [(ngModel)]="selectedPkdId">
-              <option *ngFor="let pkd of selectedPkds" [ngValue]="pkd.id">{{ pkdLabel(pkd) }}</option>
-            </select>
+          <div class="admin-date-range">
+            <label><input type="checkbox" [(ngModel)]="dateRangeEnabled" (ngModelChange)="updateFilters()">Data aktywno&#347;ci</label>
+            <label>Od <input [(ngModel)]="dateFrom" [disabled]="!dateRangeEnabled" (ngModelChange)="updateFilters(true)" placeholder="YYYY-MM-DD" maxlength="10"></label>
+            <label>Do <input [(ngModel)]="dateTo" [disabled]="!dateRangeEnabled" (ngModelChange)="updateFilters(true)" placeholder="YYYY-MM-DD" maxlength="10"></label>
           </div>
-        </div>
-      </section>
-
-      <section class="data-panel editable">
+        </section>
+        <section id="admin-address-panel" role="tabpanel" [hidden]="activeFilterTab !== 'address'">
+          <div class="admin-address-fields">
+            <div *ngFor="let field of addressFields; let i = index">
+              <label [for]="'admin-address-' + i">{{ field.label }}</label>
+              <input [id]="'admin-address-' + i" [(ngModel)]="field.term" [disabled]="i > 0 && !addressFields[i - 1].selectedId" [attr.aria-label]="'Filtr: ' + field.label">
+              <select size="6" [ngModel]="field.selectedId" (ngModelChange)="selectAddress(i, $event)" [disabled]="field.loading || (i > 0 && !addressFields[i - 1].selectedId)" [attr.aria-label]="field.label">
+                <option *ngFor="let option of visibleAddressOptions(i)" [ngValue]="option.id" [title]="option.name">{{ option.name }}</option>
+              </select>
+              <button type="button" class="ghost-button compact" (click)="selectAddress(i, null)" [disabled]="field.selectedId === null">Wyczy&#347;&#263;</button>
+              <span *ngIf="field.loading" role="status">Wczytywanie...</span>
+              <div *ngIf="field.error" role="alert">{{ field.error }} <button type="button" (click)="loadAddressOptions(i)">Pon&#243;w</button></div>
+            </div>
+          </div>
+          <div class="admin-radius">
+            <label><input type="checkbox" [(ngModel)]="radiusEnabled" [disabled]="!addressFields[3].selectedId" (ngModelChange)="updateFilters()">Firmy w promieniu</label>
+            <select [(ngModel)]="radiusKm" [disabled]="!radiusEnabled" (ngModelChange)="updateFilters()" aria-label="Promie&#324;">
+              <option *ngFor="let km of radiusOptions" [ngValue]="km">{{ km }}</option>
+            </select><span>km od wybranej lokalizacji</span>
+          </div>
+        </section>
+        <section id="admin-pkd-panel" role="tabpanel" [hidden]="activeFilterTab !== 'pkd'">
+          <div class="admin-pkd-search">
+            <label>Nazwa kodu PKD<input [(ngModel)]="pkdTerm" (ngModelChange)="findPkd()"></label>
+            <label>Opisz typ dzia&#322;alno&#347;ci<input [(ngModel)]="pkdDescription" (keydown.enter)="$event.preventDefault(); classifyPkd()"></label>
+            <button type="button" class="primary-button" [disabled]="classifyingPkd || !pkdDescription.trim()" (click)="classifyPkd()">{{ classifyingPkd ? 'Sprawdzanie...' : 'Sprawdź' }}</button>
+          </div>
+          <div class="admin-pkd-transfer">
+            <label>Kody PKD<select size="6" [(ngModel)]="foundPkdId" aria-label="Kody PKD"><option *ngFor="let pkd of pkdSuggestions" [ngValue]="pkd.id" [title]="pkdLabel(pkd)">{{ pkdLabel(pkd) }}</option></select></label>
+            <div class="admin-pkd-actions">
+              <button type="button" class="ghost-button" [disabled]="loading || !foundPkdId || selectedPkds.length >= 10" (click)="addSelectedFoundPkd()">&gt;</button>
+              <button type="button" class="ghost-button" [disabled]="loading || !selectedPkdId" (click)="removeSelectedPkd()">&lt;</button>
+              <button type="button" class="ghost-button" [disabled]="loading || !selectedPkds.length" (click)="clearPkds()">Wyczy&#347;&#263;</button>
+            </div>
+            <label>Wybrane PKD (max.10)<select size="6" [(ngModel)]="selectedPkdId" aria-label="Wybrane PKD"><option *ngFor="let pkd of selectedPkds" [ngValue]="pkd.id" [title]="pkdLabel(pkd)">{{ pkdLabel(pkd) }}</option></select></label>
+          </div>
+        </section>
+        <div *ngIf="filterError" class="error" role="alert">{{ filterError }}</div>
+      </div>
+      <div class="admin-company-grid" [attr.aria-busy]="loading">
         <table>
-          <thead>
-            <tr><th *ngFor="let col of companyColumns" (click)="sort(col.key)">{{ col.label }}</th><th></th></tr>
-          </thead>
+          <thead><tr>
+            <th>Lp.</th>
+            <th *ngFor="let col of companyColumns" [attr.aria-sort]="sortBy === col.key ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
+              <button type="button" (click)="sort(col.key)" [disabled]="loading">{{ col.label }} <span *ngIf="sortBy === col.key"><ng-container *ngIf="direction === 'asc'">&#9650;</ng-container><ng-container *ngIf="direction === 'desc'">&#9660;</ng-container></span></button>
+            </th>
+            <th>Szczeg&#243;&#322;y</th>
+          </tr></thead>
           <tbody>
-            <tr *ngFor="let company of companies">
-              <td><input [(ngModel)]="company.name" name="name{{company.id}}" maxlength="1000"></td>
-              <td>
-                <select [(ngModel)]="company.businessTypeId" name="type{{company.id}}">
-                  <option *ngFor="let type of businessTypes" [ngValue]="type.typDzialalnosciId">{{ type.typDzialalnosci }}</option>
-                </select>
-              </td>
-              <td><input [(ngModel)]="company.firstName" name="first{{company.id}}"></td>
-              <td><input [(ngModel)]="company.lastName" name="last{{company.id}}"></td>
-              <td><input [(ngModel)]="company.krs" name="krs{{company.id}}"></td>
-              <td><input [(ngModel)]="company.nip" name="nip{{company.id}}"></td>
-              <td><input [(ngModel)]="company.wojewodztwo" name="woj{{company.id}}"></td>
-              <td><input [(ngModel)]="company.city" name="city{{company.id}}"></td>
-              <td><input [(ngModel)]="company.gmina" name="gmina{{company.id}}"></td>
-              <td><input [(ngModel)]="company.powiat" name="powiat{{company.id}}"></td>
-              <td><input [(ngModel)]="company.postalCode" name="postal{{company.id}}"></td>
-              <td><input [(ngModel)]="company.street" name="street{{company.id}}"></td>
-              <td><input [(ngModel)]="company.buildingNumber" name="building{{company.id}}"></td>
-              <td><input [(ngModel)]="company.apartmentNumber" name="apt{{company.id}}"></td>
-              <td><input [(ngModel)]="company.phone" name="phone{{company.id}}"></td>
-              <td><input [(ngModel)]="company.email" name="email{{company.id}}"></td>
-              <td><input [(ngModel)]="company.googleEmail" name="gemail{{company.id}}"></td>
-              <td><input [(ngModel)]="company.website" name="web{{company.id}}"></td>
-              <td><input [(ngModel)]="company.instagramAccount" name="ig{{company.id}}"></td>
-              <td><input [(ngModel)]="company.facebookAccount" name="fb{{company.id}}"></td>
-              <td><input [(ngModel)]="company.startedAt" name="started{{company.id}}"></td>
-              <td><button class="primary-button compact" (click)="save(company)">Zapisz</button></td>
-            </tr>
+            <tr *ngIf="loading"><td colspan="9" role="status">Wczytywanie...</td></tr>
+            <ng-container *ngIf="!loading">
+              <tr *ngFor="let company of companies; let i = index" (click)="selectedCompanyId = company.id" (dblclick)="detailsCompany = company" [class.selected]="selectedCompanyId === company.id">
+                <td>{{ formatNumber((page - 1) * pageSize + i + 1) }}</td>
+                <td [title]="company.name">{{ company.name.length > 50 ? (company.name | slice:0:50) + '...' : company.name }}</td>
+                <td>{{ company.nip }}</td>
+                <td>{{ fullAddress(company) }}</td>
+                <td>{{ formatPhone(company.phone) }}</td>
+                <td><a *ngIf="company.email && company.email.trim()" [href]="emailUrl(company.email)" title="Email" target="_blank" rel="noopener noreferrer"
+                       (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ company.email }}</a></td>
+                <td><a *ngIf="company.website && company.website.trim()" [href]="websiteHref(company.website)" target="_blank" rel="noopener noreferrer"
+                       (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ company.website }}</a></td>
+                <td>{{ company.startedAt | date:'yyyy-MM-dd' }}</td>
+                <td class="admin-company-actions">
+                  <button type="button" class="ghost-button compact" title="Szczegóły firmy" aria-label="Szczegóły firmy" (click)="$event.stopPropagation(); detailsCompany = company"><img src="assets/icons/info.svg" width="18" height="18" alt=""></button>
+                  <button type="button" class="ghost-button compact" [title]="company.blockedByRODO ? 'Włącz do RODO' : 'Wyłącz z powodu RODO'"
+                          [attr.aria-label]="company.blockedByRODO ? 'Włącz do RODO' : 'Wyłącz z powodu RODO'"
+                          [disabled]="rodoSavingIds.has(company.id)" [attr.aria-busy]="rodoSavingIds.has(company.id)"
+                          (click)="$event.stopPropagation(); toggleRodo(company)" (dblclick)="$event.stopPropagation()">
+                    <img [src]="company.blockedByRODO ? 'assets/icons/shield-check.svg' : 'assets/icons/shield-off.svg'" width="18" height="18" alt="">
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="!companies.length"><td colspan="9">Brak firm.</td></tr>
+            </ng-container>
           </tbody>
         </table>
-      </section>
+      </div>
       <footer class="pager">
-        <button (click)="prev()" [disabled]="page === 1">Poprzednia</button>
-        <span>Strona {{ page }} &middot; {{ total }} rekordow</span>
-        <button (click)="next()" [disabled]="page >= totalPages()">Nastepna</button>
-        <span *ngIf="page < totalPages()">...</span>
-        <button *ngIf="page < totalPages()" (click)="last()">{{ totalPages() }}</button>
+        <span>{{ formatNumber(total) }} rekord&#243;w</span>
+        <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>
+        <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
+        <button (click)="next()" [disabled]="loading || page >= totalPages()">Nast&#281;pna</button>
       </footer>
+      <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name" (closed)="detailsCompany = null"></app-company-details>
     </section>
 
-    <section class="users-list" *ngIf="tab === 'users'">
-      <div class="toolbar">
-        <select [(ngModel)]="planCode" name="planCode">
-          <option>PX1</option><option>PX2</option><option>PX3</option><option>PX4</option><option>PX5</option>
-        </select>
-      </div>
-      <article class="user-row" *ngFor="let user of users">
-        <div>
-          <strong>{{ user.googleEmail }}</strong>
-          <p>{{ user.displayName }}</p>
-          <small *ngFor="let plan of user.plans">{{ plan.planCode }}: {{ plan.purchasedAtUtc | date:'yyyy-MM-dd' }} - {{ plan.expiresAtUtc | date:'yyyy-MM-dd' }} · {{ plan.source }} </small>
-        </div>
-        <button class="primary-button" (click)="grant(user)">Dodaj plan</button>
-      </article>
+    <section class="admin-users-grid" *ngIf="tab === 'users'" [attr.aria-busy]="usersLoading">
+      <table>
+        <thead><tr>
+          <th *ngFor="let col of userColumns" [attr.aria-sort]="usersSortBy === col.key ? (usersDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+            <button type="button" (click)="sortUsers(col.key)" [disabled]="usersLoading">{{ col.label }}
+              <span *ngIf="usersSortBy === col.key"><ng-container *ngIf="usersDirection === 'asc'">&#9650;</ng-container><ng-container *ngIf="usersDirection === 'desc'">&#9660;</ng-container></span>
+            </button>
+          </th>
+          <th>Akcje</th>
+        </tr></thead>
+        <tbody>
+          <tr *ngIf="usersLoading"><td colspan="5" role="status">Wczytywanie...</td></tr>
+          <ng-container *ngIf="!usersLoading">
+            <tr *ngFor="let row of userRows">
+              <td>{{ row.displayName || '-' }}</td>
+              <td>{{ row.googleEmail }}</td>
+              <td>{{ row.planCode || '-' }}</td>
+              <td [class.expired]="row.expired">{{ row.expiresAtUtc ? (row.expiresAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
+              <td class="admin-user-actions">
+                <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="extendPlan(row.id)">Przed&#322;u&#380; o 7 dni</button>
+                <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id)" (click)="requestDeleteCsv(row)">Usu&#324; pliki CSV</button>
+              </td>
+            </tr>
+            <tr *ngIf="!userRows.length"><td colspan="5">Brak u&#380;ytkownik&#243;w.</td></tr>
+          </ng-container>
+        </tbody>
+      </table>
     </section>
+    <dialog #deleteCsvDialog class="delete-csv-dialog" aria-labelledby="delete-csv-title" (cancel)="$event.preventDefault(); cancelDeleteCsv()">
+      <h2 id="delete-csv-title">Usu&#324; eksporty CSV</h2>
+      <p>Czy trwale usun&#261;&#263; wszystkie eksporty CSV u&#380;ytkownika {{ userToDelete ? userToDelete.googleEmail : '' }} z bazy i dysku?</p>
+      <div class="delete-csv-actions">
+        <button type="button" class="primary-button" (click)="confirmDeleteCsv()">Usu&#324;</button>
+        <button type="button" class="ghost-button" autofocus (click)="cancelDeleteCsv()">Anuluj</button>
+      </div>
+    </dialog>
   </main>
 </div>

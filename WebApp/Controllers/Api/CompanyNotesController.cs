@@ -15,7 +15,7 @@ public class CompanyNotesController(ColdCallDbContext db, ICurrentUserService cu
     public record NotesRequest(string Notes);
 
     private async Task<bool> HasAccess(AppUser user, CancellationToken token) =>
-        await db.AdminEmails.AnyAsync(x => x.Email == user.GoogleEmail, token) ||
+        user.IsAdmin ||
         await db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow, token);
 
     [HttpGet]

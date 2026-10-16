@@ -30,7 +30,13 @@ public class AdminController : ControllerBase
         [FromQuery] string? sortBy = "name",
         [FromQuery] string? direction = "asc",
         [FromQuery] string? filter = null,
-        [FromQuery] int[]? pkdIds = null)
+        [FromQuery] int[]? pkdIds = null,
+        [FromQuery] string? companyName = null,
+        [FromQuery] bool? hasPhone = null, [FromQuery] bool? hasEmail = null, [FromQuery] bool? hasWebsite = null,
+        [FromQuery] DateOnly? startedFrom = null, [FromQuery] DateOnly? startedTo = null,
+        [FromQuery] int? wojewodztwoId = null, [FromQuery] int? powiatId = null,
+        [FromQuery] int? gminaId = null, [FromQuery] int? miejscowoscId = null, [FromQuery] int? radiusKm = null,
+        [FromQuery] string? nip = null, [FromQuery] bool? blockedByRODO = null)
     {
         if (await _adminAccess.RequireAdminAsync(User) == null)
         {
@@ -39,12 +45,16 @@ public class AdminController : ControllerBase
 
         pageSize = 10;
         var query = _db.Companies
+            .AsNoTracking()
             .Include(x => x.BusinessType)
             .Include(x => x.Wojewodztwo)
             .Include(x => x.Miejscowosc)
             .Include(x => x.Gmina)
             .Include(x => x.Powiat)
             .AsQueryable();
+
+        if (blockedByRODO.HasValue)
+            query = query.Where(c => c.BlockedByRODO == blockedByRODO.Value);
 
         if (!string.IsNullOrWhiteSpace(filter))
         {
@@ -56,14 +66,37 @@ public class AdminController : ControllerBase
                 (x.Phone != null && x.Phone.Contains(filter)));
         }
 
-        var selectedPkdIds = pkdIds?.Where(x => x > 0).Distinct().ToArray() ?? Array.Empty<int>();
-        if (selectedPkdIds.Length > 0)
+        if (!string.IsNullOrWhiteSpace(nip))
         {
-            query = query.Where(company => company.CompanyPkds.Any(companyPkd => selectedPkdIds.Contains(companyPkd.PkdCodeId)));
+            var normalizedNip = nip.Trim().Replace("-", "").Replace(" ", "");
+            if (normalizedNip.Length > 10 || normalizedNip.Any(c => c < '0' || c > '9'))
+                return BadRequest(new { message = "NIP moze zawierac maksymalnie 10 cyfr." });
+            query = normalizedNip.Length == 10
+                ? query.Where(c => c.Nip == normalizedNip)
+                : query.Where(c => c.Nip != null && c.Nip.Contains(normalizedNip));
+        }
+
+        if ((companyName?.Trim().Length ?? 0) >= 3 || hasPhone.HasValue || hasEmail.HasValue || hasWebsite.HasValue
+            || startedFrom.HasValue || startedTo.HasValue || wojewodztwoId.HasValue || powiatId.HasValue
+            || gminaId.HasValue || miejscowoscId.HasValue || radiusKm.HasValue || pkdIds?.Length > 0)
+        {
+        try
+        {
+            var matches = await new CompanySearchQuery(_db).BuildAsync(new SearchProfileCriteria
+            {
+                CompanyName = companyName ?? "", HasPhone = hasPhone, HasEmail = hasEmail, HasWebsite = hasWebsite,
+                DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue, DateFrom = startedFrom, DateTo = startedTo,
+                WojewodztwoId = wojewodztwoId, PowiatId = powiatId, GminaId = gminaId, MiejscowoscId = miejscowoscId,
+                HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
+            }, pkdIds, null, includeAllCompanies: true);
+            query = query.Where(company => matches.Select(row => row.Id).Contains(company.Id));
+        }
+        catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); }
         }
 
         var total = await query.CountAsync();
         var items = await query.ApplyCompanySort(sortBy, direction)
+            .ThenBy(x => x.Id)
             .Skip((Math.Max(page, 1) - 1) * pageSize)
             .Take(pageSize)
             .Select(x => new CompanyDto(
@@ -76,6 +109,18 @@ public class AdminController : ControllerBase
             .ToListAsync();
 
         return Ok(new PagedResult<CompanyDto>(items, total, page, pageSize, QueryableExtensions.CompanySortableColumns));
+    }
+
+    public record RodoRequest(bool? BlockedByRODO);
+
+    [HttpPut("companies/{id:int}/rodo")]
+    public async Task<IActionResult> SetRodo(int id, RodoRequest request, CancellationToken cancellationToken)
+    {
+        if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
+        if (!request.BlockedByRODO.HasValue) return BadRequest();
+        var affected = await _db.Companies.Where(c => c.Id == id)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(c => c.BlockedByRODO, request.BlockedByRODO.Value), cancellationToken);
+        return affected == 0 ? NotFound() : Ok(new { blockedByRODO = request.BlockedByRODO.Value });
     }
 
     [HttpPut("companies/{id:int}")]
@@ -131,6 +176,7 @@ public class AdminController : ControllerBase
         }
 
         return await _db.Users
+            .Where(x => !x.IsAdmin)
             .Include(x => x.Plans)
             .ThenInclude(x => x.PlanDefinition)
             .OrderBy(x => x.GoogleEmail)
@@ -142,6 +188,35 @@ public class AdminController : ControllerBase
                     .Select(p => new UserPlanDto(p.PlanDefinition.Code, p.PurchasedAtUtc, p.ExpiresAtUtc, p.Source))
                     .ToList()))
             .ToListAsync();
+    }
+
+    [HttpPost("users/{id:int}/extend-plan")]
+    public async Task<IActionResult> ExtendPlan(int id, CancellationToken token)
+    {
+        if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
+        if (!await _db.Users.AnyAsync(u => u.Id == id && !u.IsAdmin, token)) return NotFound();
+        var planId = await _db.UserPlans.Where(p => p.AppUserId == id)
+            .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id).Select(p => (int?)p.Id).FirstOrDefaultAsync(token);
+        if (!planId.HasValue) return BadRequest(new { message = "Uzytkownik nie ma planu do przedluzenia." });
+        var now = DateTime.UtcNow;
+        await _db.UserPlans.Where(p => p.Id == planId.Value)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(p => p.ExpiresAtUtc, p => p.ExpiresAtUtc <= now ? now.AddDays(7) : p.ExpiresAtUtc.AddDays(7))
+                .SetProperty(p => p.IsActive, true), token);
+        return Ok();
+    }
+
+    [HttpDelete("users/{id:int}/csv-exports")]
+    public async Task<IActionResult> DeleteCsvExports(int id, [FromServices] CsvExportCleanupService cleanup, CancellationToken token)
+    {
+        if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
+        if (!await _db.Users.AnyAsync(u => u.Id == id && !u.IsAdmin, token)) return NotFound();
+        try { return Ok(new { deleted = await cleanup.DeleteForUserAsync(id, token) }); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<AdminController>>().LogError(e, "CSV cleanup failed for user {UserId}", id);
+            return StatusCode(500, new { message = "Nie udalo sie usunac wszystkich eksportow CSV." });
+        }
     }
 
     [HttpGet("business-types")]
@@ -198,11 +273,10 @@ public class AdminController : ControllerBase
         }
 
         email = email.Trim().ToLowerInvariant();
-        if (!await _db.AdminEmails.AnyAsync(x => x.Email == email))
-        {
-            _db.AdminEmails.Add(new AdminEmail { Email = email, AddedByEmail = owner.GoogleEmail });
-            await _db.SaveChangesAsync();
-        }
+        var user = await _db.Users.SingleOrDefaultAsync(x => x.GoogleEmail == email);
+        if (user == null) return NotFound(new { message = "Uzytkownik musi najpierw zarejestrowac konto." });
+        user.IsAdmin = true;
+        await _db.SaveChangesAsync();
 
         return Ok();
     }

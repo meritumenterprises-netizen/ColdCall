@@ -11,7 +11,7 @@ public class CompanySearchQuery
     public CompanySearchQuery(ColdCallDbContext db) => _db = db;
 
     public async Task<IQueryable<CompanyShortDto>> BuildAsync(SearchProfileCriteria criteria, int[]? pkdIds,
-        int? modifiedWithinDays, bool addressLocality = false)
+        int? modifiedWithinDays, bool addressLocality = false, bool includeAllCompanies = false)
     {
         var address = criteria.Address;
         var hasPhone = criteria.HasPhone;
@@ -36,7 +36,7 @@ public class CompanySearchQuery
         if (radiusKm.HasValue && (!new[] { 1, 5, 10, 20, 50, 100, 200, 500 }.Contains(radiusKm.Value)
             || !miejscowoscId.HasValue))
             throw new ArgumentException("Wybierz miejscowosc i poprawny promien.");
-        var query = ApplyDetailFilters(ApplyPkdFilter(BaseCompanyQuery(), pkdIds),
+        var query = ApplyDetailFilters(ApplyPkdFilter(BaseCompanyQuery(includeAllCompanies), pkdIds),
             address, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
         if (radiusKm.HasValue)
         {
@@ -60,7 +60,15 @@ public class CompanySearchQuery
         return query;
     }
 
-    private IQueryable<CompanyShortDto> BaseCompanyQuery() =>
+    private IQueryable<CompanyShortDto> BaseCompanyQuery(bool includeAllCompanies) => includeAllCompanies
+        ? _db.Companies.AsNoTracking().Select(c => new CompanyShortDto
+        {
+            Id = c.Id, Name = c.Name, Nip = c.Nip, Phone = c.Phone, Email = c.Email,
+            Www = c.Website, DataAktywnosci = c.StartedAt,
+            FullAddress = (c.Miejscowosc!.Name ?? "") + " " + (c.PostalCode ?? "") + " " + (c.Street ?? "") + " "
+                + (c.BuildingNumber ?? "") + (c.ApartmentNumber == null ? "" : "/" + c.ApartmentNumber)
+        })
+        :
         from row in _db.CompaniesShort
         select new CompanyShortDto
         {

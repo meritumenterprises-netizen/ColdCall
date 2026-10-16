@@ -10,6 +10,24 @@ import { ApiService } from '../services/api.service';
 export class NavMenuComponent {
   isExpanded = false;
   userMenuOpen = false;
+  failedAvatarUrl = '';
+
+  get avatarUrl() {
+    const user = this.api.user();
+    const url = user && user.pictureUrl ? user.pictureUrl : '';
+    return url !== this.failedAvatarUrl ? url : '';
+  }
+
+  get avatarInitials() {
+    const user = this.api.user();
+    const name = user ? user.displayName || user.googleEmail : '';
+    return name.trim().split(/\s+/).slice(0, 2).map(part => part.charAt(0)).join('').toUpperCase();
+  }
+
+  avatarFailed() {
+    const user = this.api.user();
+    this.failedAvatarUrl = user && user.pictureUrl ? user.pictureUrl : '';
+  }
   @ViewChild('userMenuButton', { static: false }) userMenuButton: ElementRef;
 
   @HostListener('document:click', ['$event'])

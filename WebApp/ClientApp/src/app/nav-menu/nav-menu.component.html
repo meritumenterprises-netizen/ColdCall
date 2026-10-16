@@ -1,13 +1,13 @@
 <header class="topbar">
   <a class="logo" routerLink="/">FindMeNow</a>
   <nav *ngIf="showAuthenticatedMenu()">
-    <a *ngIf="api.isAdmin()" routerLink="/dashboard" routerLinkActive="active">Firmy</a>
-    <a routerLink="/plans" routerLinkActive="active">Plany</a>
+    <a *ngIf="!api.isAdmin()" routerLink="/plans" routerLinkActive="active">Plany</a>
     <a *ngIf="api.isAdmin()" routerLink="/admin" routerLinkActive="active">Admin</a>
     <div class="user-menu" *ngIf="api.user()">
       <button #userMenuButton type="button" class="user-chip" [attr.aria-expanded]="userMenuOpen" aria-controls="user-menu-links"
               (click)="userMenuOpen = !userMenuOpen">
-        <img *ngIf="api.user()?.pictureUrl" [src]="api.user()?.pictureUrl" alt="">
+        <img *ngIf="avatarUrl" [src]="avatarUrl" referrerpolicy="no-referrer" (error)="avatarFailed()" alt="">
+        <span *ngIf="!avatarUrl" class="avatar-fallback" aria-hidden="true">{{ avatarInitials }}</span>
         <span>{{ api.user()?.displayName || api.user()?.googleEmail }}</span>
         <span aria-hidden="true">&#9662;</span>
       </button>

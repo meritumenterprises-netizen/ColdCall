@@ -48,7 +48,7 @@ public class CompaniesController : ControllerBase
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         var hasActivePlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow);
-        var isAdmin = await _db.AdminEmails.AnyAsync(x => x.Email == user.GoogleEmail);
+        var isAdmin = user.IsAdmin;
         if (!isAdmin && !hasActivePlan)
         {
             return StatusCode(StatusCodes.Status402PaymentRequired, new { message = "Plan wygasl albo nie zostal jeszcze zakupiony." });
@@ -93,7 +93,7 @@ public class CompaniesController : ControllerBase
     public async Task<ActionResult<CompanyDetailsDto>> Details(int id, CancellationToken cancellationToken)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
-        var isAdmin = await _db.AdminEmails.AnyAsync(x => x.Email == user.GoogleEmail, cancellationToken);
+        var isAdmin = user.IsAdmin;
         var hasActivePlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow, cancellationToken);
         if (!isAdmin && !hasActivePlan)
             return StatusCode(StatusCodes.Status402PaymentRequired, new { message = "Plan wygasl albo nie zostal jeszcze zakupiony." });
@@ -130,7 +130,7 @@ public class CompaniesController : ControllerBase
     public async Task<IActionResult> Export(ExportCompaniesRequest request, CancellationToken cancellationToken)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
-        var isAdmin = await _db.AdminEmails.AnyAsync(x => x.Email == user.GoogleEmail, cancellationToken);
+        var isAdmin = user.IsAdmin;
         var hasPlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow, cancellationToken);
         if (!isAdmin && !hasPlan) return StatusCode(402, new { message = "Plan wygasl." });
         var limit = await PlanRecordLimits.ForUserAsync(_db, user.Id, isAdmin);

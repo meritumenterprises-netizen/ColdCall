@@ -9,11 +9,13 @@ namespace ColdCall.Services;
 
 public interface ICurrentUserService
 {
+    bool WasCreated => false;
     Task<AppUser> GetOrCreateAsync(ClaimsPrincipal principal);
 }
 
 public class CurrentUserService : ICurrentUserService
 {
+    public bool WasCreated { get; private set; }
     private readonly ColdCallDbContext _db;
 
     public CurrentUserService(ColdCallDbContext db)
@@ -39,6 +41,7 @@ public class CurrentUserService : ICurrentUserService
                 DisplayName = principal.FindFirstValue("name")
             };
             _db.Users.Add(user);
+            WasCreated = true;
         }
 
         user.LastLoginAtUtc = DateTime.UtcNow;
@@ -61,14 +64,13 @@ public class AdminAccessService
     public async Task<AppUser?> RequireAdminAsync(ClaimsPrincipal principal)
     {
         var user = await _currentUserService.GetOrCreateAsync(principal);
-        var isAdmin = await _db.AdminEmails.AnyAsync(x => x.Email == user.GoogleEmail);
-        return isAdmin ? user : null;
+        return user.IsAdmin ? user : null;
     }
 
     public async Task<AppUser?> RequireOwnerAsync(ClaimsPrincipal principal)
     {
         var user = await _currentUserService.GetOrCreateAsync(principal);
-        return string.Equals(user.GoogleEmail, "pluczak99@gmail.com", StringComparison.OrdinalIgnoreCase)
+        return user.IsAdmin && string.Equals(user.GoogleEmail, "pluczak99@gmail.com", StringComparison.OrdinalIgnoreCase)
             ? user
             : null;
     }
@@ -181,7 +183,7 @@ public static class QueryableExtensions
         new SortableColumnDto("startedAt", "Start")
     };
 
-    public static IQueryable<Company> ApplyCompanySort(this IQueryable<Company> query, string? sortBy, string? direction)
+    public static IOrderedQueryable<Company> ApplyCompanySort(this IQueryable<Company> query, string? sortBy, string? direction)
     {
         var desc = string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase);
         return (sortBy ?? "name").ToLowerInvariant() switch
@@ -193,6 +195,9 @@ public static class QueryableExtensions
             "businesstype" or "businesstypeid" or "businesstypename" => desc ? query.OrderByDescending(x => x.BusinessType!.TypDzialalnosci) : query.OrderBy(x => x.BusinessType!.TypDzialalnosci),
             "wojewodztwo" => desc ? query.OrderByDescending(x => x.Wojewodztwo!.Name) : query.OrderBy(x => x.Wojewodztwo!.Name),
             "city" => desc ? query.OrderByDescending(x => x.Miejscowosc!.Name) : query.OrderBy(x => x.Miejscowosc!.Name),
+            "fulladdress" => desc
+                ? query.OrderByDescending(x => (x.Miejscowosc!.Name ?? "") + " " + (x.PostalCode ?? "") + " " + (x.Street ?? "") + " " + (x.BuildingNumber ?? "") + (x.ApartmentNumber == null ? "" : "/" + x.ApartmentNumber))
+                : query.OrderBy(x => (x.Miejscowosc!.Name ?? "") + " " + (x.PostalCode ?? "") + " " + (x.Street ?? "") + " " + (x.BuildingNumber ?? "") + (x.ApartmentNumber == null ? "" : "/" + x.ApartmentNumber)),
             "gmina" => desc ? query.OrderByDescending(x => x.Gmina!.Name) : query.OrderBy(x => x.Gmina!.Name),
             "powiat" => desc ? query.OrderByDescending(x => x.Powiat!.Name) : query.OrderBy(x => x.Powiat!.Name),
             "postalcode" => desc ? query.OrderByDescending(x => x.PostalCode) : query.OrderBy(x => x.PostalCode),

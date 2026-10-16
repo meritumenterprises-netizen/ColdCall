@@ -89,7 +89,15 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   savingSearch = false;
   searchSaved = false;
 
-  get filtersLocked() { return this.classifyingPkd || this.restoringSearch || this.savingSearch || this.exportingCsv; }
+  get searchPlanExpired() {
+    const user = this.api.user();
+    if (!user || !user.hasActivePlan) { return true; }
+    if (!user.plan || !user.plan.expiresAtUtc) { return false; }
+    const expiration = user.plan.expiresAtUtc;
+    const utcExpiration = /(?:Z|[+-]\d{2}:\d{2})$/i.test(expiration) ? expiration : expiration + 'Z';
+    return new Date(utcExpiration).getTime() <= Date.now();
+  }
+  get filtersLocked() { return this.searchPlanExpired || this.classifyingPkd || this.restoringSearch || this.savingSearch || this.exportingCsv; }
   private savedSearchState: string | null = null;
   private saveSearchRequest: Subscription | null = null;
   private companyNameDelay: Subscription | null = null;
@@ -256,6 +264,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   selectDashboardTab(tab: 'search' | 'export') {
+    if (tab === 'export' && this.searchPlanExpired) { return; }
     this.activeDashboardTab = tab;
     this.loadCsvExports();
   }
@@ -291,6 +300,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   downloadCsvExport(event: Event, row: CsvExportRow) {
     event.preventDefault();
+    if (this.searchPlanExpired) { return; }
     if (!this.api.isAuthenticated() || this.downloadingExportId !== null) { return; }
     this.downloadingExportId = row.id;
     this.exportsError = '';
@@ -457,7 +467,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.companies = [];
       this.total = 0;
       if (refreshSearchCount && !this.activeResultTab.days && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; }
-      this.error = err.status === 402 ? 'Plan wygasl. Przejdz do zakupow, aby odblokowac wyniki.' :
+      this.error = err.status === 402 ? '' :
         err.status === 400 && err.error && err.error.message ? err.error.message : 'Nie udalo sie pobrac firm.';
     });
   }
@@ -852,7 +862,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   get canSaveSearch() {
-    return !!this.searchName.trim() && !this.savingSearch && !this.restoringSearch && !this.classifyingPkd
+    return !this.searchPlanExpired && !!this.searchName.trim() && !this.savingSearch && !this.restoringSearch && !this.classifyingPkd
       && ((this.currentSearchId !== null && this.currentSearchId > 0) || this.canPersistNewSearch)
       && (this.savedSearchState === null || this.searchState() !== this.savedSearchState);
   }
@@ -876,12 +886,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   websiteHref(website: string) { return this.api.websiteHref(website); }
 
   formatPhone(value: string | null | undefined) {
-    if (!value) { return ''; }
-    const phone = value.trim();
-    if (/^48\d{9}$/.test(phone)) { return phone.replace(/^48(\d{3})(\d{3})(\d{3})$/, '+48 $1 $2 $3'); }
-    if (/^0048\d{9}$/.test(phone)) { return phone.replace(/^0048(\d{3})(\d{3})(\d{3})$/, '+48 $1 $2 $3'); }
-    if (/^\+48\d{9}$/.test(phone)) { return phone.replace(/^(\+48)(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4'); }
-    return /^\d{9}$/.test(phone) ? phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') : value;
+    return this.api.formatPhone(value);
   }
   next() { if (!this.loading && this.page < this.totalPages()) { this.page++; this.loadCompanies(false); } }
   prev() { if (!this.loading && this.page > 1) { this.page--; this.loadCompanies(false); } }
@@ -944,6 +949,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   exportCsv() {
+    if (this.searchPlanExpired) { return; }
     if (this.loading || this.total <= 0 || this.exportingCsv || this.csvQuotaLoading || this.csvExportsRemaining === 0) { return; }
     if (!this.validateFilters()) { return; }
     if (this.currentSearchId === null || this.currentSearchId <= 0) {

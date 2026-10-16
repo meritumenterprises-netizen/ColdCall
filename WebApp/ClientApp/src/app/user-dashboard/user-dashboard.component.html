@@ -22,11 +22,14 @@
               [attr.aria-selected]="activeDashboardTab === 'search'" [attr.tabindex]="activeDashboardTab === 'search' ? 0 : -1"
               (click)="selectDashboardTab('search')" (keydown)="navigateDashboardTabs($event)">Wyszukiwanie</button>
       <button type="button" id="dashboard-export-tab" role="tab" aria-controls="dashboard-export-panel"
+              [disabled]="searchPlanExpired"
               [attr.aria-selected]="activeDashboardTab === 'export'" [attr.tabindex]="activeDashboardTab === 'export' ? 0 : -1"
               (click)="selectDashboardTab('export')" (keydown)="navigateDashboardTabs($event)">Eksport CSV</button>
     </div>
     <section id="dashboard-search-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="dashboard-search-tab"
              [hidden]="activeDashboardTab !== 'search'">
+    <p *ngIf="searchPlanExpired" class="error" role="status">Plan wygas&#322;. Wyszukiwanie jest zablokowane. Przejd&#378; do <a routerLink="/plans">plan&#243;w</a>, &#380;eby odzyska&#263; dost&#281;p.</p>
+    <fieldset class="search-plan-controls" [disabled]="searchPlanExpired" [attr.inert]="searchPlanExpired ? '' : null" [attr.aria-disabled]="searchPlanExpired">
     <section class="toolbar">
       <label for="search-name">Nazwa wyszukiwania</label>
       <input #searchNameInput id="search-name" name="searchName" [ngModel]="searchName" (input)="setSearchName($event)" placeholder="typ dzia&#322;alno&#347;ci albo s&#322;owa kluczowe">
@@ -286,9 +289,10 @@
     </ng-template>
 <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name"
                      (closed)="detailsCompany = null"></app-company-details>
+    </fieldset>
 </section>
 <section id="dashboard-export-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="dashboard-export-tab"
-         [hidden]="activeDashboardTab !== 'export'">
+         [hidden]="activeDashboardTab !== 'export'" [attr.inert]="searchPlanExpired ? '' : null" [attr.aria-disabled]="searchPlanExpired">
   <div *ngIf="exportsError" class="error" role="alert">{{ exportsError }}</div>
   <button *ngIf="exportsError && !exportsLoading" type="button" class="ghost-button" (click)="loadCsvExports()">Pon&#243;w</button>
   <div class="csv-exports-table" [attr.aria-busy]="exportsLoading">

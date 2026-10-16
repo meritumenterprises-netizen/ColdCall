@@ -21,6 +21,9 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<AdminAccessService>();
 builder.Services.AddScoped<CompanyCsvExportService>();
+builder.Services.AddScoped<CsvExportCleanupService>();
+builder.Services.AddDataProtection();
+builder.Services.AddScoped<TrialPlanService>();
 builder.Services.AddHttpClient<PkdClassifier>(client => client.Timeout = TimeSpan.FromMinutes(2));
 builder.Services.AddSpaStaticFiles(configuration => configuration.RootPath = "ClientApp/dist");
 builder.Services.AddCors(options =>
