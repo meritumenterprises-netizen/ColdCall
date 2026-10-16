@@ -258,7 +258,7 @@ tbody tr:hover { background: #f8fafc; }
 
 .plan-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
   gap: 16px;
 }
 .plan-card {
@@ -269,18 +269,16 @@ tbody tr:hover { background: #f8fafc; }
   gap: 12px;
 }
 .active-plan-badge {
-  position: absolute;
-  top: 16px;
-  right: 18px;
+  align-self: flex-end;
   color: #0f8f6a;
   font-size: 13px;
   font-weight: 900;
 }
 .plan-title {
   margin: 0;
-  padding-right: 86px;
+  white-space: nowrap;
   color: #5f7393;
-  font-size: 40px;
+  font-size: 24px;
   line-height: 1;
   font-weight: 900;
 }
@@ -336,5 +334,6 @@ tbody tr:hover { background: #f8fafc; }
 .local-auth-fields { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .local-auth-fields label { margin-top: 6px; font-weight: 600; }
 .local-auth-submit { margin-top: 12px; }
+.future-activity-date { color: #b91c1c; }
 .local-auth-links { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
 .login-card .local-auth-links button { padding: 0; background: transparent; color: #0f766e; font-size: 13px; text-align: left; text-decoration: underline; }
