@@ -42,6 +42,7 @@ import { CompanyDetailsComponent } from './company-details/company-details.compo
       { path: 'profile', redirectTo: 'profile/plan', pathMatch: 'full' },
       { path: 'profile/plan', component: ProfileComponent, canActivate: [AuthGuard] },
       { path: 'profile/data', component: ProfileComponent, canActivate: [AuthGuard], data: { section: 'data' } },
+      { path: 'profile/purchases', component: ProfileComponent, canActivate: [AuthGuard], data: { section: 'purchases' } },
     ])
   ],
   providers: [],

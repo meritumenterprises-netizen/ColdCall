@@ -181,17 +181,6 @@
     </fieldset>
     </div>
 
-    <dialog #saveSearchDialog class="save-search-dialog" role="alertdialog"
-            aria-labelledby="save-search-title" aria-describedby="save-search-message"
-            (cancel)="$event.preventDefault(); cancelSaveSearch()">
-      <h2 id="save-search-title">Zapis wyszukiwania</h2>
-      <p id="save-search-message">Czy zapisa&#263; kryteria wyszukiwania?</p>
-      <div class="save-search-dialog-actions">
-        <button type="button" class="primary-button" (click)="confirmSaveSearch()">OK</button>
-        <button type="button" class="ghost-button" autofocus (click)="cancelSaveSearch()">Anuluj</button>
-      </div>
-    </dialog>
-
     <dialog #duplicateExportDialog class="save-search-dialog" role="alertdialog"
             aria-labelledby="duplicate-export-title" aria-describedby="duplicate-export-message"
             (cancel)="$event.preventDefault(); cancelDuplicateExport()">

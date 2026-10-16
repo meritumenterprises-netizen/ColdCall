@@ -1,4 +1,5 @@
 using ColdCall.Data;
+using ColdCall.Models;
 using ColdCall.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -84,6 +85,38 @@ public class AuthController : ControllerBase
         if (!await _trialPlans.AcceptAsync(user.Id, request, cancellationToken))
             return BadRequest(new { message = "Nie mozna aktywowac tej oferty probnej. Oferta wygasla, zostala wykorzystana lub nie zaakceptowano warunkow." });
         return Ok();
+    }
+
+    [HttpGet("purchases")]
+    public async Task<ActionResult<IReadOnlyList<StripePurchaseDto>>> Purchases(
+        [FromQuery] string sortBy = "paidAtUtc", [FromQuery] string direction = "desc", CancellationToken token = default)
+    {
+        var user = await _currentUserService.GetOrCreateAsync(User);
+        if (user.IsAdmin) return Forbid();
+        if (sortBy is not ("planCode" or "maxNumberOfSearches" or "maxNumberOfCSVExportsPerSearch"
+            or "maxNumberOfExportedRecords" or "amountPaid" or "paidAtUtc") || direction is not ("asc" or "desc"))
+            return BadRequest(new { message = "Niepoprawne sortowanie zakupow." });
+        var query = _db.StripePayments.AsNoTracking().Where(p => p.AppUserId == user.Id);
+        var ordered = (sortBy, direction) switch
+        {
+            ("planCode", "asc") => query.OrderBy(p => p.PlanDefinition.Code),
+            ("planCode", "desc") => query.OrderByDescending(p => p.PlanDefinition.Code),
+            ("maxNumberOfSearches", "asc") => query.OrderBy(p => p.PlanDefinition.MaxNumberOfSearches),
+            ("maxNumberOfSearches", "desc") => query.OrderByDescending(p => p.PlanDefinition.MaxNumberOfSearches),
+            ("maxNumberOfCSVExportsPerSearch", "asc") => query.OrderBy(p => p.PlanDefinition.MaxNumberOfCSVExportsPerSearch),
+            ("maxNumberOfCSVExportsPerSearch", "desc") => query.OrderByDescending(p => p.PlanDefinition.MaxNumberOfCSVExportsPerSearch),
+            ("maxNumberOfExportedRecords", "asc") => query.OrderBy(p => p.PlanDefinition.MaxNumberOfExportedRecords),
+            ("maxNumberOfExportedRecords", "desc") => query.OrderByDescending(p => p.PlanDefinition.MaxNumberOfExportedRecords),
+            ("amountPaid", "asc") => query.OrderBy(p => p.AmountPaid),
+            ("amountPaid", "desc") => query.OrderByDescending(p => p.AmountPaid),
+            ("paidAtUtc", "asc") => query.OrderBy(p => p.PaidAtUtc),
+            _ => query.OrderByDescending(p => p.PaidAtUtc)
+        };
+        var purchases = await ordered.ThenBy(p => p.StripeSessionId)
+            .Select(p => new StripePurchaseDto(p.PlanDefinition.Code, p.PlanDefinition.MaxNumberOfSearches,
+                p.PlanDefinition.MaxNumberOfCSVExportsPerSearch, p.PlanDefinition.MaxNumberOfExportedRecords,
+                p.AmountPaid, p.PaidAtUtc)).ToListAsync(token);
+        return Ok(purchases.Select(p => p with { PaidAtUtc = DateTime.SpecifyKind(p.PaidAtUtc, DateTimeKind.Utc) }).ToArray());
     }
 
     [HttpGet("profile")]
