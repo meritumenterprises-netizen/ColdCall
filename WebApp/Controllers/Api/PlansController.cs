@@ -26,6 +26,23 @@ public class PlansController : ControllerBase
     public async Task<IReadOnlyList<PlanDto>> Get()
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
+        var currentPlan = await _db.UserPlans
+            .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
+            .OrderByDescending(x => x.ExpiresAtUtc)
+            .Select(x => new
+            {
+                x.PlanDefinitionId,
+                x.PlanDefinition.IsTrial,
+                x.PlanDefinition.IsUpgrade,
+                x.PlanDefinition.UpgradeFrom,
+                x.PlanDefinition.MaxNumberOfSearches
+            })
+            .FirstOrDefaultAsync();
+        var currentPlanId = currentPlan?.PlanDefinitionId;
+        var showUpgradePlans = currentPlan != null && !currentPlan.IsTrial;
+        var upgradeSourceId = currentPlan != null && currentPlan.IsUpgrade
+            ? currentPlan.UpgradeFrom : currentPlanId;
+        var currentSearchLimit = currentPlan?.MaxNumberOfSearches ?? 0;
         var currentPlanOrder = await _db.UserPlans
             .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
             .Select(x => (int?)x.PlanDefinition.Order).MaxAsync();
@@ -40,11 +57,17 @@ public class PlansController : ControllerBase
             .ToListAsync();
         var activeUntilByDefinitionId = activePlansByDefinitionId.ToDictionary(
             x => x.PlanDefinitionId,
-            x => (DateTime?)x.ActiveUntil);
+            x => (DateTime?)DateTime.SpecifyKind(x.ActiveUntil, DateTimeKind.Utc));
 
         var plans = await _db.PlanDefinitions
-            .Where(x => x.ShowInOffer && !x.IsTrial)
-            .OrderBy(x => x.Order).ThenBy(x => x.Id)
+            .Where(x => (showUpgradePlans && x.Id == currentPlanId)
+                || (x.ShowInOffer && !x.IsTrial
+                    && (showUpgradePlans
+                        ? x.IsUpgrade && x.UpgradeFrom == upgradeSourceId
+                            && x.MaxNumberOfSearches > currentSearchLimit
+                        : !x.IsUpgrade)))
+            .OrderByDescending(x => showUpgradePlans && x.Id == currentPlanId)
+            .ThenBy(x => x.Order).ThenBy(x => x.Id)
             .ToListAsync();
 
         return plans
@@ -56,7 +79,9 @@ public class PlansController : ControllerBase
                 x.Currency,
                 activeUntilByDefinitionId.TryGetValue(x.Id, out var activeUntil) ? activeUntil : null,
                 x.Order,
-                !currentPlanOrder.HasValue || x.Order > currentPlanOrder.Value))
+                x.Id != currentPlanId && ((showUpgradePlans && x.IsUpgrade && x.UpgradeFrom == upgradeSourceId
+                        && x.MaxNumberOfSearches > currentSearchLimit)
+                    || !currentPlanOrder.HasValue || x.Order > currentPlanOrder.Value)))
             .ToList();
     }
 

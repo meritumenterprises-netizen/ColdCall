@@ -262,7 +262,7 @@
               [href]="emailUrl(row.email)" title="Email" target="_blank" rel="noopener noreferrer"
               (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ row.email }}</a></td>
             <td><a *ngIf="row.www && row.www.trim()" [href]="websiteHref(row.www)" target="_blank" rel="noopener noreferrer"
-              (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ row.www }}</a></td><td>{{ row.dataAktywnosci | date:'yyyy-MM-dd' }}</td>
+              (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ row.www }}</a></td><td [class.future-activity-date]="isFutureActivityDate(row.dataAktywnosci)">{{ row.dataAktywnosci | date:'yyyy-MM-dd' }}</td>
             <td class="company-details-cell">
               <button type="button" class="company-details-button" aria-label="Szczeg&#243;&#322;y firmy" title="Szczeg&#243;&#322;y firmy"
                       (click)="$event.stopPropagation(); openCompany(row)" (dblclick)="$event.stopPropagation()"

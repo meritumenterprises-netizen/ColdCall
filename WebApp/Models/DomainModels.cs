@@ -163,6 +163,11 @@ public class PlanDefinition
     public int? MaxNumberOfExportedRecords { get; set; }
     public int? ExpiresAfterDays { get; set; }
     public bool IsTrial { get; set; }
+    public bool IsUpgrade { get; set; }
+    public int? UpgradeFrom { get; set; }
+    public PlanDefinition? UpgradeFromPlan { get; set; }
+    public int? UpgradeTo { get; set; }
+    public PlanDefinition? UpgradeToPlan { get; set; }
     public bool ShowInOffer { get; set; } = true;
     public bool IsActive { get; set; } = true;
     public string DescriptionHtml { get; set; } = "";

@@ -1,4 +1,5 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { isFutureActivityDate } from '../services/activity-date';
 import { from, Observable, of, Subscription, timer } from 'rxjs';
 import { catchError, concatMap, finalize, map, switchMap, take, timeout } from 'rxjs/operators';
 import { AddressLevel, AddressOption, ApiService, CompanyFilters, CompanyShort, CsvExportRow, Pkd, SearchCriteria, SearchProfile, SortableColumn } from '../services/api.service';
@@ -16,6 +17,7 @@ interface ResultTab {
   styleUrls: ['./user-dashboard.component.css']
 })
 export class UserDashboardComponent implements OnInit, OnDestroy {
+  isFutureActivityDate = isFutureActivityDate;
   searches: SearchProfile[] = [];
   searchRecordCounts: { [id: number]: number | null } = {};
   private searchCountsRequest: Subscription | null = null;

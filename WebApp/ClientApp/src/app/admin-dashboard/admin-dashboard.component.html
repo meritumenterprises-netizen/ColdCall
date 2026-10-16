@@ -107,7 +107,7 @@
                        (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ company.email }}</a></td>
                 <td><a *ngIf="company.website && company.website.trim()" [href]="websiteHref(company.website)" target="_blank" rel="noopener noreferrer"
                        (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ company.website }}</a></td>
-                <td>{{ company.startedAt | date:'yyyy-MM-dd' }}</td>
+                <td [class.future-activity-date]="isFutureActivityDate(company.startedAt)">{{ company.startedAt | date:'yyyy-MM-dd' }}</td>
                 <td class="admin-company-actions">
                   <button type="button" class="ghost-button compact" title="Szczegóły firmy" aria-label="Szczegóły firmy" (click)="$event.stopPropagation(); detailsCompany = company"><img src="assets/icons/info.svg" width="18" height="18" alt=""></button>
                   <button type="button" class="ghost-button compact" [title]="company.blockedByRODO ? 'Włącz do RODO' : 'Wyłącz z powodu RODO'"

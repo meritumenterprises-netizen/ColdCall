@@ -140,6 +140,17 @@ public partial class ColdCallDbContext : DbContext
         modelBuilder.Entity<PlanDefinition>().Property(x => x.Order).HasColumnType("int").IsRequired().HasDefaultValue(0);
         modelBuilder.Entity<PlanDefinition>().Property(x => x.Price).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<PlanDefinition>().Property(x => x.IsTrial).HasDefaultValue(false);
+        modelBuilder.Entity<PlanDefinition>().Property(x => x.IsUpgrade).HasColumnType("bit").IsRequired().HasDefaultValue(false);
+        modelBuilder.Entity<PlanDefinition>().Property(x => x.UpgradeFrom).HasColumnType("int");
+        modelBuilder.Entity<PlanDefinition>().Property(x => x.UpgradeTo).HasColumnType("int");
+        modelBuilder.Entity<PlanDefinition>().HasOne(x => x.UpgradeToPlan).WithMany()
+            .HasForeignKey(x => x.UpgradeTo)
+            .HasConstraintName("FK_PlanDefinitions_PlanDefinitions1")
+            .OnDelete(DeleteBehavior.NoAction);
+        modelBuilder.Entity<PlanDefinition>().HasOne(x => x.UpgradeFromPlan).WithMany()
+            .HasForeignKey(x => x.UpgradeFrom)
+            .HasConstraintName("FK_PlanDefinitions_PlanDefinitions")
+            .OnDelete(DeleteBehavior.NoAction);
         modelBuilder.Entity<PlanDefinition>().Property(x => x.ShowInOffer).HasDefaultValue(true).HasSentinel(true);
         modelBuilder.Entity<PlanDefinition>().Property(x => x.IsActive).HasDefaultValue(true).HasSentinel(true);
         modelBuilder.Entity<UserPlan>().Property(x => x.PricePaid).HasColumnType("decimal(18,2)");

@@ -11,12 +11,14 @@
 
   <section class="plan-grid">
     <article class="plan-card" *ngFor="let plan of plans">
-      <div class="active-plan-badge" *ngIf="plan.activeUntil">* twój plan</div>
       <h2 class="plan-title">{{ plan.code | uppercase }}</h2>
+      <div class="active-plan-status" *ngIf="plan.activeUntil">
+        <span class="active-plan-badge">aktywny plan</span>
+        <small>aktywny do {{ plan.activeUntil | date:'dd.MM.yyyy HH:mm' }}</small>
+      </div>
       <div class="plan-description" [innerHTML]="plan.descriptionHtml"></div>
-      <div class="price">{{ plan.price | number:'1.0-0' }} {{ plan.currency }}</div>
-      <small *ngIf="plan.activeUntil">Aktywny do {{ plan.activeUntil | date:'yyyy-MM-dd' }}</small>
-      <button class="primary-button" [disabled]="!plan.canPurchase" (click)="buy(plan)">Kup</button>
+      <div *ngIf="!plan.activeUntil" class="price">{{ plan.price | number:'1.0-0' }} {{ plan.currency }}</div>
+      <button *ngIf="!plan.activeUntil" class="primary-button" [disabled]="!plan.canPurchase" (click)="buy(plan)">Kup</button>
     </article>
   </section>
 </main>

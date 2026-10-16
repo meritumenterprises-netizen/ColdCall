@@ -1,0 +1,28 @@
+.active-plan-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  overflow-x: auto;
+}
+
+.active-plan-status > * { flex-shrink: 0; }
+
+.active-plan-badge {
+  align-self: flex-start;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plan-card .plan-title {
+  font-size: 18px;
+  line-height: 1.3;
+  white-space: nowrap;
+  padding: 0;
+  margin: 0;
+  letter-spacing: 0;
+}

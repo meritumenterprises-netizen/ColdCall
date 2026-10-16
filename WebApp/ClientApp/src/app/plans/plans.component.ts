@@ -3,7 +3,8 @@ import { ApiService, Plan } from '../services/api.service';
 
 @Component({
   selector: 'app-plans',
-  templateUrl: './plans.component.html'
+  templateUrl: './plans.component.html',
+  styleUrls: ['./plans.component.css']
 })
 export class PlansComponent implements OnInit {
   plans: Plan[] = [];

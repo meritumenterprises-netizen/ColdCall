@@ -1,4 +1,5 @@
 import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { isFutureActivityDate } from '../services/activity-date';
 import { Subscription, timer } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { AddressLevel, AddressOption, ApiService, AppUser, BusinessType, Company, CompanyFilters, Pkd, SortableColumn } from '../services/api.service';
@@ -9,6 +10,7 @@ import { AddressLevel, AddressOption, ApiService, AppUser, BusinessType, Company
   styleUrls: ['./admin-dashboard.component.css']
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
+  isFutureActivityDate = isFutureActivityDate;
   @ViewChild('deleteCsvDialog', { static: true }) deleteCsvDialog: ElementRef;
   busyUserIds = new Set<number>();
   userToDelete: { id: number; googleEmail: string } | null = null;
