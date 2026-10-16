@@ -54,7 +54,7 @@ export interface UserProfile { displayName: string | null; googleEmail: string; 
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
 export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string; descriptionHtml?: string; }
-export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; }
+export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; }
 export interface AuthConfig { googleClientId: string; }
 export interface CsvExportRow { id: number; userId: number; searchProfileId: number; csvFileName: string; createdOn: string; numberOfRecords: number | null; }
 

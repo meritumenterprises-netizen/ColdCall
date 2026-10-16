@@ -186,7 +186,7 @@ public class AdminController : ControllerBase
                 x.DisplayName,
                 x.Plans.OrderByDescending(p => p.ExpiresAtUtc)
                     .Select(p => new UserPlanDto(p.PlanDefinition.Code, p.PurchasedAtUtc, p.ExpiresAtUtc, p.Source, p.PlanDefinition.DescriptionHtml))
-                    .ToList()))
+                    .ToList(), DateTime.SpecifyKind(x.CreatedAtUtc, DateTimeKind.Utc)))
             .ToListAsync();
     }
 

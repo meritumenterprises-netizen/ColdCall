@@ -132,7 +132,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   usersDirection = 'asc';
   userColumns: SortableColumn[] = [
     { key: 'displayName', label: 'Imi\u0119 i nazwisko' }, { key: 'googleEmail', label: 'Email' },
-    { key: 'planCode', label: 'Aktualny plan' }, { key: 'expiresAtUtc', label: 'Data wyga\u015bni\u0119cia' }
+    { key: 'planCode', label: 'Aktualny plan' }, { key: 'expiresAtUtc', label: 'Data wyga\u015bni\u0119cia' },
+    { key: 'createdAtUtc', label: 'Login utworzony' }
   ];
   private dateUtc(value: string) { return /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + 'Z'; }
   get userRows() {
@@ -142,14 +143,16 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       const plan = plans[0];
       const expiresAtUtc = plan ? this.dateUtc(plan.expiresAtUtc) : '';
       return { id: user.id, displayName: user.displayName || '', googleEmail: user.googleEmail,
+        createdAtUtc: user.createdAtUtc ? this.dateUtc(user.createdAtUtc) : '',
         planCode: plan ? plan.planCode : '', descriptionHtml: plan ? plan.descriptionHtml || '' : '', expiresAtUtc, expired: !!plan && new Date(expiresAtUtc).getTime() <= now };
     });
     const email = this.userEmailFilter.trim().toLowerCase();
     return rows.filter(row => !email || row.googleEmail.toLowerCase().includes(email)).sort((a, b) => {
       let comparison = 0;
-      if (this.usersSortBy === 'expiresAtUtc') {
-        if (!a.expiresAtUtc || !b.expiresAtUtc) { return a.expiresAtUtc ? -1 : b.expiresAtUtc ? 1 : a.id - b.id; }
-        comparison = new Date(a.expiresAtUtc).getTime() - new Date(b.expiresAtUtc).getTime();
+      if (this.usersSortBy === 'expiresAtUtc' || this.usersSortBy === 'createdAtUtc') {
+        const first = a[this.usersSortBy], second = b[this.usersSortBy];
+        if (!first || !second) { return first ? -1 : second ? 1 : a.id - b.id; }
+        comparison = new Date(first).getTime() - new Date(second).getTime();
       } else {
         comparison = String(a[this.usersSortBy]).localeCompare(String(b[this.usersSortBy]), 'pl');
       }

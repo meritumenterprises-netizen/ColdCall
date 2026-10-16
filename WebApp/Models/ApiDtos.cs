@@ -87,7 +87,7 @@ public record PlanDto(string Code, int SearchLimit, string DescriptionHtml, deci
 
 public record UserPlanDto(string PlanCode, DateTime PurchasedAtUtc, DateTime ExpiresAtUtc, string Source, string DescriptionHtml = "");
 
-public record UserDto(int Id, string GoogleEmail, string? DisplayName, IReadOnlyList<UserPlanDto> Plans);
+public record UserDto(int Id, string GoogleEmail, string? DisplayName, IReadOnlyList<UserPlanDto> Plans, DateTime CreatedAtUtc = default);
 
 public record GrantPlanDto(int UserId, string PlanCode);
 
