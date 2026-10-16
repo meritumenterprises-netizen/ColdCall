@@ -229,3 +229,7 @@ _Pvt_Extensions
 
 # FAKE - F# Make
 .fake/
+/PrgAddressImporter/Downloads/PRG-punkty_adresowe.zip
+/PrgAddressImporter/Downloads/SIMC_Adresowy_2026-10-03.zip
+/PrgAddressImporter/Downloads/TERC_Adresowy_2026-10-03.zip
+/PrgAddressImporter/Downloads/ULIC_Adresowy_2026-10-03.zip
