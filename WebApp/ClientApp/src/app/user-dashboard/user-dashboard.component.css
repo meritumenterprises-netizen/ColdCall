@@ -43,6 +43,11 @@
 .save-search-dialog p { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
 .save-search-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .pkd-filter-panel {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
   width: 100%;
   max-width: 100%;
   margin-bottom: 0;
@@ -73,7 +78,12 @@
 @media (max-width: 420px) { .address-columns { grid-template-columns: minmax(0, 1fr); } }
 .company-filter-panel label { font-size: 14px; margin-bottom: 6px; }
 .company-filter-panel input { min-width: 0; font-size: 14px; }
-.pkd-filter-search input { font-size: 12px; }
+.company-name-filter input, .address-field input, .pkd-search-row input {
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+}
 .pkd-search-row { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr) auto; align-items: end; gap: 12px; margin-bottom: 14px; }
 .pkd-search-row .pkd-filter-search, .pkd-description { display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: none; margin: 0; }
 .pkd-search-row label { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
@@ -87,15 +97,19 @@
 .presence-filter input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; padding: 0; border-radius: 0; accent-color: #087f5b; cursor: pointer; }
 .presence-filter input.neutral { accent-color: #8a949b; opacity: .7; }
 .presence-filter span { width: 60px; font-size: 12px; color: #637168; }
-.presence-criterion label { display: flex; align-items: center; gap: 10px; flex: 0 1 200px; width: 200px; min-width: 0; }
+.presence-criteria-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 24px; }
+.presence-criteria-row .presence-filter { margin-bottom: 0; min-width: 0; }
+.presence-criterion label { display: flex; align-items: center; gap: 10px; flex: 0 1 auto; width: auto; min-width: 0; }
 .presence-criterion span { flex: 0 0 auto; width: auto; }
-.date-filter { display: flex; align-items: center; gap: 16px; margin: 16px 0; max-width: 100%; overflow-x: auto; padding: 2px; }
+@media (max-width: 600px) { .presence-criteria-row { grid-template-columns: minmax(0, 1fr); } }
+.date-filter { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 24px; margin: 16px 0; max-width: 100%; overflow-x: auto; padding: 2px 0; }
 .date-filter > .presence-filter { flex: 0 0 auto; margin-bottom: 0; }
-.date-range { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
+.date-range { display: flex; grid-column: 2 / -1; align-items: center; gap: 16px; flex: 0 0 auto; }
 .date-range > div { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 .date-range input { width: 150px; flex: 0 0 150px; box-sizing: border-box; }
 .date-range input:disabled { background: #e2e8f0; color: #64748b; }
 .date-range label { color: #637168; font-weight: normal; margin: 0; white-space: nowrap; }
+@media (max-width: 600px) { .date-filter { display: flex; gap: 16px; } }
 .filter-error { margin: 12px 0; font-size: 13px; color: #a32e2e; overflow-wrap: anywhere; }
 @media (max-width: 1200px) {
   .toolbar, .filters-layout { width: 100%; }

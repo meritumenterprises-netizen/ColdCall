@@ -3,6 +3,7 @@ import { Subscription } from 'rxjs';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { finalize } from 'rxjs/operators';
 import { ApiService, Company, CompanyDetails } from '../services/api.service';
+import { isFutureActivityDate } from '../services/activity-date';
 
 @Component({
   selector: 'app-company-details',
@@ -10,6 +11,7 @@ import { ApiService, Company, CompanyDetails } from '../services/api.service';
   styleUrls: ['./company-details.component.css']
 })
 export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
+  isFutureActivityDate = isFutureActivityDate;
   @Input() companyId: number;
   @Input() companyName = '';
   @Output() closed = new EventEmitter<void>();
@@ -57,8 +59,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
       { key: 'postalCode', label: 'Kod Pocztowy' }
     ], [
       { key: 'street', label: 'Ulica' },
-      { key: 'buildingNumber', label: 'Numer budynku' }, { key: 'apartmentNumber', label: 'Nr lokalu' },
-      { key: 'startedAt', label: 'Aktywne od' }
+      { key: 'buildingNumber', label: 'Numer budynku' }, { key: 'apartmentNumber', label: 'Nr lokalu' }
     ]] },
     { id: 'contact', label: 'Kontakt', rows: [[
       { key: 'email', label: 'Email' }, { key: 'phone', label: 'Telefon' }, { key: 'website', label: 'Witryna WWW' }
@@ -127,7 +128,9 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   async copyCompany() {
     if (!this.details || this.loading || this.copying) { return; }
     const fields: { key: keyof Company; label: string }[] = [
-      { key: 'name', label: 'Nazwa' }, { key: 'businessTypeName', label: 'Typ dzia\u0142alno\u015bci' }
+      { key: 'name', label: 'Nazwa' }, { key: 'businessTypeName', label: 'Typ dzia\u0142alno\u015bci' },
+      { key: 'startedAt', label: 'Dzialalnosc aktywna od' },
+      { key: 'dataModifiedOn', label: 'Zmodyfikowano' }
     ];
     this.sections.forEach(section => section.rows.forEach(row => fields.push(...row)));
     const lines = fields.map(field => field.label + ': ' + this.value(field.key).replace(/[\r\n]+/g, ' '));
@@ -162,17 +165,17 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  async copyNameAndOpenCeidg() {
-    if (!this.details || this.loading || this.copying || !this.details.company.name) { return; }
+  async copyNipAndOpenCeidg() {
+    if (!this.details || this.loading || this.copying || !(this.details.company.nip || '').trim()) { return; }
     this.copying = true;
     this.copyError = '';
     try {
-      await navigator.clipboard.writeText(this.details.company.name);
-      this.copyConfirmationMessage = 'Skopiowano nazw\u0119 firmy do schowka. Otwieram stron\u0119 CEIDG';
+      await navigator.clipboard.writeText(this.details.company.nip!.trim());
+      this.copyConfirmationMessage = 'Skopiowano NIP do schowka. Otwieram stron\u0119 CEIDG';
       this.openCeidgAfterConfirmation = true;
       this.copyConfirmation.nativeElement.showModal();
     } catch {
-      this.copyError = 'Nie uda\u0142o si\u0119 skopiowa\u0107 nazwy firmy do schowka.';
+      this.copyError = 'Nie uda\u0142o si\u0119 skopiowa\u0107 NIP do schowka.';
     } finally {
       this.copying = false;
     }
@@ -220,7 +223,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
       if (/^\+48\d{9}$/.test(phone)) { return phone.replace(/^(\+48)(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4'); }
       if (/^\d{9}$/.test(phone)) { return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3'); }
     }
-    if (key === 'startedAt' && value) { return String(value).substring(0, 10); }
+    if ((key === 'startedAt' || key === 'dataModifiedOn') && value) { return String(value).substring(0, 10); }
     return value == null || value === '' ? '\u2014' : String(value);
   }
 

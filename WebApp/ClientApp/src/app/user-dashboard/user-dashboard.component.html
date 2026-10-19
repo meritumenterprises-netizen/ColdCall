@@ -22,11 +22,11 @@
       <img src="assets/icons/trash-2.svg" width="16" height="16" alt="">
     </button>
     </div>
-    <button *ngIf="search.id > 0" type="button" class="search-export-link"
+    <button *ngIf="search.id > 0 && search.hasCsvExports" type="button" class="search-export-link"
             [class.active]="currentSearchId === search.id && activeDashboardTab === 'export'"
             [attr.aria-current]="currentSearchId === search.id && activeDashboardTab === 'export' ? 'page' : null"
             [disabled]="searchPlanExpired || savingSearch || restoringSearch || classifyingPkd || exportingCsv"
-            (click)="openSearchExports(search)">Eksport CSV</button>
+            (click)="openSearchExports(search)">Pliki CSV</button>
     </div>
   </aside>
 
@@ -121,7 +121,7 @@
           <button type="button" class="ghost-button address-clear" (click)="selectAddressOption(i, null)"
                   [disabled]="addressFieldDisabled(i) || field.loading || field.selectedId === null" [attr.aria-label]="'Wyczy&#347;&#263;: ' + field.label">Wyczy&#347;&#263;</button>
           <span class="address-status" *ngIf="field.loading" role="status">Wczytywanie...</span>
-          <span class="address-status" *ngIf="!field.loading && !field.error && !addressFieldDisabled(i) && !field.visible.length" role="status">Brak wynik&#243;w</span>
+          <span class="address-status" *ngIf="i === 0 && !field.loading && !field.error && !addressFieldDisabled(i) && !field.visible.length" role="status">Brak wynik&#243;w</span>
           <div *ngIf="field.error" class="filter-error" role="alert">
             {{ field.error }} <button type="button" class="ghost-button" (click)="loadAddressOptions(i)">Pon&#243;w</button>
           </div>
@@ -145,6 +145,7 @@
                (input)="setCompanyName($event)"
                (keydown.enter)="$event.preventDefault()">
       </div>
+      <div class="presence-criteria-row">
       <div class="presence-filter presence-criterion">
         <label for="has-phone"><input id="has-phone" type="checkbox" [checked]="filterDraft.hasPhone === true"
                [indeterminate]="filterDraft.hasPhone === null" [class.neutral]="filterDraft.hasPhone === null"
@@ -166,6 +167,7 @@
                (change)="cyclePresence('hasWebsite', $event)">Witryna WWW</label>
         <span aria-live="polite">{{ presenceLabel(filterDraft.hasWebsite) }}</span>
       </div>
+      </div>
       <div class="date-filter">
         <div class="presence-filter">
           <input id="date-range" name="dateRangeEnabled" type="checkbox" [ngModel]="dateRangeEnabled"
@@ -174,11 +176,9 @@
         </div>
         <div class="date-range">
           <div><label for="started-from">Od</label>
-            <input id="started-from" name="dateFrom" [ngModel]="dateFrom" (ngModelChange)="dateFrom = $event; updateFilters()" [disabled]="!dateRangeEnabled"
-                   placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"></div>
+            <input id="started-from" name="dateFrom" type="date" [ngModel]="dateFrom" (ngModelChange)="dateFrom = $event; updateFilters()" [disabled]="!dateRangeEnabled"></div>
           <div><label for="started-to">Do</label>
-            <input id="started-to" name="dateTo" [ngModel]="dateTo" (ngModelChange)="dateTo = $event; updateFilters()" [disabled]="!dateRangeEnabled"
-                   placeholder="YYYY-MM-DD" maxlength="10" autocomplete="off"></div>
+            <input id="started-to" name="dateTo" type="date" [min]="dateFrom" [ngModel]="dateTo" (ngModelChange)="dateTo = $event; updateFilters()" [disabled]="!dateRangeEnabled"></div>
         </div>
       </div>
     </form>

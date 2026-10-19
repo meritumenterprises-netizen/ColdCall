@@ -72,8 +72,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.filterError = '';
     const normalizedNip = this.nipTerm.replace(/[-\s]/g, '');
     if (!/^\d{0,10}$/.test(normalizedNip)) { this.filterError = 'NIP moze zawierac maksymalnie 10 cyfr.'; return; }
-    if (this.dateRangeEnabled && (!/^\d{4}-\d{2}-\d{2}$/.test(this.dateFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(this.dateTo) || this.dateTo <= this.dateFrom)) {
-      this.filterError = 'Podaj poprawne daty. Data do musi byc pozniejsza niz data od.'; return;
+    if (this.dateRangeEnabled && (!/^\d{4}-\d{2}-\d{2}$/.test(this.dateFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(this.dateTo) || this.dateTo < this.dateFrom)) {
+      this.filterError = 'Podaj poprawne daty. Data do nie moze byc wczesniejsza niz data od.'; return;
     }
     this.filters.startedFrom = this.dateRangeEnabled ? this.dateFrom : undefined;
     this.filters.startedTo = this.dateRangeEnabled ? this.dateTo : undefined;

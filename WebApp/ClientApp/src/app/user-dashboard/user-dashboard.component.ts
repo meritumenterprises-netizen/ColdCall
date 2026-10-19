@@ -49,8 +49,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   activeFilterTab: 'pkd' | 'criteria' | 'address' = 'criteria';
   readonly resultTabs: ResultTab[] = [
     { key: 'all', label: 'Wszystkie', days: undefined, page: 1 },
-    { key: '30', label: 'Nowe od 30 dni', days: 30, page: 1 },
-    { key: '7', label: 'Nowe od 7 dni', days: 7, page: 1 }
+    { key: '30', label: 'Zmienione w ost. 30 dniach', days: 30, page: 1 },
+    { key: '7', label: 'Zmienione w ost. 7 dniach', days: 7, page: 1 }
   ];
   activeResultTab = this.resultTabs[0];
   private allResultsCountRequest: Subscription | null = null;
@@ -110,8 +110,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   appliedFilters: CompanyFilters = { ...this.filterDraft };
   private lastUpdatedFilterState: string | null = null;
   dateRangeEnabled = false;
-  dateFrom = '';
-  dateTo = '';
+  dateFrom = '2020-01-01';
+  dateTo = this.todayDate();
   private readonly numberFormatter = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 0 });
   private readonly addressCollator = new Intl.Collator('pl', { sensitivity: 'base' });
 
@@ -282,7 +282,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.filterDraft = { companyName: '', address: '', hasPhone: null, hasEmail: null,
       hasWebsite: null, recordLimit: this.maxRecordLimit };
     this.appliedFilters = { ...this.filterDraft };
-    this.dateRangeEnabled = false; this.dateFrom = ''; this.dateTo = '';
+    this.dateRangeEnabled = false; this.dateFrom = '2020-01-01'; this.dateTo = this.todayDate();
     this.radiusEnabled = false; this.radiusKm = 1;
     this.sortBy = 'dataAktywnosci'; this.direction = 'desc';
     this.activeFilterTab = 'criteria';
@@ -550,13 +550,15 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.dateRangeEnabled = enabled;
     if (!enabled) { this.updateFilters(); return; }
     if (!this.dateFrom) { this.dateFrom = '2020-01-01'; }
-    if (!this.dateTo) {
-      const parts = new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit'
-      }).formatToParts(new Date());
-      this.dateTo = ['year', 'month', 'day'].map(type => parts.find(part => part.type === type)!.value).join('-');
-    }
+    if (!this.dateTo) { this.dateTo = this.todayDate(); }
     this.updateFilters();
+  }
+
+  private todayDate(): string {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    return ['year', 'month', 'day'].map(type => parts.find(part => part.type === type)!.value).join('-');
   }
 
   get filtersChanged() {
@@ -610,8 +612,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   private validateFilters() {
     this.filterError = '';
-    if (this.dateRangeEnabled && (!this.validDate(this.dateFrom) || !this.validDate(this.dateTo) || this.dateTo <= this.dateFrom)) {
-      this.filterError = 'Podaj poprawne daty YYYY-MM-DD. Data do musi by\u0107 p\u00f3\u017aniejsza ni\u017c data od.';
+    if (this.dateRangeEnabled && (!this.validDate(this.dateFrom) || !this.validDate(this.dateTo) || this.dateTo < this.dateFrom)) {
+      this.filterError = 'Podaj poprawne daty YYYY-MM-DD. Data do nie moze byc wczesniejsza niz data od.';
       return false;
     }
     return true;
@@ -798,8 +800,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       recordLimit: this.maxRecordLimit
     };
     this.dateRangeEnabled = criteria ? criteria.dateRangeEnabled : false;
-    this.dateFrom = criteria && criteria.dateRangeEnabled ? criteria.dateFrom || '' : '';
-    this.dateTo = criteria && criteria.dateRangeEnabled ? criteria.dateTo || '' : '';
+    this.dateFrom = criteria && criteria.dateRangeEnabled ? criteria.dateFrom || '2020-01-01' : '2020-01-01';
+    this.dateTo = criteria && criteria.dateRangeEnabled ? criteria.dateTo || this.todayDate() : this.todayDate();
     this.appliedFilters = {
       ...this.filterDraft,
       startedFrom: this.dateRangeEnabled ? this.dateFrom : undefined,
@@ -1008,6 +1010,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.csvRequest = this.api.exportCompanies(searchId, days, sortBy, direction, searchName)
       .pipe(finalize(() => this.exportingCsv = false)).subscribe(response => {
       if (!response.body) { return; }
+      const profile = this.searches.find(search => search.id === searchId);
+      if (profile) { profile.hasCsvExports = true; }
       const disposition = response.headers.get('Content-Disposition') || '';
       const utf8Name = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
       const plainName = /filename="([^"]+)"/i.exec(disposition);
