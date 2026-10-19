@@ -10,10 +10,17 @@ import { ApiService } from './services/api.service';
 export class AppComponent implements AfterViewInit, OnDestroy {
   @ViewChild('expiredTrialDialog', { static: true }) expiredTrialDialog: ElementRef;
   private trialNoticeSubscription: Subscription;
+  private sessionExpiryTimer: number;
 
   constructor(private api: ApiService, private router: Router) {}
 
   ngAfterViewInit() {
+    this.sessionExpiryTimer = window.setInterval(() => {
+      if (this.api.isAuthenticated() && !this.api.hasToken()) {
+        this.api.logout();
+        this.router.navigateByUrl('/');
+      }
+    }, 1000);
     this.trialNoticeSubscription = this.api.expiredTrialNotice.subscribe(show => {
       const dialog = this.expiredTrialDialog.nativeElement as HTMLDialogElement;
       if (show && !dialog.open) { dialog.showModal(); }
@@ -26,6 +33,9 @@ export class AppComponent implements AfterViewInit, OnDestroy {
     this.router.navigateByUrl('/plans');
   }
 
-  ngOnDestroy() { if (this.trialNoticeSubscription) { this.trialNoticeSubscription.unsubscribe(); } }
+  ngOnDestroy() {
+    window.clearInterval(this.sessionExpiryTimer);
+    if (this.trialNoticeSubscription) { this.trialNoticeSubscription.unsubscribe(); }
+  }
   title = 'app';
 }

@@ -80,14 +80,31 @@ export class ApiService {
   readonly expiredTrialNotice = new BehaviorSubject<boolean>(false);
 
   acknowledgeExpiredTrial() { this.expiredTrialNotice.next(false); }
-  private token = localStorage.getItem('google_id_token') || '';
+  private token = '';
   private authenticated = false;
   private currentUser: Me | null = null;
-  private localSession = sessionStorage.getItem('coldcall_local_session') === '1';
+  private localSession = Number(localStorage.getItem('coldcall_session_expires')) > Date.now();
   private csrfToken = '';
   private csrfRequest: Observable<string> | null = null;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    localStorage.removeItem('google_id_token');
+    sessionStorage.removeItem('coldcall_local_session');
+  }
+
+  private rememberSession(expiresAtUtc: string) {
+    this.token = '';
+    this.localSession = true;
+    localStorage.setItem('coldcall_session_expires', String(Date.parse(expiresAtUtc)));
+    this.csrfToken = ''; this.csrfRequest = null;
+  }
+
+  startGoogleSession() {
+    return this.http.post<{ sessionExpiresAtUtc: string }>(this.url('/api/auth/session'), {}, this.headers()).pipe(
+      tap(result => this.rememberSession(result.sessionExpiresAtUtc)),
+      switchMap(() => this.refreshCsrf())
+    );
+  }
 
   setToken(token: string) {
     this.purchasedPlan = null;
@@ -98,10 +115,11 @@ export class ApiService {
     sessionStorage.removeItem('coldcall_local_session');
     this.token = token;
     this.authenticated = false;
-    localStorage.setItem('google_id_token', token);
+    localStorage.removeItem('coldcall_session_expires');
   }
 
   logout() {
+    localStorage.removeItem('coldcall_session_expires');
     this.purchasedPlan = null;
     this.expiredTrialNotified = false;
     this.expiredTrialNotice.next(false);
@@ -115,14 +133,16 @@ export class ApiService {
     localStorage.removeItem('google_id_token');
   }
 
-  isLoggedIn() { return !!this.token || this.localSession; }
+  isLoggedIn() { return this.hasToken(); }
   acceptTrial(token: string, termsAccepted: boolean) {
     return this.http.post(this.url('/api/auth/accept-trial'), { token, termsAccepted }, this.headers());
   }
   companyCount(): Observable<{ count: number }> {
     return this.http.get<{ count: number }>(this.url('/api/statistics/companies'));
   }
-  hasToken() { return !!this.token || this.localSession; }
+  hasToken() {
+    return !!this.token || (this.localSession && Number(localStorage.getItem('coldcall_session_expires')) > Date.now());
+  }
   isAuthenticated() { return this.authenticated; }
   isAdmin() { return this.authenticated && !!this.currentUser && this.currentUser.isAdmin; }
   isNonAdmin() { return this.authenticated && !!this.currentUser && !this.currentUser.isAdmin; }
@@ -173,8 +193,8 @@ export class ApiService {
     this.csrfToken = ''; this.csrfRequest = null;
     this.authenticated = false; this.currentUser = null;
     this.token = ''; localStorage.removeItem('google_id_token');
-    return this.accountPost<{ trialOffer?: TrialOffer }>('login', { email, password }).pipe(
-      tap(() => { this.localSession = true; sessionStorage.setItem('coldcall_local_session', '1'); this.csrfToken = ''; this.csrfRequest = null; }),
+    return this.accountPost<{ trialOffer?: TrialOffer; sessionExpiresAtUtc: string }>('login', { email, password }).pipe(
+      tap(result => this.rememberSession(result.sessionExpiresAtUtc)),
       switchMap(result => this.refreshCsrf().pipe(map(() => result)))
     );
   }
