@@ -5,7 +5,7 @@ import { catchError, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 export interface SortableColumn { key: string; label: string; }
-export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; }
+export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; totalWithoutLimit?: number; }
 export interface Pkd { id: number; code: string; name: string; }
 export interface PkdClassification { status: string; text: string; pkdCodes: Pkd[]; }
 export interface AddressOption { id: number; name: string; }
@@ -300,7 +300,7 @@ export class ApiService {
   }
 
   csvDownloadUrl(row: CsvExportRow) {
-    return this.url('/api/companies/DownloadCSV') + '?userId=' + row.userId + '&searchProfileId=' + row.searchProfileId
+    return this.url('/api/companies/DownloadCSV') + '?searchProfileId=' + row.searchProfileId
       + '&fileName=' + encodeURIComponent(row.csvFileName);
   }
 

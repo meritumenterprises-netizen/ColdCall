@@ -5,7 +5,8 @@ public record PagedResult<T>(
     int Total,
     int Page,
     int PageSize,
-    IReadOnlyList<SortableColumnDto>? SortableColumns = null);
+    IReadOnlyList<SortableColumnDto>? SortableColumns = null,
+    int? TotalWithoutLimit = null);
 
 public record SortableColumnDto(string Key, string Label);
 

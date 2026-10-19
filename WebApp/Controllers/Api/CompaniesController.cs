@@ -77,7 +77,8 @@ public class CompaniesController : ControllerBase
             return BadRequest(new { message = exception.Message });
         }
 
-        var total = await query.OrderBy(x => x.Id).Select(x => x.Id).Take(recordLimit.Value).CountAsync();
+        var totalWithoutLimit = await query.CountAsync(HttpContext.RequestAborted);
+        var total = Math.Min(totalWithoutLimit, recordLimit.Value);
         page = Math.Clamp(page, 1, Math.Max(1, (int)Math.Ceiling(total / (double)pageSize)));
         var offset = (page - 1) * pageSize;
         var items = await query
@@ -86,7 +87,7 @@ public class CompaniesController : ControllerBase
             .Take(Math.Min(pageSize, total - offset))
             .ToListAsync();
 
-        return Ok(new PagedResult<CompanyShortDto>(items, total, page, pageSize, QueryableExtensions.CompanyShortSortableColumns));
+        return Ok(new PagedResult<CompanyShortDto>(items, total, page, pageSize, QueryableExtensions.CompanyShortSortableColumns, totalWithoutLimit));
     }
 
     [HttpGet("{id:int}")]
@@ -213,11 +214,10 @@ public class CompaniesController : ControllerBase
     }
 
     [HttpGet("DownloadCSV")]
-    public async Task<IActionResult> DownloadCSV([FromQuery] int userId, [FromQuery] int searchProfileId,
+    public async Task<IActionResult> DownloadCSV([FromQuery] int searchProfileId,
         [FromQuery] string fileName, CancellationToken cancellationToken)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
-        if (userId != user.Id) return Forbid();
         var ownsExport = await _db.CsvExports.AsNoTracking().AnyAsync(e => e.SearchProfileId == searchProfileId
             && e.CsvFileName == fileName && e.SearchProfile!.AppUserId == user.Id, cancellationToken);
         if (!ownsExport) return NotFound();

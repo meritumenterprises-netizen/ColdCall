@@ -87,6 +87,7 @@ public class PkdCode
 
 public class CompanyPkd
 {
+    public bool Prevailing { get; set; }
     public int Id { get; set; }
     public int CompanyId { get; set; }
     public Company Company { get; set; } = null!;

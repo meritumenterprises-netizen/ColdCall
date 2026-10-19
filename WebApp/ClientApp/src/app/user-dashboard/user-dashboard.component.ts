@@ -76,6 +76,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   selectedCompanyId: number | null = null;
   detailsCompany: CompanyShort | null = null;
   total = 0;
+  totalWithoutLimit = 0;
   readonly pageSize = 10;
   readonly loadingRows = Array.from({ length: 10 }, (_, index) => index);
   loading = false;
@@ -456,6 +457,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.companies = result.items;
       if (!this.companies.some(row => row.id === this.selectedCompanyId)) { this.selectedCompanyId = null; }
       this.total = result.total;
+      this.totalWithoutLimit = result.totalWithoutLimit == null ? result.total : result.totalWithoutLimit;
       if (refreshSearchCount && !this.activeResultTab.days && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = result.total; }
       this.page = result.page;
       this.activeResultTab.page = this.page;
@@ -467,6 +469,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     }, err => {
       this.companies = [];
       this.total = 0;
+      this.totalWithoutLimit = 0;
       if (refreshSearchCount && !this.activeResultTab.days && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; }
       this.error = err.status === 402 ? '' :
         err.status === 400 && err.error && err.error.message ? err.error.message : 'Nie udalo sie pobrac firm.';

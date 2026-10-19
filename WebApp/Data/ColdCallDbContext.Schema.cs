@@ -120,6 +120,8 @@ public partial class ColdCallDbContext
         modelBuilder.Entity<PkdCode>().Property(x => x.Code).HasMaxLength(450);
         modelBuilder.Entity<PkdCode>().Property(x => x.CodeWithoutDots).HasMaxLength(4000).IsRequired(false);
         modelBuilder.Entity<CompanyPkd>().HasIndex(x => x.PkdCodeId);
+        modelBuilder.Entity<CompanyPkd>().Property(x => x.Prevailing)
+            .HasColumnType("bit").IsRequired().HasDefaultValue(false);
         modelBuilder.Entity<SearchProfilePkd>().HasIndex(x => x.PkdCodeId);
         modelBuilder.Entity<SearchProfile>(entity =>
         {
