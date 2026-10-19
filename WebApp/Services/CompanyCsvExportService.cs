@@ -26,7 +26,7 @@ public class CompanyCsvExportService
     }
 
     public async Task<CompanyCsvFile> ExportAsync(AppUser user, SearchProfile profile, IReadOnlyList<int> ids,
-        int? days, CancellationToken cancellationToken, string? searchName = null)
+        int? days, CancellationToken cancellationToken, string? searchName = null, bool notesOnly = false)
     {
         if (user.Id <= 0 || profile.Id <= 0)
             throw new ArgumentException("Brak identyfikatora uzytkownika lub wyszukiwania.");
@@ -53,7 +53,7 @@ public class CompanyCsvExportService
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var date = TimeZoneInfo.ConvertTime(_time.GetUtcNow(), TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw"));
-                var name = FileName(searchName ?? profile.Name, days, date);
+                var name = FileName(searchName ?? profile.Name, days, date, notesOnly);
                 var path = Path.Combine(directory, name);
                 try
                 {
@@ -103,12 +103,12 @@ public class CompanyCsvExportService
         return File.Exists(path) ? path : null;
     }
 
-    public static string FileName(string searchName, int? days, DateTimeOffset date)
+    public static string FileName(string searchName, int? days, DateTimeOffset date, bool notesOnly = false)
     {
         var name = Regex.Replace(searchName.Normalize(NormalizationForm.FormC), "[<>:\"/\\\\|?*\\x00-\\x1F]", "_").Trim(' ', '.');
         if (name.Length > 80) name = name[..80].TrimEnd(' ', '.');
         if (string.IsNullOrWhiteSpace(name)) name = "wyszukiwanie";
-        var tab = days switch { null => "all", 30 => "30 days", 7 => "7 days", _ => throw new ArgumentException("Niepoprawna zakladka eksportu.") };
+        var tab = notesOnly ? "notes" : days switch { null => "all", 30 => "30 days", 7 => "7 days", _ => throw new ArgumentException("Niepoprawna zakladka eksportu.") };
         return $"{name}_{tab}_{date.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture)}.CSV";
     }
 

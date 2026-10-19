@@ -11,6 +11,10 @@ import { AddressLevel, AddressOption, ApiService, AppUser, BusinessType, Company
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
   isFutureActivityDate = isFutureActivityDate;
+  updateCompanyNotes(event: { companyId: number; notes: string }) {
+    const company = this.companies.find(row => row.id === event.companyId);
+    if (company) { company.userNotes = event.notes; }
+  }
   @ViewChild('deleteCsvDialog', { static: true }) deleteCsvDialog: ElementRef;
   busyUserIds = new Set<number>();
   userToDelete: { id: number; googleEmail: string } | null = null;

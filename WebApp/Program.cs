@@ -345,6 +345,8 @@ static async Task EnsureSearchProfileCriteriaAsync(System.Data.Common.DbConnecti
             IF COL_LENGTH(N'ColdCall.SearchProfileCriteria', N'Name') IS NULL
                 ALTER TABLE [ColdCall].[SearchProfileCriteria] ADD [Name] nvarchar(200) NOT NULL
                     CONSTRAINT [DF_SearchProfileCriteria_Name] DEFAULT N'' WITH VALUES;
+            IF COL_LENGTH(N'ColdCall.SearchProfileCriteria', N'CompanyStatusIds') IS NULL
+                ALTER TABLE [ColdCall].[SearchProfileCriteria] ADD [CompanyStatusIds] nvarchar(1000) NULL;
             INSERT INTO [ColdCall].[SearchProfileCriteria] ([SearchProfileId])
             SELECT p.[Id] FROM [ColdCall].[SearchProfiles] p
             WHERE NOT EXISTS (SELECT 1 FROM [ColdCall].[SearchProfileCriteria] c WHERE c.[SearchProfileId] = p.[Id]);

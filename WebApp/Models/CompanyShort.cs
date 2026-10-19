@@ -16,5 +16,6 @@ public class CompanyShortView
 
 public class CompanyShortDto : CompanyShortView
 {
+    public string? UserNotes { get; set; }
     public string? TypyDzialalnosci { get; set; }
 }

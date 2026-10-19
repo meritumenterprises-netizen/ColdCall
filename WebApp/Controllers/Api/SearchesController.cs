@@ -121,6 +121,7 @@ public class SearchesController : ControllerBase
         _db.Entry(profile.Criteria).CurrentValues.SetValues(new SearchProfileCriteria
             {
                 Id = profile.Criteria.Id, SearchProfileId = profile.Id, Name = profile.Name,
+                CompanyStatusIds = CompanyStatusSelection.Serialize(criteria.CompanyStatusIds),
                 SortColumn = criteria.SortColumn, SortDirection = criteria.SortDirection,
                 CompanyName = criteria.CompanyName, Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
                 HasWebsite = criteria.HasWebsite, DateRangeEnabled = criteria.DateRangeEnabled,
@@ -161,6 +162,7 @@ public class SearchesController : ControllerBase
     private static SearchProfileCriteriaDto ToCriteriaDto(SearchProfileCriteria? criteria) =>
         criteria == null ? new SearchProfileCriteriaDto() : new SearchProfileCriteriaDto
         {
+            CompanyStatusIds = CompanyStatusSelection.Parse(criteria.CompanyStatusIds),
             SortColumn = criteria.SortColumn, SortDirection = criteria.SortDirection,
             CompanyName = criteria.CompanyName, Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
             HasWebsite = criteria.HasWebsite, DateRangeEnabled = criteria.DateRangeEnabled,

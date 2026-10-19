@@ -190,6 +190,20 @@
             <input id="started-to" name="dateTo" type="date" [min]="dateFrom" [ngModel]="dateTo" (ngModelChange)="dateTo = $event; updateFilters()" [disabled]="!dateRangeEnabled"></div>
         </div>
       </div>
+      <div class="company-status-filter" role="group" aria-labelledby="company-status-label">
+        <span id="company-status-label" class="company-status-label">Status dzia&#322;alno&#347;ci</span>
+        <div class="company-status-options">
+          <label *ngFor="let status of companyStatuses">
+            <input type="checkbox" [name]="'company-status-' + status.id"
+                   [checked]="(filterDraft.companyStatusIds || [1]).includes(status.id)"
+                   (change)="toggleCompanyStatus(status.id, $event.target.checked)">
+            <span>{{ status.name === 'Aktywny' ? 'Aktywna' : status.name }}</span>
+          </label>
+        </div>
+        <div *ngIf="companyStatusesError" class="filter-error" role="alert">
+          {{ companyStatusesError }} <button type="button" (click)="loadCompanyStatuses()">Pon&#243;w</button>
+        </div>
+      </div>
     </form>
     <div *ngIf="filterError" class="filter-error" role="alert">{{ filterError }}</div>
     </fieldset>
@@ -219,12 +233,12 @@
     <div class="error" *ngIf="error">{{ error }}</div>
 
     <div class="filter-tabs result-tabs" role="tablist" aria-label="Wyniki wyszukiwania">
-      <button *ngFor="let tab of resultTabs" type="button" role="tab" [id]="'results-tab-' + tab.key"
+      <button *ngFor="let tab of visibleResultTabs" type="button" role="tab" [id]="'results-tab-' + tab.key"
               [attr.aria-controls]="'results-panel-' + tab.key" [attr.aria-selected]="activeResultTab === tab"
               [attr.tabindex]="activeResultTab === tab ? 0 : -1"
               (click)="selectResultTab(tab)" (keydown)="navigateResultTabs($event)">{{ tab.label }}</button>
     </div>
-    <section *ngFor="let tab of resultTabs" role="tabpanel" [id]="'results-panel-' + tab.key"
+    <section *ngFor="let tab of visibleResultTabs" role="tabpanel" [id]="'results-panel-' + tab.key"
              [attr.aria-labelledby]="'results-tab-' + tab.key" [hidden]="activeResultTab !== tab">
       <ng-container *ngIf="activeResultTab === tab">
         <ng-container *ngTemplateOutlet="resultsGrid"></ng-container>
@@ -239,18 +253,21 @@
           <tr>
             <th hidden>Id</th>
             <th scope="col">Lp.</th>
-            <th *ngFor="let col of columns" [class.sort-disabled]="col.key === 'details' || loading"
+            <ng-container *ngFor="let col of columns">
+            <th *ngIf="col.key === 'fullAddress'" class="company-notes-cell" scope="col" aria-label="Notatki"></th>
+            <th [class.sort-disabled]="col.key === 'details' || loading"
                 [attr.aria-disabled]="col.key === 'details' || loading"
                 [attr.aria-sort]="col.key === 'details' ? null : sortBy === col.key ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'"
                 (click)="sort(col.key)">
               <span class="column-heading">{{ col.label }}<span *ngIf="col.key !== 'details'" class="sort-indicator"
                     [class.sort-active]="sortBy === col.key" aria-hidden="true"><ng-container *ngIf="direction === 'asc'">&#9650;</ng-container><ng-container *ngIf="direction !== 'asc'">&#9660;</ng-container></span></span>
             </th>
+            </ng-container>
           </tr>
         </thead>
         <tbody *ngIf="loading" aria-hidden="true">
           <tr *ngFor="let placeholder of loadingRows">
-            <td hidden></td><td>&nbsp;</td><td *ngFor="let col of columns">&nbsp;</td>
+            <td hidden></td><td>&nbsp;</td><td class="company-notes-cell">&nbsp;</td><td *ngFor="let col of columns">&nbsp;</td>
           </tr>
         </tbody>
         <tbody *ngIf="!loading">
@@ -261,6 +278,7 @@
               (dblclick)="openCompany(row)" (keydown.enter)="$event.preventDefault(); openCompany(row)">
             <td>{{ formatNumber((page - 1) * pageSize + rowIndex + 1) }}</td>
             <td hidden>{{ row.id }}</td><td>{{ row.name.length > 50 ? (row.name | slice:0:50) + '...' : row.name }}</td>
+            <td class="company-notes-cell"><app-company-notes-indicator [notes]="row.userNotes" (opened)="openCompany(row, 'notes')"></app-company-notes-indicator></td>
             <td>{{ row.fullAddress }}</td><td>{{ formatPhone(row.phone) }}</td><td><a *ngIf="row.email && row.email.trim()"
               [href]="emailUrl(row.email)" title="Email" target="_blank" rel="noopener noreferrer"
               (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ row.email }}</a></td>
@@ -291,7 +309,8 @@
     </footer>
     </ng-template>
 <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name"
-                     (closed)="detailsCompany = null"></app-company-details>
+                     [activeTab]="detailsActiveTab"
+                     (notesSaved)="updateCompanyNotes($event)" (closed)="detailsCompany = null"></app-company-details>
     </fieldset>
 </section>
 <section id="dashboard-export-panel" class="dashboard-panel" role="region" aria-label="Eksport CSV"
@@ -332,7 +351,7 @@
     </table>
   </div>
   <p *ngIf="currentSearchId > 0" class="csv-quota-summary" role="status" aria-live="polite">
-    Pozosta&#322;o do wykonania:
+    Pozosta&#322;o dost&#281;pnych eksport&#243;w CSV:
     <ng-container *ngIf="csvQuotaLoading">Wczytywanie...</ng-container>
     <ng-container *ngIf="!csvQuotaLoading && csvQuotaLoaded">{{ csvExportsRemaining === null ? 'Bez limitu' : formatNumber(csvExportsRemaining) }}</ng-container>
     <ng-container *ngIf="!csvQuotaLoading && !csvQuotaLoaded">Nie uda&#322;o si&#281; pobra&#263; limitu.</ng-container>

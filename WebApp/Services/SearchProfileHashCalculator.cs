@@ -26,6 +26,7 @@ public static class SearchProfileHashCalculator
         var payload = JsonSerializer.Serialize(new
         {
             PkdCodeIds = profile.PkdCodes.Select(p => p.PkdCodeId).Distinct().OrderBy(id => id).ToArray(),
+            CompanyStatusIds = CompanyStatusSelection.Parse(c.CompanyStatusIds),
             c.CompanyName, c.SortColumn, c.SortDirection, c.Address,
             c.HasPhone, c.HasEmail, c.HasWebsite, c.DateRangeEnabled,
             c.DateFrom, c.DateTo, c.RecordLimit, c.WojewodztwoId, c.PowiatId,
