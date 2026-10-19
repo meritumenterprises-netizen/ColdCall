@@ -18,10 +18,9 @@ SELECT
     c.[Email],
     c.[Website] AS [Www],
     c.[StartedAt] AS [DataAktywnosci],
-    s.[Nazwa] AS [StatusDzialalnosci],
+    (SELECT s.[Nazwa] FROM [ColdCall].[CompanyStatus] AS s WHERE s.[StatusId] = c.[StatusDzialalnosciId]) AS [StatusDzialalnosci],
     b.[TypDzialalnosci] AS [TypDzialalnosci]
 FROM [ColdCall].[Companies] AS c
-LEFT JOIN [ColdCall].[CompanyStatus] AS s ON s.[StatusId] = c.[StatusDzialalnosciId]
 LEFT JOIN [ColdCall].[Wojewodztwa] AS w ON w.[Id] = c.[WojewodztwoId]
 LEFT JOIN [ColdCall].[Miejscowosci] AS m ON m.[Id] = c.[MiejscowoscId]
 LEFT JOIN [ColdCall].[BusinessType] AS b ON b.[TypDzialalnosciId] = c.[BusinessType]
@@ -31,6 +30,5 @@ CROSS APPLY (VALUES (
     NULLIF(TRIM(c.[Street]), N''),
     NULLIF(TRIM(c.[BuildingNumber]), N''),
     NULLIF(TRIM(c.[ApartmentNumber]), N'')
-)) AS a(Miejscowosc, PostalCode, Street, BuildingNumber, ApartmentNumber)
-WHERE w.[Name] IS NULL OR TRIM(w.[Name]) <> N'Brak województwa';
+)) AS a(Miejscowosc, PostalCode, Street, BuildingNumber, ApartmentNumber);
 GO
