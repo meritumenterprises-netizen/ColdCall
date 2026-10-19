@@ -77,6 +77,8 @@ if (args.Contains("--probe"))
     if (!DateOnly.TryParseExact(registration,"dd.MM.yyyy",CultureInfo.InvariantCulture,DateTimeStyles.None,out _)) throw new FormatException("Brak poprawnej daty rejestracji");
     var activities = P(root,"odpis","dane","dzial3","przedmiotDzialalnosci");
     Log($"TEST OK: KRS {krs}; {name}; rejestracja {registration}; PKD: {activities.GetRawText()}");
+    var section6 = P(root, "odpis", "dane", "dzial6");
+    Log($"odpis.dane.dzial6: {(section6.ValueKind == JsonValueKind.Undefined ? "null" : section6.GetRawText())}");
     return;
 }
 Log($"Biuletyny {start} .. {end}; rejestracja od: {registeredFrom?.ToString() ?? "bez filtra"}");

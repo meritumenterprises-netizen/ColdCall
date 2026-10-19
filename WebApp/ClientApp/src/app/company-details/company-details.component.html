@@ -1,4 +1,4 @@
-<dialog #dialog aria-labelledby="company-details-title" (cancel)="close()">
+<dialog #dialog [class.map-view]="activeTab === 'map'" aria-labelledby="company-details-title" (cancel)="close()">
   <header>
     <h2 id="company-details-title">{{ details && details.company.businessTypeName ? details.company.businessTypeName : 'Dzia\u0142alno\u015b\u0107' }}</h2>
     <div class="header-actions">
@@ -27,7 +27,7 @@
       <button type="button" class="ghost-button" (click)="load()">Pon&#243;w</button>
     </div>
     <ng-container *ngIf="details && !loading && !error">
-      <dl class="company-name">
+      <dl class="company-name" [hidden]="activeTab === 'map'">
         <div class="company-name-field">
           <dt>Nazwa</dt><dd class="company-name-value"><span>{{ value('name') }}</span>
             <button type="button" class="name-copy-button" (click)="copyNameAndOpenCeidg()" [disabled]="copying || !details.company.name"
@@ -41,6 +41,9 @@
         <button type="button" role="tab" id="company-description-tab" aria-controls="company-description-panel"
                 [attr.aria-selected]="activeTab === 'description'" [attr.tabindex]="activeTab === 'description' ? 0 : -1"
                 (click)="activeTab = 'description'" (keydown)="navigateTabs($event)">Opis</button>
+        <button type="button" role="tab" id="company-map-tab" aria-controls="company-map-panel"
+                [attr.aria-selected]="activeTab === 'map'" [attr.tabindex]="activeTab === 'map' ? 0 : -1"
+                (click)="activeTab = 'map'" (keydown)="navigateTabs($event)">Mapa</button>
         <button type="button" role="tab" id="company-notes-tab" aria-controls="company-notes-panel"
                 [attr.aria-selected]="activeTab === 'notes'" [attr.tabindex]="activeTab === 'notes' ? 0 : -1"
                 (click)="activeTab = 'notes'" (keydown)="navigateTabs($event)">Notatki</button>
@@ -73,8 +76,16 @@
         <textarea name="companyNotes" [(ngModel)]="notes" aria-label="Notatki" [disabled]="notesLoading || !notesLoaded"></textarea>
         <button type="button" class="primary-button" (click)="saveNotes()" [disabled]="!notesChanged || notesLoading || notesSaving || !notesLoaded">Zapisz</button>
       </div>
+      <div id="company-map-panel" class="company-map-panel" role="tabpanel" aria-labelledby="company-map-tab"
+           [hidden]="activeTab !== 'map'" [attr.inert]="activeTab !== 'map' ? '' : null">
+        <ng-container *ngIf="activeTab === 'map'">
+          <iframe *ngIf="mapUrl; else missingMapAddress" [src]="mapUrl" title="Mapa adresu firmy"
+                  allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+          <ng-template #missingMapAddress><p>Brak adresu firmy do wy&#347;wietlenia na mapie.</p></ng-template>
+        </ng-container>
       </div>
-      <section class="pkds">
+      </div>
+      <section class="pkds" *ngIf="activeTab !== 'map'">
         <h3>Kody PKD <span>({{ details.pkdCodes.length }})</span></h3>
         <p *ngIf="!details.pkdCodes.length">Brak przypisanych kod&#243;w PKD.</p>
         <table *ngIf="details.pkdCodes.length">
