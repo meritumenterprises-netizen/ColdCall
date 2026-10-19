@@ -8,25 +8,23 @@
               (click)="newSearch()">+</button>
     </div>
     </nav>
-    <button class="search-item" *ngFor="let search of searches" (click)="selectSearch(search)"
-            [class.active]="currentSearchId === search.id" [attr.aria-current]="currentSearchId === search.id ? 'true' : null"
+    <div *ngFor="let search of searches" class="search-entry">
+    <button class="search-item" (click)="selectSearch(search)"
+            [class.active]="currentSearchId === search.id" [attr.aria-current]="currentSearchId === search.id && activeDashboardTab === 'search' ? 'page' : null"
             [disabled]="savingSearch || classifyingPkd">
       <strong>{{ (currentSearchId === search.id ? searchName : search.name) || 'Nowe wyszukiwanie' }}</strong>
       <span>{{ searchRecordLabel(search) }}</span>
     </button>
+    <button *ngIf="search.id > 0" type="button" class="search-export-link"
+            [class.active]="currentSearchId === search.id && activeDashboardTab === 'export'"
+            [attr.aria-current]="currentSearchId === search.id && activeDashboardTab === 'export' ? 'page' : null"
+            [disabled]="searchPlanExpired || savingSearch || restoringSearch || classifyingPkd || exportingCsv"
+            (click)="openSearchExports(search)">Eksport CSV</button>
+    </div>
   </aside>
 
   <main class="workspace">
-    <div class="filter-tabs dashboard-tabs" role="tablist" aria-label="Dashboard">
-      <button type="button" id="dashboard-search-tab" role="tab" aria-controls="dashboard-search-panel"
-              [attr.aria-selected]="activeDashboardTab === 'search'" [attr.tabindex]="activeDashboardTab === 'search' ? 0 : -1"
-              (click)="selectDashboardTab('search')" (keydown)="navigateDashboardTabs($event)">Wyszukiwanie</button>
-      <button type="button" id="dashboard-export-tab" role="tab" aria-controls="dashboard-export-panel"
-              [disabled]="searchPlanExpired"
-              [attr.aria-selected]="activeDashboardTab === 'export'" [attr.tabindex]="activeDashboardTab === 'export' ? 0 : -1"
-              (click)="selectDashboardTab('export')" (keydown)="navigateDashboardTabs($event)">Eksport CSV</button>
-    </div>
-    <section id="dashboard-search-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="dashboard-search-tab"
+    <section id="dashboard-search-panel" class="dashboard-panel" role="region" aria-label="Wyszukiwanie"
              [hidden]="activeDashboardTab !== 'search'">
     <p *ngIf="searchPlanExpired" class="error" role="status">Plan wygas&#322;. Wyszukiwanie jest zablokowane. Przejd&#378; do <a routerLink="/plans">plan&#243;w</a>, &#380;eby odzyska&#263; dost&#281;p.</p>
     <fieldset class="search-plan-controls" [disabled]="searchPlanExpired" [attr.inert]="searchPlanExpired ? '' : null" [attr.aria-disabled]="searchPlanExpired">
@@ -280,7 +278,7 @@
                      (closed)="detailsCompany = null"></app-company-details>
     </fieldset>
 </section>
-<section id="dashboard-export-panel" class="dashboard-panel" role="tabpanel" aria-labelledby="dashboard-export-tab"
+<section id="dashboard-export-panel" class="dashboard-panel" role="region" aria-label="Eksport CSV"
          [hidden]="activeDashboardTab !== 'export'" [attr.inert]="searchPlanExpired ? '' : null" [attr.aria-disabled]="searchPlanExpired">
   <div *ngIf="exportsError" class="error" role="alert">{{ exportsError }}</div>
   <button *ngIf="exportsError && !exportsLoading" type="button" class="ghost-button" (click)="loadCsvExports()">Pon&#243;w</button>

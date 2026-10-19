@@ -90,7 +90,7 @@
         <p *ngIf="!details.pkdCodes.length">Brak przypisanych kod&#243;w PKD.</p>
         <table *ngIf="details.pkdCodes.length">
           <thead><tr><th scope="col">Kod</th><th scope="col">Nazwa</th></tr></thead>
-          <tbody><tr *ngFor="let pkd of details.pkdCodes"><td>{{ pkd.code }}</td><td>{{ pkd.name }}</td></tr></tbody>
+          <tbody><tr *ngFor="let pkd of details.pkdCodes" [class.prevailing-pkd]="pkd.prevailing"><td>{{ pkd.code }}</td><td>{{ pkd.name }}</td></tr></tbody>
         </table>
       </section>
     </ng-container>

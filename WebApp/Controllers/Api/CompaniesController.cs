@@ -112,8 +112,8 @@ public class CompaniesController : ControllerBase
         if (company == null) return NotFound();
 
         var pkds = await _db.CompanyPkds.AsNoTracking().Where(x => x.CompanyId == id)
-            .OrderBy(x => x.PkdCode.Code)
-            .Select(x => new PkdDto(x.PkdCode.Id, x.PkdCode.Code, x.PkdCode.Name))
+            .OrderByDescending(x => x.Prevailing).ThenBy(x => x.PkdCode.Code)
+            .Select(x => new CompanyPkdDto(x.PkdCode.Id, x.PkdCode.Code, x.PkdCode.Name, x.Prevailing))
             .ToListAsync(cancellationToken);
         var addresses = await _db.CompanyAddresses.AsNoTracking().Where(x => x.CompanyId == id)
             .OrderBy(x => x.CompanyAdresId)
