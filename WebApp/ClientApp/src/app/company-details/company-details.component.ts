@@ -1,5 +1,6 @@
 import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnDestroy, Output, ViewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { finalize } from 'rxjs/operators';
 import { ApiService, Company, CompanyDetails } from '../services/api.service';
 
@@ -20,7 +21,8 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   copying = false;
   copyError = '';
   copyConfirmationMessage = '';
-  activeTab: 'description' | 'notes' = 'description';
+  activeTab: 'description' | 'notes' | 'map' = 'description';
+  mapUrl: SafeResourceUrl | null = null;
   notes = '';
   private savedNotes = '';
   notesLoading = false;
@@ -35,8 +37,10 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   navigateTabs(event: KeyboardEvent) {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) < 0) { return; }
     event.preventDefault();
-    this.activeTab = event.key === 'Home' ? 'description' : event.key === 'End' ? 'notes' :
-      this.activeTab === 'description' ? 'notes' : 'description';
+    const tabs: ('description' | 'notes' | 'map')[] = ['description', 'map', 'notes'];
+    const index = tabs.indexOf(this.activeTab);
+    this.activeTab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] :
+      tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
     this.dialog.nativeElement.querySelector('#company-' + this.activeTab + '-tab').focus();
   }
   private openCeidgAfterConfirmation = false;
@@ -61,7 +65,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     ]] }
   ];
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private sanitizer: DomSanitizer) {}
 
   ngAfterViewInit() {
     this.dialog.nativeElement.showModal();
@@ -73,9 +77,24 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     if (this.request) { this.request.unsubscribe(); }
     this.loading = true;
     this.error = '';
+    this.mapUrl = null;
     this.request = this.api.companyDetails(this.companyId)
       .pipe(finalize(() => this.loading = false))
-      .subscribe(details => { this.details = details; this.loadNotes(); }, err => {
+      .subscribe(details => {
+        this.details = details;
+        const company = details.company;
+        if ((company.city || '').trim() || (company.street || '').trim()) {
+          const streetAddress = [company.street, company.buildingNumber]
+            .filter(part => part && part.trim()).map(part => part!.trim()).join(' ');
+          const address = [streetAddress, company.postalCode,
+            company.city, company.gmina, company.powiat, company.wojewodztwo, 'Polska']
+            .filter(part => part && part.trim()).map(part => part!.trim()).join(', ');
+          // Only the fixed Google host is trusted; address data is URL-encoded.
+          this.mapUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
+            'https://www.google.com/maps?q=' + encodeURIComponent(address) + '&output=embed');
+        }
+        this.loadNotes();
+      }, err => {
         this.error = err.status === 404 ? 'Nie znaleziono firmy.' :
           err.status === 402 ? 'Plan wygas\u0142.' : 'Nie uda\u0142o si\u0119 pobra\u0107 szczeg\u00f3\u0142\u00f3w firmy.';
       });

@@ -60,6 +60,7 @@ public class Company
     public DateTime? StartedAt { get; set; }
     public DateTime CreatedOn { get; set; }
     public DateTime? DataModifiedOn { get; set; }
+    public DateTime? ImportedOn { get; set; }
     public ICollection<CompanyPkd> CompanyPkds { get; set; } = new List<CompanyPkd>();
     public ICollection<CompanyAddress> CompanyAddresses { get; set; } = new List<CompanyAddress>();
 }
