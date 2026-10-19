@@ -35,6 +35,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private pkdClassificationRequest: Subscription | null = null;
   restoringSearch = false;
   private searchesRequest: Subscription | null = null;
+  private deleteSearchRequest: Subscription | null = null;
   private restoreSearchRequest: Subscription | null = null;
   activeDashboardTab: 'search' | 'export' = 'search';
   csvExports: CsvExportRow[] = [];
@@ -151,6 +152,40 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.loadCompanies();
       this.filterError = 'Nie udalo sie pobrac zapisanych wyszukiwan.';
     });
+  }
+
+  deleteSearch(search: SearchProfile) {
+    if (this.savingSearch || this.restoringSearch || this.classifyingPkd || this.exportingCsv) { return; }
+    if (!window.confirm('Usunac wyszukiwanie "' + this.sidebarSearchName(search) + '" oraz wszystkie jego eksporty CSV?')) { return; }
+    const remove = () => {
+      this.savingSearch = false;
+      this.searches = this.searches.filter(item => item.id !== search.id);
+      delete this.searchRecordCounts[search.id];
+      if (this.currentSearchId !== search.id) { return; }
+      this.currentSearchId = null;
+      this.activeDashboardTab = 'search';
+      this.csvExports = []; this.searchName = ''; this.companies = []; this.total = 0; this.totalWithoutLimit = 0;
+      this.selectedCompanyId = null; this.detailsCompany = null;
+      if (this.searches.length) { this.selectSearch(this.searches[0]); }
+      else { this.newSearch(); }
+    };
+    if (search.id <= 0) { remove(); return; }
+    this.error = '';
+    this.savingSearch = true;
+    this.deleteSearchRequest = this.api.deleteSearch(search.id).pipe(finalize(() => this.savingSearch = false))
+      .subscribe(remove, () => {
+        this.error = 'Nie udalo sie usunac wyszukiwania.';
+        if (this.activeDashboardTab === 'export') { this.exportsError = this.error; }
+      });
+  }
+
+  sidebarSearchName(search: SearchProfile): string {
+    return (this.currentSearchId === search.id ? this.searchName : search.name) || 'Nowe wyszukiwanie';
+  }
+
+  shortSidebarSearchName(search: SearchProfile): string {
+    const name = this.sidebarSearchName(search);
+    return name.length > 64 ? name.slice(0, 61) + '...' : name;
   }
 
   searchRecordLabel(search: SearchProfile) {
@@ -475,6 +510,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.deleteSearchRequest) { this.deleteSearchRequest.unsubscribe(); }
     if (this.exportsRequest) { this.exportsRequest.unsubscribe(); }
     if (this.downloadRequest) { this.downloadRequest.unsubscribe(); }
     if (this.csvRequest) { this.csvRequest.unsubscribe(); }
@@ -592,7 +628,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   setSearchName(event: Event) {
-    this.searchName = this.sanitizeNameInput(event);
+    const input = event.target as HTMLInputElement;
+    this.searchName = this.sanitizeNameInput(event).slice(0, 128);
+    input.value = this.searchName;
   }
 
   private sanitizeNameInput(event: Event): string {
@@ -828,8 +866,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.saveSearchRequest = this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id), criteria, persistedId)
       .pipe(finalize(() => this.savingSearch = false)).subscribe(profile => {
         const index = this.searches.findIndex(search => search.id === draftId || search.id === profile.id);
-        if (index < 0) { this.searches.unshift(profile); }
-        else { this.searches[index] = profile; }
+        if (index >= 0) { this.searches.splice(index, 1); }
+        this.searches.unshift(profile);
         if (draftId !== null && this.searchRecordCounts[draftId] !== undefined) {
           this.searchRecordCounts[profile.id] = this.searchRecordCounts[draftId];
           if (draftId < 0) { delete this.searchRecordCounts[draftId]; }
@@ -842,7 +880,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   get canSaveSearch() {
-    return !this.searchPlanExpired && !!this.searchName.trim() && !this.savingSearch && !this.restoringSearch && !this.classifyingPkd
+    return !this.searchPlanExpired && !!this.searchName.trim() && this.searchName.length <= 128 && !this.savingSearch && !this.restoringSearch && !this.classifyingPkd
       && ((this.currentSearchId !== null && this.currentSearchId > 0) || this.canPersistNewSearch)
       && (this.savedSearchState === null || this.searchState() !== this.savedSearchState);
   }
@@ -948,7 +986,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     const prepareSearch = this.canSaveSearch
       ? this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id), criteria, searchId).pipe(map(profile => {
           const index = this.searches.findIndex(search => search.id === searchId);
-          if (index >= 0) { this.searches[index] = profile; }
+          if (index >= 0) { this.searches.splice(index, 1); }
+          this.searches.unshift(profile);
           this.savedSearchState = savedState;
           return profile;
         }))

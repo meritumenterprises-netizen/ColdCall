@@ -1,13 +1,20 @@
 .workspace { padding-top: 5px; }
+.search-item-container { position: relative; }
+.search-item-container .search-item span { padding-right: 28px; }
+.delete-search { position: absolute; right: 6px; bottom: 6px; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 6px; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
+.delete-search img { filter: brightness(0) invert(1); }
+.delete-search:hover { background: #ffffff26; }
+.delete-search:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.delete-search:disabled { opacity: .5; cursor: not-allowed; }
 .sidebar-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 18px; }
 .sidebar-heading .sidebar-title { margin: 0; }
 .add-search { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; height: 28px; padding: 0; border: 1px solid #667085; border-radius: 4px; background: transparent; color: white; font-size: 24px; line-height: 1; cursor: pointer; }
 .add-search:hover { background: #344054; }
 .add-search:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 .add-search:disabled { opacity: .5; cursor: not-allowed; }
-.toolbar { display: grid; grid-template-columns: max-content minmax(0, 600px) 100px; align-items: center; gap: 10px; padding-top: 20px; }
+.toolbar { display: grid; grid-template-columns: max-content minmax(0, 1fr) 100px; align-items: center; gap: 10px; padding-top: 20px; width: 50vw; max-width: 100%; }
 .toolbar > label { margin: 0; white-space: nowrap; }
-.toolbar > input { width: 100%; min-width: 0; max-width: 600px; box-sizing: border-box; }
+.toolbar > input { width: 100%; min-width: 0; box-sizing: border-box; }
 .toolbar > button { width: 100px; min-width: 100px; padding-left: 8px; padding-right: 8px; }
 @media (max-width: 480px) {
   .toolbar { gap: 6px; }
@@ -91,7 +98,7 @@
 .date-range label { color: #637168; font-weight: normal; margin: 0; white-space: nowrap; }
 .filter-error { margin: 12px 0; font-size: 13px; color: #a32e2e; overflow-wrap: anywhere; }
 @media (max-width: 1200px) {
-  .filters-layout { width: 100%; }
+  .toolbar, .filters-layout { width: 100%; }
 }
 
 .pkd-transfer {

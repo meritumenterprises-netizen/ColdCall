@@ -126,6 +126,7 @@ public partial class ColdCallDbContext
         modelBuilder.Entity<SearchProfile>(entity =>
         {
             entity.ToTable("SearchProfiles", "ColdCall");
+            entity.Property(x => x.LastSavedAtUtc).HasColumnType("datetime2").IsRequired(false);
             entity.Property(x => x.SearchProfileHash).HasColumnType("nvarchar(1024)")
                 .HasMaxLength(1024).IsUnicode().IsRequired(false);
             entity.HasKey(x => x.Id).HasName("PK_SearchProfiles").IsClustered();

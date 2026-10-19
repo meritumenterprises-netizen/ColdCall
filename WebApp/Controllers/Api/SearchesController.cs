@@ -27,7 +27,7 @@ public class SearchesController : ControllerBase
         var user = await _currentUserService.GetOrCreateAsync(User);
         var profiles = await _db.SearchProfiles.AsNoTracking()
             .Where(x => x.AppUserId == user.Id)
-            .OrderByDescending(x => x.CreatedAtUtc).ThenByDescending(x => x.Id)
+            .OrderByDescending(x => x.LastSavedAtUtc ?? x.CreatedAtUtc).ThenByDescending(x => x.Id)
             .Include(x => x.Criteria)
             .Include(x => x.PkdCodes).ThenInclude(x => x.PkdCode)
             .AsSplitQuery()
@@ -39,6 +39,13 @@ public class SearchesController : ControllerBase
 
     [HttpPost]
     public Task<ActionResult<SearchProfileDto>> Save(SaveSearchProfileDto request) => SaveCore(request, null);
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id, [FromServices] CsvExportCleanupService cleanup, CancellationToken token)
+    {
+        var user = await _currentUserService.GetOrCreateAsync(User);
+        return await cleanup.DeleteSearchAsync(user.Id, id, token) ? NoContent() : NotFound();
+    }
 
     [HttpPost("{id:int}/check-csv-export")]
     public async Task<ActionResult> CheckCsvExport(int id, CancellationToken cancellationToken)
@@ -65,8 +72,8 @@ public class SearchesController : ControllerBase
 
     private async Task<ActionResult<SearchProfileDto>> SaveCore(SaveSearchProfileDto request, int? id)
     {
-        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 200)
-            return BadRequest(new { message = "Podaj nazwe wyszukiwania (maksymalnie 200 znakow)." });
+        if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 128)
+            return BadRequest(new { message = "Podaj nazwe wyszukiwania (maksymalnie 128 znakow)." });
         var criteria = request.Criteria ?? new SearchProfileCriteriaDto();
         var validation = new List<System.ComponentModel.DataAnnotations.ValidationResult>();
         if (!System.ComponentModel.DataAnnotations.Validator.TryValidateObject(criteria,
@@ -133,6 +140,7 @@ public class SearchesController : ControllerBase
         }
 
         profile.SearchProfileHash = SearchProfileHashCalculator.Calculate(profile);
+        profile.LastSavedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
         var pkds = await _db.PkdCodes

@@ -295,6 +295,7 @@ static async Task EnsureDatabaseSchemaAsync(ColdCallDbContext db)
         await EnsureDictionaryNamesAsync(connection);
         await EnsureSearchProfileCriteriaAsync(connection);
         await ExecuteSchemaResourceAsync(connection, "CompanyUserNotes");
+        await ExecuteSchemaResourceAsync(connection, "SearchProfileLastSaved");
         await ExecuteSchemaResourceAsync(connection, "StripePayments");
         await EnsurePlanDefinitionsDescriptionHtmlColumnAsync(connection);
     }

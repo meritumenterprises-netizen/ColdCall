@@ -97,6 +97,7 @@ public class CompanyPkd
 
 public class SearchProfile
 {
+    public DateTime? LastSavedAtUtc { get; set; }
     public string? SearchProfileHash { get; set; }
     public int Id { get; set; }
     public int AppUserId { get; set; }
