@@ -116,6 +116,9 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   ngOnInit() {
     this.loadCompanyCount();
     const query = this.route.snapshot.queryParams;
+    if (!query.mode && this.api.hasToken()) {
+      this.localRequest = this.api.me().subscribe(me => this.handleAuthenticated(me), () => this.api.logout());
+    }
     if (query.email && query.token && (query.mode === 'confirm-email' || query.mode === 'reset-password')) {
       this.localEmail = query.email;
       this.resetToken = query.token;
@@ -217,7 +220,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
       return;
     }
     this.api.setToken(credential);
-    this.api.me().subscribe(me => {
+    this.api.startGoogleSession().pipe(switchMap(() => this.api.me())).subscribe(me => {
       this.handleAuthenticated(me);
     }, error => {
       this.api.logout();

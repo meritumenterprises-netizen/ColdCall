@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 namespace ColdCall.Controllers.Api;
 
@@ -26,6 +28,26 @@ public class AuthController : ControllerBase
         _currentUserService = currentUserService;
         _trialPlans = trialPlans;
         _csvCleanup = csvCleanup;
+    }
+
+    [HttpPost("session")]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    public async Task<IActionResult> CreateSession()
+    {
+        var user = await _currentUserService.GetOrCreateAsync(User);
+        var claims = new List<Claim>
+        {
+            new(LocalAuthentication.UserIdClaim, user.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)),
+            new(LocalAuthentication.GoogleSubjectClaim, user.GoogleSubject),
+            new(ClaimTypes.Email, user.GoogleEmail)
+        };
+        foreach (var type in new[] { "name", "picture" })
+            if (User.FindFirstValue(type) is string value) claims.Add(new Claim(type, value));
+        var session = LocalAuthentication.SessionProperties();
+        await HttpContext.SignInAsync(LocalAuthentication.Scheme,
+            new ClaimsPrincipal(new ClaimsIdentity(claims, LocalAuthentication.Scheme)),
+            session);
+        return Ok(new { sessionExpiresAtUtc = session.ExpiresUtc });
     }
 
     [HttpGet("me")]

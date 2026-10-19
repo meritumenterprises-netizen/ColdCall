@@ -90,8 +90,8 @@ builder.Services
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.SameSite = builder.Configuration.GetValue<bool>("LocalAuth:CrossSiteCookies") ? SameSiteMode.None : SameSiteMode.Lax;
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
-        options.SlidingExpiration = true;
+        options.ExpireTimeSpan = LocalAuthentication.SessionLifetime;
+        options.SlidingExpiration = false;
         options.Events.OnValidatePrincipal = LocalAuthentication.ValidateCookie;
         options.Events.OnRedirectToLogin = context => { context.Response.StatusCode = 401; return Task.CompletedTask; };
         options.Events.OnRedirectToAccessDenied = context => { context.Response.StatusCode = 403; return Task.CompletedTask; };

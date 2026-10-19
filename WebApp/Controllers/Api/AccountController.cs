@@ -95,9 +95,9 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
         }
         user.LastLoginAtUtc = DateTime.UtcNow;
         await db.SaveChangesAsync();
-        await HttpContext.SignInAsync(LocalAuthentication.Scheme, LocalAuthentication.Principal(account),
-            new AuthenticationProperties { IsPersistent = false });
-        return Ok(new { trialOffer = offer });
+        var session = LocalAuthentication.SessionProperties();
+        await HttpContext.SignInAsync(LocalAuthentication.Scheme, LocalAuthentication.Principal(account), session);
+        return Ok(new { trialOffer = offer, sessionExpiresAtUtc = session.ExpiresUtc });
     }
 
     [AllowAnonymous, HttpPost("confirm-email")]
