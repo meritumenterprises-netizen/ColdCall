@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.3" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.13" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - brak województwa.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo dolnośląskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo kujawsko-pomorskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo lubelskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo lubuskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo mazowieckie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo małopolskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo opolskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo podkarpackie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo podlaskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo pomorskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo warmińsko-mazurskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo wielkopolskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo zachodniopomorskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo łódzkie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo śląskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="2026-10-19\Zarejestrowane działalności - 2026-10-19 - województwo świętokrzyskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>

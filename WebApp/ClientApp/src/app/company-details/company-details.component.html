@@ -36,8 +36,8 @@
             </button>
           </dd>
         </div>
-        <div class="company-date-field" [class.future-activity-date]="isFutureActivityDate(details.company.startedAt)">
-          <dt>Dzia&#322;alno&#347;&#263; aktywna od</dt><dd>{{ value('startedAt') }}</dd>
+        <div class="company-date-field" [class.future-activity-date]="isFutureActivityDate(details.company[activityDateKey])">
+          <dt>{{ activityDateLabel }}</dt><dd>{{ value(activityDateKey) }}</dd>
         </div>
         <div class="company-date-field">
           <dt>Zmodyfikowano</dt><dd>{{ value('dataModifiedOn') }}</dd>

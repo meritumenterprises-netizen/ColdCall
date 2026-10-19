@@ -98,6 +98,8 @@ public partial class ColdCallDbContext
             entity.Property(x => x.BlockedByRODO).HasColumnType("bit").IsRequired().HasDefaultValue(false);
             entity.Property(x => x.SkipAddressVerification).HasColumnType("bit").IsRequired().HasDefaultValue(false);
             entity.Property(x => x.DataModifiedOn).HasColumnType("datetime").IsRequired(false);
+            entity.Property(x => x.SuspendedOn).HasColumnType("datetime").IsRequired(false);
+            entity.Property(x => x.ResumedOn).HasColumnType("datetime").IsRequired(false);
             entity.Property(x => x.ImportedOn).HasColumnType("datetime").IsRequired(false);
             entity.Property(x => x.BatchImported).HasColumnType("bit").IsRequired().HasDefaultValue(false);
             entity.Property(x => x.Krs).HasMaxLength(450);

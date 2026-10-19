@@ -58,6 +58,8 @@ public class Company
     public string? InstagramAccount { get; set; }
     public string? FacebookAccount { get; set; }
     public DateTime? StartedAt { get; set; }
+    public DateTime? SuspendedOn { get; set; }
+    public DateTime? ResumedOn { get; set; }
     public DateTime CreatedOn { get; set; }
     public DateTime? DataModifiedOn { get; set; }
     public DateTime? ImportedOn { get; set; }

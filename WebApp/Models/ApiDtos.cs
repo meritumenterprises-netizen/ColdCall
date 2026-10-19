@@ -57,7 +57,8 @@ public record CompanyDto(
     int? MiejscowoscId,
     int? GminaId,
     int? PowiatId,
-    DateTime? DataModifiedOn = null);
+    DateTime? DataModifiedOn = null,
+    DateTime? ResumedOn = null);
 
 public record CompanyUpdateDto(
     [System.ComponentModel.DataAnnotations.StringLength(1000)] string Name,
