@@ -107,7 +107,7 @@ public class CompaniesController : ControllerBase
                 x.PostalCode, x.Street, x.BuildingNumber, x.ApartmentNumber,
                 x.Phone, x.Email, x.GoogleEmail, x.Website, x.InstagramAccount, x.FacebookAccount, x.StartedAt, x.CreatedOn,
                 x.Regon, x.StatusDzialalnosciId, x.StatusDzialalnosci!.Nazwa, x.AddressIsMissing, x.BlockedByRODO,
-                x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId, x.DataModifiedOn))
+                x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId, x.DataModifiedOn, x.ResumedOn))
             .SingleOrDefaultAsync(cancellationToken);
         if (company == null) return NotFound();
 

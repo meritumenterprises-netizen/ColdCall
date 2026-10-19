@@ -15,6 +15,7 @@ export interface Company {
   wojewodztwo?: string; city?: string; gmina?: string; powiat?: string; postalCode?: string; street?: string;
   buildingNumber?: string; apartmentNumber?: string; phone?: string; email?: string; googleEmail?: string;
   website?: string; instagramAccount?: string; facebookAccount?: string; startedAt?: string; createdOn?: string; dataModifiedOn?: string | null;
+  resumedOn?: string | null;
   regon?: string | null; statusDzialalnosciId: number; statusDzialalnosciName?: string | null;
   addressIsMissing: boolean | null; blockedByRODO: boolean;
   wojewodztwoId?: number | null; miejscowoscId?: number | null; gminaId?: number | null; powiatId?: number | null;

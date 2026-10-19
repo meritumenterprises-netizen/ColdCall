@@ -36,6 +36,15 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
 
   get notesChanged() { return this.notes !== this.savedNotes; }
 
+  get activityDateKey(): 'startedAt' | 'resumedOn' {
+    return this.details && this.details.company.resumedOn != null ? 'resumedOn' : 'startedAt';
+  }
+
+  get activityDateLabel(): string {
+    return this.activityDateKey === 'resumedOn'
+      ? 'Dzia\u0142alno\u015b\u0107 wznowiona od' : 'Dzia\u0142alno\u015b\u0107 aktywna od';
+  }
+
   navigateTabs(event: KeyboardEvent) {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) < 0) { return; }
     event.preventDefault();
@@ -129,7 +138,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     if (!this.details || this.loading || this.copying) { return; }
     const fields: { key: keyof Company; label: string }[] = [
       { key: 'name', label: 'Nazwa' }, { key: 'businessTypeName', label: 'Typ dzia\u0142alno\u015bci' },
-      { key: 'startedAt', label: 'Dzialalnosc aktywna od' },
+      { key: this.activityDateKey, label: this.activityDateLabel },
       { key: 'dataModifiedOn', label: 'Zmodyfikowano' }
     ];
     this.sections.forEach(section => section.rows.forEach(row => fields.push(...row)));
@@ -223,7 +232,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
       if (/^\+48\d{9}$/.test(phone)) { return phone.replace(/^(\+48)(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4'); }
       if (/^\d{9}$/.test(phone)) { return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3'); }
     }
-    if ((key === 'startedAt' || key === 'dataModifiedOn') && value) { return String(value).substring(0, 10); }
+    if ((key === 'startedAt' || key === 'resumedOn' || key === 'dataModifiedOn') && value) { return String(value).substring(0, 10); }
     return value == null || value === '' ? '\u2014' : String(value);
   }
 

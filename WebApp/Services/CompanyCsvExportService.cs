@@ -39,7 +39,10 @@ public class CompanyCsvExportService
         var pkds = pkdRows.GroupBy(x => x.CompanyId).ToDictionary(group => group.Key,
             group => string.Join("; ", group.Select(x => x.Code + " " + x.Name)));
         var rows = ids.Where(companies.ContainsKey).Select(id => companies[id]).ToArray();
-        var content = CreateCsv(rows, pkds);
+        var notes = await _db.CompanyUserNotes.AsNoTracking()
+            .Where(x => x.UserId == user.Id && ids.Contains(x.CompanyId))
+            .ToDictionaryAsync(x => x.CompanyId, x => x.Notes, cancellationToken);
+        var content = CreateCsv(rows, pkds, notes);
         var directory = Path.Combine(_root, user.Id.ToString(CultureInfo.InvariantCulture), profile.Id.ToString(CultureInfo.InvariantCulture));
         Directory.CreateDirectory(directory);
         var temporary = Path.Combine(directory, Guid.NewGuid().ToString("N") + ".tmp");
@@ -109,13 +112,14 @@ public class CompanyCsvExportService
         return $"{name}_{tab}_{date.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture)}.CSV";
     }
 
-    public byte[] CreateCsv(IEnumerable<Company> companies, IReadOnlyDictionary<int, string> pkds)
+    public byte[] CreateCsv(IEnumerable<Company> companies, IReadOnlyDictionary<int, string> pkds,
+        IReadOnlyDictionary<int, string>? notes = null)
     {
         var headers = new[]
         {
             "Nazwa", "Typ Działalności", "Imię", "Nazwisko", "KRS", "NIP", "Regon", "Województwo",
             "Miejscowość", "Gmina", "Powiat", "Ulica", "Nr Budynku", "Nr lokalu", "Telefon",
-            "Email", "Witryna WWW", "Data Aktywności", "PKD"
+            "Email", "Witryna WWW", "Data Aktywności", "PKD", "Notatki"
         };
         var csv = new StringBuilder();
         csv.AppendLine(string.Join(',', headers.Select(Cell)));
@@ -128,7 +132,9 @@ public class CompanyCsvExportService
                 company.Miejscowosc?.Name, company.Gmina?.Name, company.Powiat?.Name,
                 company.Street, company.BuildingNumber, company.ApartmentNumber, company.Phone,
                 company.Email, company.Website, company.StartedAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-                pkds.TryGetValue(company.Id, out var pkd) ? pkd : ""
+                pkds.TryGetValue(company.Id, out var pkd) ? pkd : "",
+                notes != null && notes.TryGetValue(company.Id, out var note)
+                    ? Regex.Replace(note, @"\r\n|[\r\n\u0085\u2028\u2029]", " ") : ""
             };
             csv.AppendLine(string.Join(',', values.Select((value, index) => index switch
             {
