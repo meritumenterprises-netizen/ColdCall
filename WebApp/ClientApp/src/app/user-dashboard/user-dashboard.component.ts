@@ -396,7 +396,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     const parents = this.addressFields.slice(0, index).map(parent => parent.selectedId);
     field.request = this.api.addressOptions(field.level, parents).pipe(finalize(() => field.loading = false))
       .subscribe(options => {
-        field.options = options.filter(option => index !== 0 || option.id !== 1)
+        field.options = options.slice()
           .sort((a, b) => this.addressCollator.compare(a.name, b.name) || a.id - b.id);
         this.filterAddressOptions(index);
       }, () => field.error = 'Nie udalo sie pobrac listy.');
@@ -835,7 +835,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     field.loading = true;
     return this.api.addressOptions(field.level, this.addressFields.slice(0, index).map(parent => parent.selectedId))
       .pipe(finalize(() => field.loading = false), switchMap(options => {
-        field.options = options.filter(option => index !== 0 || option.id !== 1)
+        field.options = options.slice()
           .sort((a, b) => this.addressCollator.compare(a.name, b.name) || a.id - b.id);
         field.visible = field.options;
         field.selectedId = field.options.some(option => option.id === ids[index]) ? ids[index] : null;

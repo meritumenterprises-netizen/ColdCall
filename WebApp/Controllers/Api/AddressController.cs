@@ -24,7 +24,7 @@ public class AddressController(ColdCallDbContext db) : ControllerBase
 
     [HttpGet("wojewodztwa")]
     public async Task<IActionResult> Wojewodztwa(CancellationToken cancellationToken) =>
-        Ok(await db.Wojewodztwa.AsNoTracking().Where(x => x.Id != 1)
+        Ok(await db.Wojewodztwa.AsNoTracking()
             .OrderBy(x => x.Name).Select(x => new { x.Id, x.Name }).ToListAsync(cancellationToken));
 
     [HttpGet("powiaty")]
