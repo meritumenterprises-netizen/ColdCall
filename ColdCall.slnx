@@ -1,4 +1,5 @@
 <Solution>
+  <Project Path="CorrectPrevailingPkd/CorrectPrevailingPkd.csproj" />
   <Project Path="BusinessesEditor/BusinessesEditor/BusinessesEditor/SeedingJDG.csproj" />
   <Project Path="BusinessesEditor/FirmyGeoNormalizer/FirmyGeoNormalizer.csproj" />
   <Project Path="BusinessesEditor/KrsImporter/KrsImporter.csproj" />
