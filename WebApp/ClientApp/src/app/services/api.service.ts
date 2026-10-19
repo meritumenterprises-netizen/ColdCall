@@ -107,6 +107,13 @@ export class ApiService {
     );
   }
 
+  restoreSession(): Observable<Me> {
+    return this.http.get<{ sessionExpiresAtUtc: string }>(this.url('/api/account/session'), this.headers()).pipe(
+      tap(result => this.rememberSession(result.sessionExpiresAtUtc)),
+      switchMap(() => this.me())
+    );
+  }
+
   setToken(token: string) {
     this.purchasedPlan = null;
     this.expiredTrialNotified = false;

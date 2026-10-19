@@ -38,6 +38,15 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
         return Ok(new { token = antiforgery.GetAndStoreTokens(HttpContext).RequestToken });
     }
 
+    [AllowAnonymous, HttpGet("session"), DisableRateLimiting]
+    public async Task<IActionResult> Session()
+    {
+        var result = await HttpContext.AuthenticateAsync(LocalAuthentication.Scheme);
+        if (!result.Succeeded || result.Properties?.ExpiresUtc is not DateTimeOffset expires || expires <= DateTimeOffset.UtcNow)
+            return Unauthorized();
+        return Ok(new { sessionExpiresAtUtc = expires });
+    }
+
     [AllowAnonymous, HttpPost("register")]
     public async Task<IActionResult> Register(RegistrationRequest request)
     {
