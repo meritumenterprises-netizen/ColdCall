@@ -143,6 +143,9 @@ public class SearchesController : ControllerBase
         }
 
         profile.SearchProfileHash = SearchProfileHashCalculator.Calculate(profile);
+        if (!id.HasValue && !request.ConfirmDuplicateCriteria && await _db.SearchProfiles.AsNoTracking()
+            .AnyAsync(p => p.AppUserId == user.Id && p.SearchProfileHash == profile.SearchProfileHash))
+            return Conflict(new { code = "DuplicateSearchCriteria", message = "Wyszukiwanie z takimi samymi kryteriami ju\u017c istnieje. Czy na pewno chcesz je zapisa\u0107?" });
         profile.LastSavedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
