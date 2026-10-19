@@ -29,7 +29,7 @@ public class SearchProfileCriteriaDto : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        if (DateRangeEnabled && (!DateFrom.HasValue || !DateTo.HasValue || DateTo <= DateFrom))
-            yield return new ValidationResult("Both dates are required and the end date must be later than the start date.", new[] { nameof(DateFrom), nameof(DateTo) });
+        if (DateRangeEnabled && (!DateFrom.HasValue || !DateTo.HasValue || DateTo < DateFrom))
+            yield return new ValidationResult("Both dates are required and the end date must be on or after the start date.", new[] { nameof(DateFrom), nameof(DateTo) });
     }
 }

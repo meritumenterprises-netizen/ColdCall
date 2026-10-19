@@ -14,7 +14,7 @@ export interface Company {
   id: number; name: string; businessTypeId: number; businessTypeName?: string; firstName?: string; lastName?: string; krs?: string; nip?: string;
   wojewodztwo?: string; city?: string; gmina?: string; powiat?: string; postalCode?: string; street?: string;
   buildingNumber?: string; apartmentNumber?: string; phone?: string; email?: string; googleEmail?: string;
-  website?: string; instagramAccount?: string; facebookAccount?: string; startedAt?: string; createdOn?: string;
+  website?: string; instagramAccount?: string; facebookAccount?: string; startedAt?: string; createdOn?: string; dataModifiedOn?: string | null;
   regon?: string | null; statusDzialalnosciId: number; statusDzialalnosciName?: string | null;
   addressIsMissing: boolean | null; blockedByRODO: boolean;
   wojewodztwoId?: number | null; miejscowoscId?: number | null; gminaId?: number | null; powiatId?: number | null;
@@ -49,7 +49,7 @@ export interface SearchCriteria {
   hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
   dateRangeEnabled: boolean; dateFrom: string | null; dateTo: string | null; recordLimit: number;
 }
-export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; }
+export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; hasCsvExports?: boolean; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; order: number; canPurchase: boolean; }
 export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; expiresAtUtc: string; isExpired?: boolean; }
 export interface UserProfile { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }

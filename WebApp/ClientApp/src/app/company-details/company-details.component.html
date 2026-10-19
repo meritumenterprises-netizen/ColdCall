@@ -10,7 +10,7 @@
               aria-label="Otw&#243;rz w Google" title="Otw&#243;rz w Google">
         <img src="assets/external-link.svg" width="20" height="20" alt="">
       </button>
-      <button type="button" class="header-icon-button" (click)="openGoogle(false)" [disabled]="!details || loading"
+      <button *ngIf="details && details.company.wojewodztwoId && details.company.wojewodztwoId !== 1" type="button" class="header-icon-button" (click)="openGoogle(false)" [disabled]="loading"
               aria-label="Otw&#243;rz w Google Local ten adres" title="Otw&#243;rz w Google Local ten adres">
         <img src="assets/external-link.svg" width="20" height="20" alt="">
       </button>
@@ -30,11 +30,17 @@
       <dl class="company-name">
         <div class="company-name-field">
           <dt>Nazwa</dt><dd class="company-name-value"><span>{{ value('name') }}</span>
-            <button type="button" class="name-copy-button" (click)="copyNameAndOpenCeidg()" [disabled]="copying || !details.company.name"
-                    title="Kopiuj nazw&#281; i otw&#243;rz CEIDG" aria-label="Kopiuj nazw&#281; i otw&#243;rz CEIDG">
+            <button type="button" class="name-copy-button" (click)="copyNipAndOpenCeidg()" [disabled]="copying || !(details.company.nip || '').trim()"
+                    title="Kopiuj NIP i otw&#243;rz CEIDG" aria-label="Kopiuj NIP i otw&#243;rz CEIDG">
               <img src="assets/globe.svg" width="20" height="20" alt="">
             </button>
           </dd>
+        </div>
+        <div class="company-date-field" [class.future-activity-date]="isFutureActivityDate(details.company.startedAt)">
+          <dt>Dzia&#322;alno&#347;&#263; aktywna od</dt><dd>{{ value('startedAt') }}</dd>
+        </div>
+        <div class="company-date-field">
+          <dt>Zmodyfikowano</dt><dd>{{ value('dataModifiedOn') }}</dd>
         </div>
       </dl>
       <div class="company-tabs" role="tablist" aria-label="Szczeg&#243;&#322;y firmy">
@@ -56,7 +62,7 @@
         <dl *ngFor="let row of section.rows; let rowIndex = index" class="company-fields" [class.columns-2]="row.length === 2 && section.id !== 'contact'"
             [class.columns-3]="row.length === 3 && section.id !== 'address' && (section.id !== 'contact' || rowIndex !== 0)"
             [class.contact-primary-row]="section.id === 'contact' && rowIndex === 0">
-          <div *ngFor="let field of row" [class.email-field]="field.key === 'email'" [class.website-field]="field.key === 'website'" [class.active-since-field]="field.key === 'startedAt'">
+          <div *ngFor="let field of row" [class.email-field]="field.key === 'email'" [class.website-field]="field.key === 'website'">
             <dt>{{ field.label }}</dt>
             <dd [class.single-line-value]="field.key === 'email' || field.key === 'website' || field.key === 'googleEmail'"
                 [attr.tabindex]="field.key === 'email' || field.key === 'website' || field.key === 'googleEmail' ? 0 : null"><a

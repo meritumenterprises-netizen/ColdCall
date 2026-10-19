@@ -32,9 +32,12 @@ public class SearchesController : ControllerBase
             .Include(x => x.PkdCodes).ThenInclude(x => x.PkdCode)
             .AsSplitQuery()
             .ToListAsync();
+        var exportedProfileIds = await _db.CsvExports.AsNoTracking()
+            .Where(e => e.SearchProfileId.HasValue && e.SearchProfile!.AppUserId == user.Id)
+            .Select(e => e.SearchProfileId!.Value).Distinct().ToHashSetAsync();
         return profiles.Select(x => new SearchProfileDto(x.Id, x.Name,
             x.PkdCodes.Select(p => new PkdDto(p.PkdCode.Id, p.PkdCode.Code, p.PkdCode.Name)).OrderBy(p => p.Code).ToList(),
-            ToCriteriaDto(x.Criteria))).ToList();
+            ToCriteriaDto(x.Criteria), exportedProfileIds.Contains(x.Id))).ToList();
     }
 
     [HttpPost]
@@ -148,7 +151,8 @@ public class SearchesController : ControllerBase
             .Select(x => new PkdDto(x.Id, x.Code, x.Name))
             .ToListAsync();
 
-        return Ok(new SearchProfileDto(profile.Id, profile.Name, pkds, ToCriteriaDto(profile.Criteria)));
+        var hasCsvExports = await _db.CsvExports.AnyAsync(e => e.SearchProfileId == profile.Id);
+        return Ok(new SearchProfileDto(profile.Id, profile.Name, pkds, ToCriteriaDto(profile.Criteria), hasCsvExports));
     }
 
     private static SearchProfileCriteriaDto ToCriteriaDto(SearchProfileCriteria? criteria) =>

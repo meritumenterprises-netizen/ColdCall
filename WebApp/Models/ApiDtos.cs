@@ -56,7 +56,8 @@ public record CompanyDto(
     int? WojewodztwoId,
     int? MiejscowoscId,
     int? GminaId,
-    int? PowiatId);
+    int? PowiatId,
+    DateTime? DataModifiedOn = null);
 
 public record CompanyUpdateDto(
     [System.ComponentModel.DataAnnotations.StringLength(1000)] string Name,
@@ -81,7 +82,7 @@ public record CompanyUpdateDto(
     string? FacebookAccount,
     DateTime? StartedAt);
 
-public record SearchProfileDto(int Id, string Name, IReadOnlyList<PkdDto> PkdCodes, SearchProfileCriteriaDto? Criteria = null);
+public record SearchProfileDto(int Id, string Name, IReadOnlyList<PkdDto> PkdCodes, SearchProfileCriteriaDto? Criteria = null, bool HasCsvExports = false);
 
 public record SaveSearchProfileDto(string Name, IReadOnlyList<int> PkdCodeIds, SearchProfileCriteriaDto? Criteria = null);
 

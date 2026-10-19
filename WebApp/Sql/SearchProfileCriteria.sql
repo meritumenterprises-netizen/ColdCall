@@ -26,7 +26,7 @@ BEGIN TRY
             CONSTRAINT [CK_SearchProfileCriteria_RecordLimit] CHECK ([RecordLimit] BETWEEN 1 AND 10000),
             CONSTRAINT [CK_SearchProfileCriteria_Dates] CHECK (
                 ([DateRangeEnabled] = 0 AND [DateFrom] IS NULL AND [DateTo] IS NULL) OR
-                ([DateRangeEnabled] = 1 AND [DateFrom] IS NOT NULL AND [DateTo] IS NOT NULL AND [DateTo] > [DateFrom]))
+                ([DateRangeEnabled] = 1 AND [DateFrom] IS NOT NULL AND [DateTo] IS NOT NULL AND [DateTo] >= [DateFrom]))
         );
         CREATE UNIQUE INDEX [IX_SearchProfileCriteria_SearchProfileId]
             ON [ColdCall].[SearchProfileCriteria] ([SearchProfileId]);

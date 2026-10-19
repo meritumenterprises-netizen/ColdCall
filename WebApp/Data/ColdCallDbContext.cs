@@ -111,7 +111,7 @@ public partial class ColdCallDbContext : DbContext
                 table.HasCheckConstraint("CK_SearchProfileCriteria_SortColumn", "[SortColumn] IN (N'name',N'nip',N'fullAddress',N'phone',N'email',N'www',N'dataAktywnosci')");
                 table.HasCheckConstraint("CK_SearchProfileCriteria_SortDirection", "[SortDirection] IN ('asc','desc')");
                 table.HasCheckConstraint("CK_SearchProfileCriteria_RecordLimit", "[RecordLimit] BETWEEN 1 AND 10000");
-                table.HasCheckConstraint("CK_SearchProfileCriteria_Dates", "([DateRangeEnabled] = 0 AND [DateFrom] IS NULL AND [DateTo] IS NULL) OR ([DateRangeEnabled] = 1 AND [DateFrom] IS NOT NULL AND [DateTo] IS NOT NULL AND [DateTo] > [DateFrom])");
+                table.HasCheckConstraint("CK_SearchProfileCriteria_Dates", "([DateRangeEnabled] = 0 AND [DateFrom] IS NULL AND [DateTo] IS NULL) OR ([DateRangeEnabled] = 1 AND [DateFrom] IS NOT NULL AND [DateTo] IS NOT NULL AND [DateTo] >= [DateFrom])");
             });
             entity.Property(x => x.Id).UseIdentityColumn();
             entity.Property(x => x.SortColumn).HasMaxLength(32).HasDefaultValue("dataAktywnosci");
