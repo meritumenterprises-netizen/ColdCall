@@ -14,6 +14,7 @@ import { PlansComponent } from './plans/plans.component';
 import { PaymentSuccessComponent } from './plans/payment-success.component';
 import { ProfileComponent } from './profile/profile.component';
 import { AuthGuard } from './auth.guard';
+import { LandingGuard } from './landing.guard';
 import { CompanyDetailsComponent } from './company-details/company-details.component';
 
 @NgModule({
@@ -34,7 +35,7 @@ import { CompanyDetailsComponent } from './company-details/company-details.compo
     HttpClientModule,
     FormsModule,
     RouterModule.forRoot([
-      { path: '', component: LoginComponent, pathMatch: 'full' },
+      { path: '', component: LoginComponent, pathMatch: 'full', canActivate: [LandingGuard] },
       { path: 'dashboard', component: UserDashboardComponent, canActivate: [AuthGuard] },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [AuthGuard] },
       { path: 'plans', component: PlansComponent, canActivate: [AuthGuard] },
