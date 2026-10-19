@@ -59,6 +59,34 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
     public async Task<int> DeleteForUserAsync(int userId, CancellationToken token)
         => await DeleteAsync(userId, false, token);
 
+    public async Task<bool> DeleteSearchAsync(int userId, int profileId, CancellationToken token)
+    {
+        if (userId <= 0 || profileId <= 0) return false;
+        await using var transaction = await db.Database.BeginTransactionAsync(token);
+        await LockAsync("UserExports:" + userId, token);
+        await LockAsync("CSVExport:" + profileId, token);
+        if (!await db.SearchProfiles.AnyAsync(p => p.Id == profileId && p.AppUserId == userId, token)) return false;
+        var configuredRoot = configuration["CSVExportFolder"];
+        if (string.IsNullOrWhiteSpace(configuredRoot)) throw new InvalidOperationException("Brak CSVExportFolder.");
+        var root = Path.GetFullPath(configuredRoot, environment.ContentRootPath);
+        var folder = Path.GetFullPath(Path.Combine(root,
+            userId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            profileId.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        if (!folder.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            throw new IOException("Niepoprawny katalog eksportow.");
+        EnsureSafeDirectory(folder);
+        var files = new List<string>();
+        if (Directory.Exists(folder)) CollectFiles(folder, files);
+        await StageAndCommitAsync(root, files, transaction, async () =>
+        {
+            await db.CsvExports.Where(e => e.SearchProfileId == profileId).ExecuteDeleteAsync(token);
+            await db.SearchProfileCriteria.Where(c => c.SearchProfileId == profileId).ExecuteDeleteAsync(token);
+            await db.SearchProfilePkds.Where(p => p.SearchProfileId == profileId).ExecuteDeleteAsync(token);
+            return await db.SearchProfiles.Where(p => p.Id == profileId && p.AppUserId == userId).ExecuteDeleteAsync(token);
+        }, token);
+        return true;
+    }
+
     public async Task<int> DeleteForExpiredTrialAsync(int userId, CancellationToken token)
     {
         if (!await db.Users.AnyAsync(u => u.Id == userId && !u.IsAdmin, token)) return 0;

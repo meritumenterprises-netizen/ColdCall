@@ -242,6 +242,9 @@ export class ApiService {
     return this.http.get<AddressOption[]>(this.url('/api/address/' + level), { ...this.headers(), params });
   }
   searches(): Observable<SearchProfile[]> { return this.http.get<SearchProfile[]>(this.url('/api/searches'), this.headers()); }
+  deleteSearch(id: number): Observable<void> {
+    return this.http.delete<void>(this.url('/api/searches/' + id), this.headers());
+  }
   distanceLocalities(term: string): Observable<AddressOption[]> {
     return this.http.get<AddressOption[]>(this.url('/api/address/distance-localities'), { ...this.headers(), params: { term } });
   }

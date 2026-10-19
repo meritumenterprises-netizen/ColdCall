@@ -9,12 +9,19 @@
     </div>
     </nav>
     <div *ngFor="let search of searches" class="search-entry">
+    <div class="search-item-container">
     <button class="search-item" (click)="selectSearch(search)"
             [class.active]="currentSearchId === search.id" [attr.aria-current]="currentSearchId === search.id && activeDashboardTab === 'search' ? 'page' : null"
             [disabled]="savingSearch || classifyingPkd">
-      <strong>{{ (currentSearchId === search.id ? searchName : search.name) || 'Nowe wyszukiwanie' }}</strong>
+      <strong [title]="sidebarSearchName(search)">{{ shortSidebarSearchName(search) }}</strong>
       <span>{{ searchRecordLabel(search) }}</span>
     </button>
+    <button type="button" class="delete-search" title="usu&#324; wyszukiwanie" aria-label="usu&#324; wyszukiwanie"
+            (click)="deleteSearch(search)"
+            [disabled]="savingSearch || restoringSearch || classifyingPkd || exportingCsv">
+      <img src="assets/icons/trash-2.svg" width="16" height="16" alt="">
+    </button>
+    </div>
     <button *ngIf="search.id > 0" type="button" class="search-export-link"
             [class.active]="currentSearchId === search.id && activeDashboardTab === 'export'"
             [attr.aria-current]="currentSearchId === search.id && activeDashboardTab === 'export' ? 'page' : null"
@@ -30,7 +37,7 @@
     <fieldset class="search-plan-controls" [disabled]="searchPlanExpired" [attr.inert]="searchPlanExpired ? '' : null" [attr.aria-disabled]="searchPlanExpired">
     <section class="toolbar">
       <label for="search-name">Nazwa wyszukiwania</label>
-      <input #searchNameInput id="search-name" name="searchName" [ngModel]="searchName" (input)="setSearchName($event)" placeholder="typ dzia&#322;alno&#347;ci albo s&#322;owa kluczowe">
+      <input #searchNameInput id="search-name" name="searchName" maxlength="128" [ngModel]="searchName" (input)="setSearchName($event)" placeholder="typ dzia&#322;alno&#347;ci albo s&#322;owa kluczowe">
       <button class="primary-button" (click)="saveSearch()" [disabled]="!canSaveSearch">Zapisz</button>
     </section>
 
@@ -316,7 +323,7 @@
     </table>
   </div>
   <p *ngIf="currentSearchId > 0" class="csv-quota-summary" role="status" aria-live="polite">
-    Pozosta&#322;o eksport&#243;w CSV:
+    Pozosta&#322;o do wykonania:
     <ng-container *ngIf="csvQuotaLoading">Wczytywanie...</ng-container>
     <ng-container *ngIf="!csvQuotaLoading && csvQuotaLoaded">{{ csvExportsRemaining === null ? 'Bez limitu' : formatNumber(csvExportsRemaining) }}</ng-container>
     <ng-container *ngIf="!csvQuotaLoading && !csvQuotaLoaded">Nie uda&#322;o si&#281; pobra&#263; limitu.</ng-container>
