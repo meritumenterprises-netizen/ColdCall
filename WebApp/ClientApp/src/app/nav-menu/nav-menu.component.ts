@@ -45,6 +45,21 @@ export class NavMenuComponent {
 
   constructor(public api: ApiService, private router: Router) {}
 
+  get activePlan() {
+    const user = this.api.user();
+    return this.api.isAuthenticated() && user && user.hasActivePlan && user.plan &&
+      this.planExpiration(user.plan.expiresAtUtc) > Date.now() ? user.plan : null;
+  }
+
+  private planExpiration(value: string) {
+    return Date.parse(/(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + 'Z');
+  }
+
+  get planDaysRemaining() {
+    const plan = this.activePlan;
+    return plan ? Math.ceil((this.planExpiration(plan.expiresAtUtc) - Date.now()) / 86400000) : 0;
+  }
+
   showAuthenticatedMenu() {
     return this.api.isAuthenticated() && this.router.url !== '/';
   }

@@ -39,7 +39,17 @@ button {
   width: 28px;
 }
 .avatar-fallback { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%; background: #0f8f6a; color: #fff; font-size: 12px; font-weight: 700; }
-.topbar nav { align-items: center; }
+.topbar { gap: 24px; }
+.topbar nav { align-items: center; margin-left: auto; }
+.plan-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 32px; color: #cbd5e1; font-size: 12px; font-weight: 600; min-width: 0; }
+.plan-summary span { overflow-wrap: anywhere; }
+@media (min-width: 901px) {
+  .topbar .logo { flex: 0 0 calc(var(--sidebar-width) - 28px - 24px); }
+}
+@media (max-width: 900px) {
+  .topbar { height: auto; min-height: 64px; flex-wrap: wrap; padding-top: 12px; padding-bottom: 12px; gap: 12px; }
+  .plan-summary { order: 3; flex-basis: 100%; gap: 8px 24px; }
+}
 .user-menu { position: relative; min-width: 0; display: flex; align-items: center; }
 .user-chip { max-width: 100%; text-align: left; }
 .user-chip > span:first-of-type { overflow-wrap: anywhere; }
