@@ -1,4 +1,5 @@
 * { box-sizing: border-box; }
+:root { --sidebar-width: 260px; }
 
 body {
   margin: 0;
@@ -116,7 +117,7 @@ textarea { resize: vertical; }
 .app-layout {
   min-height: calc(100vh - 64px);
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
 }
 
 .sidebar {

@@ -1,5 +1,9 @@
 <header class="topbar">
   <a class="logo" routerLink="/">FindMeNow</a>
+  <div class="plan-summary" *ngIf="activePlan as plan">
+    <span>Plan: {{ plan.code }}<ng-container *ngIf="plan.isTrial"> (pr&#243;bny)</ng-container></span>
+    <span>Wygasa: {{ plan.expiresAtUtc | slice:0:10 }} (za {{ planDaysRemaining }} {{ planDaysRemaining === 1 ? 'dzie&#324;' : 'dni' }})</span>
+  </div>
   <nav *ngIf="showAuthenticatedMenu()">
     <a *ngIf="!api.isAdmin()" routerLink="/plans" routerLinkActive="active">Plany</a>
     <a *ngIf="api.isAdmin()" routerLink="/admin" routerLinkActive="active">Admin</a>
