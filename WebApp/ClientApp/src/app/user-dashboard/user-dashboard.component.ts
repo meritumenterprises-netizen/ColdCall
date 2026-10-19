@@ -220,6 +220,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   newSearch() {
     if (!this.canAddSearch || this.savingSearch || this.restoringSearch || this.classifyingPkd) { return; }
     this.rememberDraft();
+    this.activeDashboardTab = 'search';
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
@@ -271,6 +272,12 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.loadCsvExports();
   }
 
+  openSearchExports(profile: SearchProfile) {
+    if (profile.id <= 0 || this.searchPlanExpired || this.savingSearch || this.restoringSearch || this.classifyingPkd || this.exportingCsv) { return; }
+    if (profile.id !== this.currentSearchId) { this.selectSearch(profile); }
+    if (profile.id === this.currentSearchId) { this.selectDashboardTab('export'); }
+  }
+
   loadCsvExports(refreshQuota = true) {
     if (refreshQuota) { this.loadCsvExportQuota(); }
     if (this.exportsRequest) { this.exportsRequest.unsubscribe(); }
@@ -318,15 +325,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     link.download = name;
     link.click();
     window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-  }
-
-  navigateDashboardTabs(event: KeyboardEvent) {
-    if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) < 0) { return; }
-    event.preventDefault();
-    this.selectDashboardTab(event.key === 'Home' ? 'search' : event.key === 'End' ? 'export' :
-      this.activeDashboardTab === 'search' ? 'export' : 'search');
-    const buttons = (event.currentTarget as HTMLElement).parentElement.querySelectorAll<HTMLButtonElement>('[role="tab"]');
-    buttons[this.activeDashboardTab === 'search' ? 0 : 1].focus();
   }
 
   selectFilterTab(tab: 'pkd' | 'criteria' | 'address') {
@@ -731,7 +729,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   selectSearch(profile: SearchProfile) {
     if (this.savingSearch || this.classifyingPkd || this.exportingCsv) { return; }
-    if (profile.id === this.currentSearchId) { return; }
+    if (profile.id === this.currentSearchId) { this.selectDashboardTab('search'); return; }
     this.rememberDraft();
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     this.searchSaved = profile.id > 0;

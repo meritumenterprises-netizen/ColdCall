@@ -12,7 +12,9 @@ public record SortableColumnDto(string Key, string Label);
 
 public record PkdDto(int Id, string Code, string Name);
 
-public record CompanyDetailsDto(CompanyDto Company, IReadOnlyList<PkdDto> PkdCodes, IReadOnlyList<CompanyAddressDto> Addresses);
+public record CompanyPkdDto(int Id, string Code, string Name, bool Prevailing);
+
+public record CompanyDetailsDto(CompanyDto Company, IReadOnlyList<CompanyPkdDto> PkdCodes, IReadOnlyList<CompanyAddressDto> Addresses);
 
 public record CompanyAddressDto(
     int CompanyAdresId, int CompanyId, int AddressId,

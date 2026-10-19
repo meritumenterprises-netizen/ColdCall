@@ -27,7 +27,8 @@ export interface CompanyAddressDetails extends CompanyAddress {
   latitude: number | null; longitude: number | null; prngId: string | null;
 }
 export interface BusinessType { typDzialalnosciId: number; typDzialalnosci: string; }
-export interface CompanyDetails { company: Company; pkdCodes: Pkd[]; addresses: CompanyAddressDetails[]; }
+export interface CompanyPkd extends Pkd { prevailing: boolean; }
+export interface CompanyDetails { company: Company; pkdCodes: CompanyPkd[]; addresses: CompanyAddressDetails[]; }
 export interface CompanyFilters {
   companyName?: string;
   address: string; hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
