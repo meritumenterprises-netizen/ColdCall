@@ -1,3 +1,12 @@
+<dialog #duplicateSearchDialog class="save-search-dialog" aria-labelledby="duplicate-search-title"
+        aria-describedby="duplicate-search-message" (cancel)="closeDuplicateSearch()">
+  <h2 id="duplicate-search-title">Zapis wyszukiwania</h2>
+  <p id="duplicate-search-message">Wyszukiwanie z takimi samymi kryteriami ju&#380; istnieje. Czy na pewno chcesz je zapisa&#263;?</p>
+  <div class="save-search-dialog-actions">
+    <button type="button" class="ghost-button" (click)="closeDuplicateSearch()" autofocus>No</button>
+    <button type="button" class="primary-button" (click)="confirmDuplicateSearch()">Yes</button>
+  </div>
+</dialog>
 <div class="app-layout">
   <aside class="sidebar">
     <nav aria-label="Nawigacja użytkownika">

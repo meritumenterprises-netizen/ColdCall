@@ -30,6 +30,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   classifyingPkd = false;
   @ViewChild('pkdErrorDialog', { static: true }) pkdErrorDialog: ElementRef;
   @ViewChild('duplicateExportDialog', { static: true }) duplicateExportDialog: ElementRef;
+  @ViewChild('duplicateSearchDialog', { static: true }) duplicateSearchDialog: ElementRef;
   pkdClassificationMessage = '';
   pkdClassificationError = '';
   private pkdClassificationRequest: Subscription | null = null;
@@ -857,7 +858,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     };
   }
 
-  saveSearch() {
+  saveSearch(confirmDuplicateCriteria = false) {
     if (!this.canSaveSearch || !this.validateFilters()) { return; }
     const savedState = this.searchState();
     const draftId = this.currentSearchId;
@@ -865,7 +866,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.error = '';
     const criteria = this.currentCriteria();
     this.savingSearch = true;
-    this.saveSearchRequest = this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id), criteria, persistedId)
+    this.saveSearchRequest = this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id), criteria, persistedId, confirmDuplicateCriteria)
       .pipe(finalize(() => this.savingSearch = false)).subscribe(profile => {
         const index = this.searches.findIndex(search => search.id === draftId || search.id === profile.id);
         if (index >= 0) { this.searches.splice(index, 1); }
@@ -878,7 +879,20 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         this.loadCsvExports();
         this.savedSearchState = savedState;
         this.searchSaved = true;
-      }, err => this.error = err.error && err.error.message ? err.error.message : 'Nie udalo sie zapisac wyszukiwania.');
+      }, err => {
+        if (persistedId === null && err.status === 409 && err.error && err.error.code === 'DuplicateSearchCriteria') {
+          this.duplicateSearchDialog.nativeElement.showModal();
+          return;
+        }
+        this.error = err.error && err.error.message ? err.error.message : 'Nie udalo sie zapisac wyszukiwania.';
+      });
+  }
+
+  closeDuplicateSearch() { this.duplicateSearchDialog.nativeElement.close(); }
+
+  confirmDuplicateSearch() {
+    this.closeDuplicateSearch();
+    this.saveSearch(true);
   }
 
   get canSaveSearch() {

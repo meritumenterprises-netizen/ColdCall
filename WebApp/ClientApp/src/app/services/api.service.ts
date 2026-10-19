@@ -248,11 +248,11 @@ export class ApiService {
   distanceLocalities(term: string): Observable<AddressOption[]> {
     return this.http.get<AddressOption[]>(this.url('/api/address/distance-localities'), { ...this.headers(), params: { term } });
   }
-  saveSearch(name: string, pkdCodeIds: number[], criteria?: SearchCriteria, profileId?: number): Observable<SearchProfile> {
+  saveSearch(name: string, pkdCodeIds: number[], criteria?: SearchCriteria, profileId?: number, confirmDuplicateCriteria = false): Observable<SearchProfile> {
     if (profileId != null) {
       return this.http.put<SearchProfile>(this.url('/api/searches/' + profileId), { name, pkdCodeIds, criteria }, this.headers());
     }
-    return this.http.post<SearchProfile>(this.url('/api/searches'), { name, pkdCodeIds, criteria }, this.headers());
+    return this.http.post<SearchProfile>(this.url('/api/searches'), { name, pkdCodeIds, criteria, confirmDuplicateCriteria }, this.headers());
   }
 
   companies(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters, modifiedWithinDays?: number): Observable<PagedResult<CompanyShort>> {
