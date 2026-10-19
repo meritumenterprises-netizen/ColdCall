@@ -39,11 +39,11 @@ h2 { flex: 1; min-width: 0; margin: 0; font-size: 20px; line-height: 1.4; overfl
 .company-map-panel { position: relative; min-height: 360px; margin-top: 16px; }
 .company-map-panel[hidden] { display: block !important; visibility: hidden; }
 .company-map-panel iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.map-view .dialog-body { display: flex; flex-direction: column; padding: 0; overflow: hidden !important; }
-.map-view .company-tabs { flex: 0 0 auto; margin: 0; padding: 0 24px; }
-.map-view .company-tab-panels { flex: 1; min-height: 0; }
+.map-view .dialog-body { display: flex; flex-direction: column; padding-bottom: 0; overflow: hidden !important; }
+.map-view .company-name, .map-view .company-tabs { flex: 0 0 auto; }
+.map-view .company-tab-panels { display: grid; flex: 1; min-height: 0; }
 .map-view #company-description-panel, .map-view #company-notes-panel { display: none !important; }
-.map-view .company-map-panel { min-height: 0; margin: 0; }
+.map-view .company-map-panel { min-height: 0; }
 .company-notes-panel textarea { flex: 1; min-height: 0; width: 100%; box-sizing: border-box; resize: none; font: inherit; padding: 12px; border: 1px solid #cbd5e1; border-radius: 4px; }
 .company-notes-panel > button { align-self: flex-end; flex: 0 0 auto; }
 .company-section { margin-top: 24px; border-top: 1px solid #e1e7e3; padding-top: 16px; }
@@ -52,7 +52,8 @@ h2 { flex: 1; min-width: 0; margin: 0; font-size: 20px; line-height: 1.4; overfl
 .company-fields.columns-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .company-fields + .company-fields { margin-top: 16px; }
 .company-fields > div { min-width: 0; }
-.contact-primary-row > .website-field { grid-column: 3 / 6; }
+.contact-primary-row > .email-field { grid-column: span 2; }
+.contact-primary-row > .website-field { grid-column: 4 / 6; }
 .address-section .active-since-field { grid-column: 5; }
 .company-name-field { grid-column: 1 / -1; }
 dt { font-size: 12px; font-weight: 600; color: #637168; }
@@ -83,6 +84,7 @@ th:first-child { width: 88px; }
   .address-section .active-since-field { grid-column: auto; }
 }
 @media (max-width: 540px) {
+  .contact-primary-row > .email-field { grid-column: auto; }
   .company-fields, .company-fields.columns-2, .company-fields.columns-3 { grid-template-columns: minmax(0, 1fr); }
   header, .dialog-body { padding: 16px; }
   h2 { font-size: 18px; }

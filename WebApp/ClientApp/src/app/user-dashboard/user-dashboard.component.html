@@ -270,10 +270,10 @@
 
     <footer class="pager">
       <button type="button" class="export-csv" [disabled]="loading || total <= 0 || exportingCsv || csvQuotaLoading || csvExportsRemaining === 0" (click)="exportCsv()">Eksport do CSV</button>
-      <span>{{ formatNumber(total) }} rekord&#243;w</span>
-      <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>
       <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
+      <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>
       <button (click)="next()" [disabled]="loading || page >= totalPages()">Nast&#281;pna</button>
+      <span>{{ formatNumber(total) }} rekord&#243;w<ng-container *ngIf="totalWithoutLimit > total"> (max. {{ formatNumber(totalWithoutLimit) }} rekord&#243;w)</ng-container></span>
     </footer>
     </ng-template>
 <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name"
