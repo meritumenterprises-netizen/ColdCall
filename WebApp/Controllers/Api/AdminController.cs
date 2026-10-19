@@ -38,7 +38,8 @@ public class AdminController : ControllerBase
         [FromQuery] int? gminaId = null, [FromQuery] int? miejscowoscId = null, [FromQuery] int? radiusKm = null,
         [FromQuery] string? nip = null, [FromQuery] bool? blockedByRODO = null)
     {
-        if (await _adminAccess.RequireAdminAsync(User) == null)
+        var admin = await _adminAccess.RequireAdminAsync(User);
+        if (admin == null)
         {
             return Forbid();
         }

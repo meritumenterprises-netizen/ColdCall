@@ -9,6 +9,7 @@ public class ExportCompaniesRequest
     [StringLength(200)]
     public string? SearchName { get; set; }
     public int? ModifiedWithinDays { get; set; }
+    public bool NotesOnly { get; set; }
     [Required, RegularExpression("^(name|nip|fullAddress|phone|email|www|dataAktywnosci)$")]
     public string SortBy { get; set; } = "dataAktywnosci";
     [Required, RegularExpression("^(asc|desc)$")]

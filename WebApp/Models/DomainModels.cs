@@ -113,6 +113,8 @@ public class SearchProfile
 
 public class SearchProfileCriteria
 {
+    [System.ComponentModel.DataAnnotations.MaxLength(1000)]
+    public string? CompanyStatusIds { get; set; }
     public string Name { get; set; } = "";
     public string CompanyName { get; set; } = "";
     public int Id { get; set; }

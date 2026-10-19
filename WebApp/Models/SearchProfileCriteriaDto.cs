@@ -4,6 +4,7 @@ namespace ColdCall.Models;
 
 public class SearchProfileCriteriaDto : IValidatableObject
 {
+    public int[] CompanyStatusIds { get; set; } = new[] { 1 };
     [Required(AllowEmptyStrings = true), StringLength(1000)]
     public string CompanyName { get; set; } = "";
     [Required, RegularExpression("^(name|nip|fullAddress|phone|email|www|dataAktywnosci)$")]
@@ -29,6 +30,8 @@ public class SearchProfileCriteriaDto : IValidatableObject
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
+        if (CompanyStatusIds == null || CompanyStatusIds.Length > 255 || CompanyStatusIds.Any(id => id < 1 || id > 255))
+            yield return new ValidationResult("Niepoprawne statusy dzialalnosci.", new[] { nameof(CompanyStatusIds) });
         if (DateRangeEnabled && (!DateFrom.HasValue || !DateTo.HasValue || DateTo < DateFrom))
             yield return new ValidationResult("Both dates are required and the end date must be on or after the start date.", new[] { nameof(DateFrom), nameof(DateTo) });
     }

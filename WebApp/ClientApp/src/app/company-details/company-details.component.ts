@@ -15,15 +15,18 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   @Input() companyId: number;
   @Input() companyName = '';
   @Output() closed = new EventEmitter<void>();
+  @Output() notesSaved = new EventEmitter<{ companyId: number; notes: string }>();
   @ViewChild('dialog', { static: true }) dialog: ElementRef;
   @ViewChild('copyConfirmation', { static: true }) copyConfirmation: ElementRef;
+  @ViewChild('notesInput', { static: false }) notesInput: ElementRef;
+  private notesFocusFrame: number | null = null;
   details: CompanyDetails | null = null;
   loading = false;
   error = '';
   copying = false;
   copyError = '';
   copyConfirmationMessage = '';
-  activeTab: 'description' | 'notes' | 'map' = 'description';
+  @Input() activeTab: 'description' | 'notes' | 'map' = 'description';
   mapUrl: SafeResourceUrl | null = null;
   notes = '';
   private savedNotes = '';
@@ -112,6 +115,23 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
 
   close() { this.closed.emit(); }
 
+  openNotesTab() {
+    this.activeTab = 'notes';
+    this.focusNotesAtEnd();
+  }
+
+  private focusNotesAtEnd() {
+    if (this.notesFocusFrame !== null) { cancelAnimationFrame(this.notesFocusFrame); }
+    this.notesFocusFrame = requestAnimationFrame(() => {
+      this.notesFocusFrame = null;
+      if (this.activeTab !== 'notes' || !this.notesLoaded || this.notesLoading || !this.notesInput) { return; }
+      const input = this.notesInput.nativeElement as HTMLTextAreaElement;
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+      input.scrollTop = input.scrollHeight;
+    });
+  }
+
   loadNotes() {
     if (this.notesRequest) { this.notesRequest.unsubscribe(); }
     this.notesLoading = true;
@@ -122,6 +142,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
         this.notes = result.notes;
         this.savedNotes = result.notes;
         this.notesLoaded = true;
+        this.focusNotesAtEnd();
       }, () => this.notesError = 'Nie udalo sie wczytac notatek.');
   }
 
@@ -131,7 +152,11 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     this.notesSaving = true;
     this.notesError = '';
     this.saveNotesRequest = this.api.saveCompanyNotes(this.companyId, notes).pipe(finalize(() => this.notesSaving = false))
-      .subscribe(() => this.savedNotes = notes, () => this.notesError = 'Nie udalo sie zapisac notatek.');
+      .subscribe(() => {
+        this.savedNotes = notes;
+        this.notesSaved.emit({ companyId: this.companyId, notes });
+        this.close();
+      }, () => this.notesError = 'Nie udalo sie zapisac notatek.');
   }
 
   async copyCompany() {
@@ -237,6 +262,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.notesFocusFrame !== null) { cancelAnimationFrame(this.notesFocusFrame); }
     if (this.notesRequest) { this.notesRequest.unsubscribe(); }
     if (this.saveNotesRequest) { this.saveNotesRequest.unsubscribe(); }
     if (this.request) { this.request.unsubscribe(); }

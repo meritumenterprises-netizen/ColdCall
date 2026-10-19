@@ -89,9 +89,11 @@
         <table>
           <thead><tr>
             <th>Lp.</th>
-            <th *ngFor="let col of companyColumns" [attr.aria-sort]="sortBy === col.key ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
+            <ng-container *ngFor="let col of companyColumns">
+            <th [attr.aria-sort]="sortBy === col.key ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
               <button type="button" (click)="sort(col.key)" [disabled]="loading">{{ col.label }} <span *ngIf="sortBy === col.key"><ng-container *ngIf="direction === 'asc'">&#9650;</ng-container><ng-container *ngIf="direction === 'desc'">&#9660;</ng-container></span></button>
             </th>
+            </ng-container>
             <th>Szczeg&#243;&#322;y</th>
           </tr></thead>
           <tbody>
@@ -129,7 +131,7 @@
         <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
         <button (click)="next()" [disabled]="loading || page >= totalPages()">Nast&#281;pna</button>
       </footer>
-      <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name" (closed)="detailsCompany = null"></app-company-details>
+      <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name" (notesSaved)="updateCompanyNotes($event)" (closed)="detailsCompany = null"></app-company-details>
     </section>
 
       <div class="admin-user-email-filter" *ngIf="tab === 'users'">

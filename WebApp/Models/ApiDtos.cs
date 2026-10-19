@@ -6,7 +6,8 @@ public record PagedResult<T>(
     int Page,
     int PageSize,
     IReadOnlyList<SortableColumnDto>? SortableColumns = null,
-    int? TotalWithoutLimit = null);
+    int? TotalWithoutLimit = null,
+    bool? HasNotes = null);
 
 public record SortableColumnDto(string Key, string Label);
 
@@ -58,7 +59,8 @@ public record CompanyDto(
     int? GminaId,
     int? PowiatId,
     DateTime? DataModifiedOn = null,
-    DateTime? ResumedOn = null);
+    DateTime? ResumedOn = null,
+    string? UserNotes = null);
 
 public record CompanyUpdateDto(
     [System.ComponentModel.DataAnnotations.StringLength(1000)] string Name,

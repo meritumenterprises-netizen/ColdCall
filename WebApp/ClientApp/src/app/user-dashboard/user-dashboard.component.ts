@@ -36,6 +36,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private pkdClassificationRequest: Subscription | null = null;
   restoringSearch = false;
   private searchesRequest: Subscription | null = null;
+  private companyStatusesRequest: Subscription | null = null;
+  companyStatuses: { id: number; name: string }[] = [];
+  companyStatusesError = '';
   private deleteSearchRequest: Subscription | null = null;
   private restoreSearchRequest: Subscription | null = null;
   activeDashboardTab: 'search' | 'export' = 'search';
@@ -51,8 +54,11 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   readonly resultTabs: ResultTab[] = [
     { key: 'all', label: 'Wszystkie', days: undefined, page: 1 },
     { key: '30', label: 'Zmienione w ost. 30 dniach', days: 30, page: 1 },
-    { key: '7', label: 'Zmienione w ost. 7 dniach', days: 7, page: 1 }
+    { key: '7', label: 'Zmienione w ost. 7 dniach', days: 7, page: 1 },
+    { key: 'notes', label: 'Notatki', days: undefined, page: 1 }
   ];
+  hasNotes = false;
+  get visibleResultTabs() { return this.resultTabs.filter(tab => tab.key !== 'notes' || this.hasNotes); }
   activeResultTab = this.resultTabs[0];
   private allResultsCountRequest: Subscription | null = null;
   addressFields: { level: AddressLevel; label: string; options: AddressOption[]; visible: AddressOption[];
@@ -77,6 +83,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   companies: CompanyShort[] = [];
   selectedCompanyId: number | null = null;
   detailsCompany: CompanyShort | null = null;
+  detailsActiveTab: 'description' | 'notes' = 'description';
   total = 0;
   totalWithoutLimit = 0;
   readonly pageSize = 10;
@@ -107,7 +114,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private companyNameDelay: Subscription | null = null;
   error = '';
   filterError = '';
-  filterDraft: CompanyFilters = { companyName: '', address: '', hasPhone: null, hasEmail: null, hasWebsite: null, recordLimit: 1000 };
+  filterDraft: CompanyFilters = { companyName: '', address: '', hasPhone: null, hasEmail: null, hasWebsite: null, recordLimit: 1000, companyStatusIds: [1] };
   appliedFilters: CompanyFilters = { ...this.filterDraft };
   private lastUpdatedFilterState: string | null = null;
   dateRangeEnabled = false;
@@ -136,7 +143,24 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.appliedFilters = { ...this.filterDraft };
     this.lastUpdatedFilterState = this.filterState();
     this.loadSearches();
+    this.loadCompanyStatuses();
     this.loadPkds();
+  }
+
+  loadCompanyStatuses() {
+    if (this.companyStatusesRequest) { this.companyStatusesRequest.unsubscribe(); }
+    this.companyStatusesError = '';
+    this.companyStatusesRequest = this.api.companyStatuses().subscribe(statuses => {
+      this.companyStatuses = statuses;
+    }, () => this.companyStatusesError = 'Nie udalo sie pobrac statusow dzialalnosci.');
+  }
+
+  toggleCompanyStatus(id: number, checked: boolean) {
+    if (this.filtersLocked || this.searchPlanExpired) { return; }
+    const selected = this.filterDraft.companyStatusIds || [1];
+    this.filterDraft.companyStatusIds = (checked ? selected.concat(id) : selected.filter(value => value !== id))
+      .filter((value, index, values) => values.indexOf(value) === index).sort((a, b) => a - b);
+    this.updateFilters();
   }
 
   loadSearches() {
@@ -190,7 +214,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   searchRecordLabel(search: SearchProfile) {
-    if (search.id === this.currentSearchId && ((!this.activeResultTab.days && this.refreshingSearchCount) || this.restoringSearch)) { return '... rekord\u00f3w'; }
+    if (search.id === this.currentSearchId && ((this.activeResultTab.key === 'all' && this.refreshingSearchCount) || this.restoringSearch)) { return '... rekord\u00f3w'; }
     const count = this.searchRecordCounts[search.id];
     return typeof count === 'number' ? this.formatNumber(count) + ' rekord\u00f3w'
       : count === null ? '- rekord\u00f3w' : '... rekord\u00f3w';
@@ -207,6 +231,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         hasPhone: criteria && criteria.hasPhone != null ? criteria.hasPhone : null,
         hasEmail: criteria && criteria.hasEmail != null ? criteria.hasEmail : null,
         hasWebsite: criteria && criteria.hasWebsite != null ? criteria.hasWebsite : null,
+        companyStatusIds: criteria && criteria.companyStatusIds ? criteria.companyStatusIds.slice() : [1],
         startedFrom: criteria && criteria.dateRangeEnabled ? criteria.dateFrom || undefined : undefined,
         startedTo: criteria && criteria.dateRangeEnabled ? criteria.dateTo || undefined : undefined,
         wojewodztwoId: criteria && criteria.wojewodztwoId || undefined,
@@ -281,12 +306,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.pkdHint = null;
     this.pkdClassificationError = '';
     this.filterDraft = { companyName: '', address: '', hasPhone: null, hasEmail: null,
-      hasWebsite: null, recordLimit: this.maxRecordLimit };
+      hasWebsite: null, recordLimit: this.maxRecordLimit, companyStatusIds: [1] };
     this.appliedFilters = { ...this.filterDraft };
     this.dateRangeEnabled = false; this.dateFrom = '2020-01-01'; this.dateTo = this.todayDate();
     this.radiusEnabled = false; this.radiusKm = 1;
     this.sortBy = 'dataAktywnosci'; this.direction = 'desc';
     this.activeFilterTab = 'criteria';
+    this.hasNotes = false;
     this.activeResultTab = this.resultTabs[0];
     this.error = ''; this.filterError = '';
     this.selectedCompanyId = null; this.detailsCompany = null;
@@ -452,6 +478,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   selectResultTab(tab: ResultTab) {
+    if (tab.key === 'notes' && !this.hasNotes) { return; }
     if (tab === this.activeResultTab) { return; }
     this.activeResultTab.page = this.page;
     this.activeResultTab = tab;
@@ -464,13 +491,14 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   navigateResultTabs(event: KeyboardEvent) {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) < 0) { return; }
     event.preventDefault();
-    const index = this.resultTabs.indexOf(this.activeResultTab);
-    const count = this.resultTabs.length;
-    const tab = event.key === 'Home' ? this.resultTabs[0] : event.key === 'End' ? this.resultTabs[count - 1] :
-      this.resultTabs[(index + (event.key === 'ArrowRight' ? 1 : count - 1)) % count];
+    const tabs = this.visibleResultTabs;
+    const index = tabs.indexOf(this.activeResultTab);
+    const count = tabs.length;
+    const tab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[count - 1] :
+      tabs[(index + (event.key === 'ArrowRight' ? 1 : count - 1)) % count];
     this.selectResultTab(tab);
     const buttons = (event.currentTarget as HTMLElement).parentElement.querySelectorAll<HTMLButtonElement>('[role="tab"]');
-    buttons[this.resultTabs.indexOf(tab)].focus();
+    buttons[tabs.indexOf(tab)].focus();
   }
 
   loadCompanies(refreshSearchCount = true) {
@@ -479,20 +507,27 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.error = '';
     this.loading = true;
     this.refreshingSearchCount = refreshSearchCount;
-    if (refreshSearchCount && this.activeResultTab.days && this.page === 1 && this.currentSearchId !== null) {
+    if (refreshSearchCount && this.activeResultTab.key !== 'all' && this.page === 1 && this.currentSearchId !== null) {
       this.allResultsCountRequest = this.api.companies(1, this.sortBy, this.direction,
         this.selectedPkds.map(x => x.id), this.appliedFilters).subscribe(
         result => { if (this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = result.total; } },
         () => { if (this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; } });
     }
-    this.companiesRequest = this.api.companies(this.page, this.sortBy, this.direction, this.selectedPkds.map(x => x.id), this.appliedFilters, this.activeResultTab.days)
+    this.companiesRequest = this.api.companies(this.page, this.sortBy, this.direction, this.selectedPkds.map(x => x.id), this.appliedFilters, this.activeResultTab.days, this.activeResultTab.key === 'notes')
       .pipe(finalize(() => { this.loading = false; this.refreshingSearchCount = false; }))
       .subscribe(result => {
+      this.hasNotes = result.hasNotes === true;
+      if (this.activeResultTab.key === 'notes' && !this.hasNotes) {
+        this.activeResultTab = this.resultTabs[0];
+        this.page = 1;
+        Promise.resolve().then(() => this.loadCompanies(false));
+        return;
+      }
       this.companies = result.items;
       if (!this.companies.some(row => row.id === this.selectedCompanyId)) { this.selectedCompanyId = null; }
       this.total = result.total;
       this.totalWithoutLimit = result.totalWithoutLimit == null ? result.total : result.totalWithoutLimit;
-      if (refreshSearchCount && !this.activeResultTab.days && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = result.total; }
+      if (refreshSearchCount && this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = result.total; }
       this.page = result.page;
       this.activeResultTab.page = this.page;
       if (result.sortableColumns && result.sortableColumns.length) {
@@ -504,13 +539,14 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.companies = [];
       this.total = 0;
       this.totalWithoutLimit = 0;
-      if (refreshSearchCount && !this.activeResultTab.days && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; }
+      if (refreshSearchCount && this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; }
       this.error = err.status === 402 ? '' :
         err.status === 400 && err.error && err.error.message ? err.error.message : 'Nie udalo sie pobrac firm.';
     });
   }
 
   ngOnDestroy() {
+    if (this.companyStatusesRequest) { this.companyStatusesRequest.unsubscribe(); }
     if (this.deleteSearchRequest) { this.deleteSearchRequest.unsubscribe(); }
     if (this.exportsRequest) { this.exportsRequest.unsubscribe(); }
     if (this.downloadRequest) { this.downloadRequest.unsubscribe(); }
@@ -529,9 +565,16 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.addressFields.forEach(field => { if (field.request) { field.request.unsubscribe(); } });
   }
 
-  openCompany(row: CompanyShort) {
+  openCompany(row: CompanyShort, tab: 'description' | 'notes' = 'description') {
+    this.detailsActiveTab = tab;
     this.selectedCompanyId = row.id;
     this.detailsCompany = row;
+  }
+
+  updateCompanyNotes(event: { companyId: number; notes: string }) {
+    const company = this.companies.find(row => row.id === event.companyId);
+    if (company) { company.userNotes = event.notes; }
+    this.loadCompanies(false);
   }
 
   cyclePresence(key: 'hasPhone' | 'hasEmail' | 'hasWebsite', event: Event) {
@@ -573,6 +616,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       hasPhone: this.filterDraft.hasPhone,
       hasEmail: this.filterDraft.hasEmail,
       hasWebsite: this.filterDraft.hasWebsite,
+      companyStatusIds: (this.filterDraft.companyStatusIds || [1]).slice().sort((a, b) => a - b),
       dateRangeEnabled: this.dateRangeEnabled,
       dateFrom: this.dateFrom,
       dateTo: this.dateTo,
@@ -775,6 +819,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     this.searchSaved = profile.id > 0;
     this.currentSearchId = profile.id;
+    this.hasNotes = false;
     this.activeDashboardTab = 'search';
     this.loadCsvExports();
     this.activeResultTab = this.resultTabs[0];
@@ -798,6 +843,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       hasPhone: criteria && criteria.hasPhone != null ? criteria.hasPhone : null,
       hasEmail: criteria && criteria.hasEmail != null ? criteria.hasEmail : null,
       hasWebsite: criteria && criteria.hasWebsite != null ? criteria.hasWebsite : null,
+      companyStatusIds: criteria && criteria.companyStatusIds ? criteria.companyStatusIds.slice() : [1],
       recordLimit: this.maxRecordLimit
     };
     this.dateRangeEnabled = criteria ? criteria.dateRangeEnabled : false;
@@ -850,6 +896,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     return {
       sortColumn: this.sortBy, sortDirection: this.direction, companyName: this.filterDraft.companyName || '', address: '',
       hasPhone: this.filterDraft.hasPhone, hasEmail: this.filterDraft.hasEmail, hasWebsite: this.filterDraft.hasWebsite,
+      companyStatusIds: (this.filterDraft.companyStatusIds || [1]).slice(),
       dateRangeEnabled: this.dateRangeEnabled, dateFrom: this.dateRangeEnabled ? this.dateFrom : null,
       dateTo: this.dateRangeEnabled ? this.dateTo : null, recordLimit: Number(this.filterDraft.recordLimit),
       wojewodztwoId: this.addressFields[0].selectedId, powiatId: this.addressFields[1].selectedId,
@@ -995,6 +1042,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     const searchId = this.currentSearchId;
     const searchName = this.searchName.trim();
     const days = this.activeResultTab.days;
+    const notesOnly = this.activeResultTab.key === 'notes';
     const sortBy = this.sortBy;
     const direction = this.direction;
     const criteria = this.currentCriteria();
@@ -1009,7 +1057,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         }))
       : of(null);
     this.csvRequest = prepareSearch.pipe(switchMap(() => this.api.checkCsvExport(searchId))).subscribe(result => {
-      const exportAction = () => this.performCsvExport(searchId, days, sortBy, direction, searchName);
+      const exportAction = () => this.performCsvExport(searchId, days, sortBy, direction, searchName, notesOnly);
       if (result.exists) {
         this.pendingCsvExport = exportAction;
         this.duplicateExportDialog.nativeElement.showModal();
@@ -1020,8 +1068,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private performCsvExport(searchId: number, days: number | undefined, sortBy: string, direction: string, searchName: string) {
-    this.csvRequest = this.api.exportCompanies(searchId, days, sortBy, direction, searchName)
+  private performCsvExport(searchId: number, days: number | undefined, sortBy: string, direction: string, searchName: string, notesOnly = false) {
+    this.csvRequest = this.api.exportCompanies(searchId, days, sortBy, direction, searchName, notesOnly)
       .pipe(finalize(() => this.exportingCsv = false)).subscribe(response => {
       if (!response.body) { return; }
       const profile = this.searches.find(search => search.id === searchId);

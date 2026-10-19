@@ -38,6 +38,12 @@ public class CompanySearchQuery
             throw new ArgumentException("Wybierz miejscowosc i poprawny promien.");
         var query = ApplyDetailFilters(ApplyPkdFilter(BaseCompanyQuery(includeAllCompanies), pkdIds),
             address, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
+        if (!includeAllCompanies || criteria.CompanyStatusIds != null)
+        {
+            var statuses = CompanyStatusSelection.Parse(criteria.CompanyStatusIds);
+            query = query.Where(row => _db.Companies.Any(company => company.Id == row.Id
+                && statuses.Contains((int)company.StatusDzialalnosciId)));
+        }
         if (radiusKm.HasValue)
         {
             var center = await LocalityCenter(null, null, gminaId, miejscowoscId!.Value);
@@ -59,6 +65,10 @@ public class CompanySearchQuery
                 && company.DataModifiedOn <= DateTime.Now));
         return query;
     }
+
+    public IQueryable<CompanyShortDto> WithUserNotes(IQueryable<CompanyShortDto> query, int userId) =>
+        query.Where(row => _db.CompanyUserNotes.Any(note => note.CompanyId == row.Id
+            && note.UserId == userId && note.Notes.Trim() != ""));
 
     private IQueryable<CompanyShortDto> BaseCompanyQuery(bool includeAllCompanies) => includeAllCompanies
         ? _db.Companies.AsNoTracking().Select(c => new CompanyShortDto

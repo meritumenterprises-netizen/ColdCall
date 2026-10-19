@@ -16,6 +16,7 @@ import { ProfileComponent } from './profile/profile.component';
 import { AuthGuard } from './auth.guard';
 import { LandingGuard } from './landing.guard';
 import { CompanyDetailsComponent } from './company-details/company-details.component';
+import { CompanyNotesIndicatorComponent } from './company-notes-indicator/company-notes-indicator.component';
 
 @NgModule({
   declarations: [
@@ -28,7 +29,8 @@ import { CompanyDetailsComponent } from './company-details/company-details.compo
     PlansComponent,
     PaymentSuccessComponent,
     ProfileComponent,
-    CompanyDetailsComponent
+    CompanyDetailsComponent,
+    CompanyNotesIndicatorComponent
   ],
   imports: [
     BrowserModule.withServerTransition({ appId: 'ng-cli-universal' }),

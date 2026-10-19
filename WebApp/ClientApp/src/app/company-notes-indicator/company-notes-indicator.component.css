@@ -1,0 +1,6 @@
+:host { display: inline-block; vertical-align: middle; }
+.notes-indicator { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; padding: 2px; margin: 0 0 0 5px; border: 0; border-radius: 3px; background: transparent; color: inherit; vertical-align: middle; }
+.notes-indicator:hover, .notes-indicator:focus { background: #d7e8e1; }
+.notes-indicator:focus-visible { outline: 2px solid #087f5b; outline-offset: 1px; }
+.notes-indicator img { display: block; width: 16px; height: 16px; }
+.notes-tooltip { position: fixed; z-index: 10000; width: max-content; max-width: min(360px, calc(100vw - 16px)); max-height: calc(100vh - 16px); overflow: hidden; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 4px; background: #fff; color: #172638; font-size: 12px; font-weight: normal; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; text-align: left; box-shadow: 0 3px 12px #0002; pointer-events: none; }

@@ -44,7 +44,9 @@ public class CompaniesController : ControllerBase
         [FromQuery] int? miejscowoscId = null,
         [FromQuery] int? radiusKm = null,
         [FromQuery] bool addressLocality = false,
-        [FromQuery] int? modifiedWithinDays = null)
+        [FromQuery] int? modifiedWithinDays = null,
+        [FromQuery] string? companyStatusIds = null,
+        [FromQuery] bool notesOnly = false)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         var hasActivePlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow);
@@ -61,16 +63,24 @@ public class CompaniesController : ControllerBase
         // The plan, not a request parameter or a saved search, determines the result cap.
         recordLimit = maximumRecordLimit;
         IQueryable<CompanyShortDto> query;
+        bool hasNotes;
         try
         {
-            query = await new CompanySearchQuery(_db).BuildAsync(new SearchProfileCriteria
+            var criteria = new SearchProfileCriteria
             {
                 CompanyName = companyName ?? "", Address = address ?? "", HasPhone = hasPhone, HasEmail = hasEmail,
+                CompanyStatusIds = CompanyStatusSelection.Serialize(CompanyStatusSelection.Parse(companyStatusIds)),
                 HasWebsite = hasWebsite, DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue,
                 DateFrom = startedFrom, DateTo = startedTo, WojewodztwoId = wojewodztwoId, PowiatId = powiatId,
                 GminaId = gminaId, MiejscowoscId = miejscowoscId,
                 HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
-            }, pkdIds, modifiedWithinDays, addressLocality);
+            };
+            var search = new CompanySearchQuery(_db);
+            query = await search.BuildAsync(criteria, pkdIds, null, addressLocality);
+            hasNotes = await search.WithUserNotes(query, user.Id).AnyAsync(HttpContext.RequestAborted);
+            if (modifiedWithinDays.HasValue)
+                query = await search.BuildAsync(criteria, pkdIds, modifiedWithinDays, addressLocality);
+            if (notesOnly) query = search.WithUserNotes(query, user.Id);
         }
         catch (ArgumentException exception)
         {
@@ -87,7 +97,13 @@ public class CompaniesController : ControllerBase
             .Take(Math.Min(pageSize, total - offset))
             .ToListAsync();
 
-        return Ok(new PagedResult<CompanyShortDto>(items, total, page, pageSize, QueryableExtensions.CompanyShortSortableColumns, totalWithoutLimit));
+        var pageIds = items.Select(item => item.Id).ToArray();
+        var notes = await _db.CompanyUserNotes.AsNoTracking()
+            .Where(note => note.UserId == user.Id && pageIds.Contains(note.CompanyId))
+            .ToDictionaryAsync(note => note.CompanyId, note => note.Notes, HttpContext.RequestAborted);
+        foreach (var item in items)
+            item.UserNotes = notes.GetValueOrDefault(item.Id);
+        return Ok(new PagedResult<CompanyShortDto>(items, total, page, pageSize, QueryableExtensions.CompanyShortSortableColumns, totalWithoutLimit, hasNotes));
     }
 
     [HttpGet("{id:int}")]
@@ -152,10 +168,11 @@ public class CompaniesController : ControllerBase
                 return StatusCode(409, new { message = "Osiagnieto limit eksportow CSV dla tego wyszukiwania." });
             var query = await new CompanySearchQuery(_db).BuildAsync(profile.Criteria ?? new SearchProfileCriteria(),
                 profile.PkdCodes.Select(x => x.PkdCodeId).ToArray(), request.ModifiedWithinDays);
+            if (request.NotesOnly) query = new CompanySearchQuery(_db).WithUserNotes(query, user.Id);
             var ids = await query.ApplyCompanyShortSort(request.SortBy, request.Direction).Select(x => x.Id)
                 .Take(limit).ToListAsync(cancellationToken);
             if (ids.Count == 0) return BadRequest(new { message = "Brak rekordow do eksportu." });
-            var csv = await _csvExporter.ExportAsync(user, profile, ids, request.ModifiedWithinDays, cancellationToken, request.SearchName);
+            var csv = await _csvExporter.ExportAsync(user, profile, ids, request.ModifiedWithinDays, cancellationToken, request.SearchName, request.NotesOnly);
             await transaction.CommitAsync(cancellationToken);
             return File(csv.Content, "text/csv; charset=utf-8", csv.Name);
         }

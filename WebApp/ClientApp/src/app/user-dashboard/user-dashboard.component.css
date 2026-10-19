@@ -90,6 +90,7 @@
 .pkd-search-row input { width: 100%; min-width: 0; box-sizing: border-box; }
 .pkd-description input { width: 100%; min-width: 0; box-sizing: border-box; font-size: 14px; }
 .company-name-filter { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.companies-grid-table .company-notes-cell { width: 28px; min-width: 28px; max-width: 28px; padding-left: 2px; padding-right: 2px; text-align: center; }
 .company-name-filter label { flex: 0 0 auto; margin: 0; }
 .company-name-filter input { flex: 1; width: 100%; }
 .presence-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; min-height: 24px; }
@@ -104,6 +105,12 @@
 @media (max-width: 600px) { .presence-criteria-row { grid-template-columns: minmax(0, 1fr); } }
 .date-filter { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 24px; margin: 16px 0; max-width: 100%; overflow-x: auto; padding: 2px 0; }
 .date-filter > .presence-filter { flex: 0 0 auto; margin-bottom: 0; }
+.company-status-filter { display: flex; align-items: center; gap: 20px; padding: 2px 0; margin: 16px 0 0; min-width: 0; overflow-x: auto; }
+.company-status-label { flex: 0 0 auto; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.company-status-options { display: flex; flex-wrap: nowrap; align-items: center; gap: 20px; flex: 0 0 auto; }
+.company-status-options label { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: normal; white-space: nowrap; flex: 0 0 auto; }
+.company-status-options input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; margin: 1px 0 0; padding: 0; accent-color: #087f5b; }
+.company-status-options span { white-space: nowrap; }
 .date-range { display: flex; grid-column: 2 / -1; align-items: center; gap: 16px; flex: 0 0 auto; }
 .date-range > div { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 .date-range input { width: 150px; flex: 0 0 150px; box-sizing: border-box; }

@@ -52,7 +52,7 @@
                 (click)="activeTab = 'map'" (keydown)="navigateTabs($event)">Mapa</button>
         <button type="button" role="tab" id="company-notes-tab" aria-controls="company-notes-panel"
                 [attr.aria-selected]="activeTab === 'notes'" [attr.tabindex]="activeTab === 'notes' ? 0 : -1"
-                (click)="activeTab = 'notes'" (keydown)="navigateTabs($event)">Notatki</button>
+                (click)="openNotesTab()" (keydown)="navigateTabs($event)">Notatki</button>
       </div>
       <div class="company-tab-panels">
       <div id="company-description-panel" role="tabpanel" aria-labelledby="company-description-tab" [hidden]="activeTab !== 'description'" [attr.inert]="activeTab !== 'description' ? '' : null">
@@ -79,7 +79,7 @@
         <div *ngIf="notesError" class="error-state" role="alert">{{ notesError }}
           <button type="button" class="ghost-button" (click)="loadNotes()" *ngIf="!notesLoaded">Pon&#243;w</button>
         </div>
-        <textarea name="companyNotes" [(ngModel)]="notes" aria-label="Notatki" [disabled]="notesLoading || !notesLoaded"></textarea>
+        <textarea #notesInput name="companyNotes" [(ngModel)]="notes" aria-label="Notatki" [disabled]="notesLoading || !notesLoaded"></textarea>
         <button type="button" class="primary-button" (click)="saveNotes()" [disabled]="!notesChanged || notesLoading || notesSaving || !notesLoaded">Zapisz</button>
       </div>
       <div id="company-map-panel" class="company-map-panel" role="tabpanel" aria-labelledby="company-map-tab"

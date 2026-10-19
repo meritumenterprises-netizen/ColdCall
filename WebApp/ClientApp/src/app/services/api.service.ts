@@ -5,12 +5,13 @@ import { catchError, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 export interface SortableColumn { key: string; label: string; }
-export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; totalWithoutLimit?: number; }
+export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; totalWithoutLimit?: number; hasNotes?: boolean; }
 export interface Pkd { id: number; code: string; name: string; }
 export interface PkdClassification { status: string; text: string; pkdCodes: Pkd[]; }
 export interface AddressOption { id: number; name: string; }
 export type AddressLevel = 'wojewodztwa' | 'powiaty' | 'gminy' | 'miejscowosci';
 export interface Company {
+  userNotes?: string | null;
   id: number; name: string; businessTypeId: number; businessTypeName?: string; firstName?: string; lastName?: string; krs?: string; nip?: string;
   wojewodztwo?: string; city?: string; gmina?: string; powiat?: string; postalCode?: string; street?: string;
   buildingNumber?: string; apartmentNumber?: string; phone?: string; email?: string; googleEmail?: string;
@@ -31,6 +32,7 @@ export interface BusinessType { typDzialalnosciId: number; typDzialalnosci: stri
 export interface CompanyPkd extends Pkd { prevailing: boolean; }
 export interface CompanyDetails { company: Company; pkdCodes: CompanyPkd[]; addresses: CompanyAddressDetails[]; }
 export interface CompanyFilters {
+  companyStatusIds?: number[];
   companyName?: string;
   address: string; hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
   startedFrom?: string; startedTo?: string; recordLimit: number;
@@ -38,11 +40,13 @@ export interface CompanyFilters {
   addressLocality?: boolean;
 }
 export interface CompanyShort {
+  userNotes?: string | null;
   id: number; name: string; nip?: string; fullAddress: string;
   phone?: string; email?: string; www?: string; dataAktywnosci?: string;
   typyDzialalnosci?: string;
 }
 export interface SearchCriteria {
+  companyStatusIds?: number[];
   wojewodztwoId?: number | null; powiatId?: number | null; gminaId?: number | null; miejscowoscId?: number | null;
   hasFirmyWPromieniu?: boolean | null; firmyWPromieniu?: number | null;
   companyName?: string;
@@ -256,9 +260,9 @@ export class ApiService {
     return this.http.post<SearchProfile>(this.url('/api/searches'), { name, pkdCodeIds, criteria, confirmDuplicateCriteria }, this.headers());
   }
 
-  companies(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters, modifiedWithinDays?: number): Observable<PagedResult<CompanyShort>> {
+  companies(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters, modifiedWithinDays?: number, notesOnly = false): Observable<PagedResult<CompanyShort>> {
     const params = this.companyParams(page, sortBy, direction, pkdIds, filters, modifiedWithinDays);
-    return this.http.get<PagedResult<CompanyShort>>(this.url('/api/companies'), { ...this.headers(), params });
+    return this.http.get<PagedResult<CompanyShort>>(this.url('/api/companies'), { ...this.headers(), params: notesOnly ? params.set('notesOnly', 'true') : params });
   }
 
   private companyParams(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters, modifiedWithinDays?: number): HttpParams {
@@ -266,6 +270,7 @@ export class ApiService {
     if (modifiedWithinDays != null) { params = params.set('modifiedWithinDays', String(modifiedWithinDays)); }
     pkdIds.forEach(id => params = params.append('pkdIds', String(id)));
     if (filters) {
+      params = params.set('companyStatusIds', JSON.stringify(filters.companyStatusIds || [1]));
       if (filters.companyName && filters.companyName.trim().length >= 3) { params = params.set('companyName', filters.companyName.trim()); }
       if (filters.address.trim()) { params = params.set('address', filters.address.trim()); }
       ['wojewodztwoId', 'powiatId', 'gminaId', 'miejscowoscId', 'radiusKm', 'addressLocality'].forEach(key => {
@@ -284,6 +289,9 @@ export class ApiService {
   companyDetails(id: number): Observable<CompanyDetails> {
     return this.http.get<CompanyDetails>(this.url('/api/companies/' + id), this.headers());
   }
+  companyStatuses(): Observable<AddressOption[]> {
+    return this.http.get<AddressOption[]>(this.url('/api/company-statuses'), this.headers());
+  }
   companyNotes(id: number): Observable<{ notes: string }> {
     return this.http.get<{ notes: string }>(this.url('/api/companies/' + id + '/notes'), this.headers());
   }
@@ -291,8 +299,8 @@ export class ApiService {
     return this.http.put<{ notes: string }>(this.url('/api/companies/' + id + '/notes'), { notes }, this.headers());
   }
 
-  exportCompanies(searchProfileId: number, modifiedWithinDays?: number, sortBy = 'dataAktywnosci', direction = 'desc', searchName?: string) {
-    return this.http.post(this.url('/api/companies/export'), { searchProfileId, modifiedWithinDays, sortBy, direction, searchName },
+  exportCompanies(searchProfileId: number, modifiedWithinDays?: number, sortBy = 'dataAktywnosci', direction = 'desc', searchName?: string, notesOnly = false) {
+    return this.http.post(this.url('/api/companies/export'), { searchProfileId, modifiedWithinDays, sortBy, direction, searchName, notesOnly },
       { ...this.headers(), responseType: 'blob', observe: 'response' });
   }
 

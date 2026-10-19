@@ -1,0 +1,9 @@
+<button *ngIf="hasNotes" type="button" class="notes-indicator" aria-label="Notatki" title=""
+        [attr.aria-describedby]="visible ? tooltipId : null"
+        (mouseenter)="show($event)" (mouseleave)="hide()" (focus)="show($event)" (blur)="hide()"
+        (click)="$event.stopPropagation(); openNotes()" (dblclick)="$event.stopPropagation()"
+        (keydown.enter)="$event.stopPropagation()" (keydown.escape)="$event.stopPropagation(); hide()">
+  <img src="assets/icons/sticky-note.svg" width="16" height="16" alt="">
+</button>
+<div *ngIf="visible" #tooltip class="notes-tooltip" role="tooltip" [id]="tooltipId"
+     [style.left.px]="left" [style.top.px]="top"><ng-container *ngFor="let line of lines; let last = last">{{ line }}<br *ngIf="!last"></ng-container></div>
