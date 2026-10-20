@@ -78,6 +78,7 @@ public class BusinessType
 {
     public int TypDzialalnosciId { get; set; }
     public string TypDzialalnosci { get; set; } = "";
+    public string? TypDzialalnosciSkrot { get; set; }
 }
 
 public class PkdCode
@@ -86,6 +87,7 @@ public class PkdCode
     public string Code { get; set; } = "";
     public string? CodeWithoutDots { get; private set; }
     public string Name { get; set; } = "";
+    public bool NeedsClarification { get; set; }
 }
 
 public class CompanyPkd
