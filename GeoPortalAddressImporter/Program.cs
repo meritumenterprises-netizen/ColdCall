@@ -23,7 +23,7 @@ try
             self-test
             self-test-db
 
-            Domyslnie: RAPORT bez zapisu, maksymalnie 10 firm; 96 rownoleglych wyszukiwan.
+            Domyslnie: RAPORT bez zapisu, maksymalnie 10 firm; 128 rownoleglych wyszukiwan.
             --apply: zapis do Adresy i CompanyAddress; AddressIsMissing=0 tylko dla budynku.
             --all: wszystkie kwalifikujace sie firmy (dlugotrwale przetwarzanie).
             --restart: ignoruj pozycje wznowienia; cache nadal jest uzywany.

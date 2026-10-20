@@ -50,7 +50,8 @@ internal static partial class Text
         }
     }
     public static string Number(string? value) => Spaces().Replace(Normalize(value), "");
-    public static string Province(string value) => Normalize(value).Replace("WOJEWÓDZTWO ", "", StringComparison.Ordinal);
+    public static string Province(string value) => Normalize(Normalize(value)
+        .Replace("WOJEWÓDZTWO ", "", StringComparison.Ordinal).Replace('-', ' '));
 
     [GeneratedRegex(@"\s+")]
     private static partial Regex Spaces();
