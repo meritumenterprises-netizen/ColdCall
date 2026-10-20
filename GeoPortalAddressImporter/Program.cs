@@ -23,11 +23,11 @@ try
             self-test
             self-test-db
 
-            Domyslnie: RAPORT bez zapisu, maksymalnie 10 firm; 8 rownoleglych wyszukiwan.
+            Domyslnie: RAPORT bez zapisu, maksymalnie 10 firm; 96 rownoleglych wyszukiwan.
             --apply: zapis do Adresy i CompanyAddress; AddressIsMissing=0 tylko dla budynku.
             --all: wszystkie kwalifikujace sie firmy (dlugotrwale przetwarzanie).
             --restart: ignoruj pozycje wznowienia; cache nadal jest uzywany.
-            --delay-ms: globalny odstep pomiedzy startami HTTP, co najmniej 10 ms.
+            --delay-ms: globalny odstep pomiedzy startami HTTP; 0 wylacza odstep.
             --company-id: pojedyncza firma; bez odczytu/zapisu pozycji wznowienia.
             --retry-errors: ponow firmy odlozone po bledzie zapytania UUG.
             GEO_PORTAL_SQL_CONNECTION: opcjonalny connection string.
@@ -47,7 +47,7 @@ try
     var connectionString = Environment.GetEnvironmentVariable("GEO_PORTAL_SQL_CONNECTION") ?? config.ConnectionString;
     var connection = new SqlConnectionStringBuilder(connectionString);
     var delay = options.DelayMilliseconds ?? config.DelayMilliseconds;
-    if (delay < 10 || config.CacheDays < 1) throw new ArgumentException("DelayMilliseconds >= 10, CacheDays >= 1.");
+    if (delay < 0 || config.CacheDays < 1) throw new ArgumentException("DelayMilliseconds >= 0, CacheDays >= 1.");
     var dataDirectory = Path.GetFullPath(options.DataDirectory ?? Path.Combine(AppContext.BaseDirectory, "data"));
     Directory.CreateDirectory(dataDirectory);
     // An exclusive file handle prevents concurrent local runs from corrupting progress.
@@ -80,7 +80,6 @@ try
     var deferredPath = Path.Combine(dataDirectory, $"deferred-{scope}-{(options.Apply ? "apply" : "report")}.json");
     var queue = await DeferredQueue.OpenAsync(deferredPath, cancellation.Token);
     var retryIds = options.RetryErrors ? queue.Ids : null;
-    var retryPosition = 0;
     log.Write("START", null, $"Kandydaci={await repository.CountAsync(cancellation.Token):N0}; po Id={afterId}; limit={options.Limit}.");
     using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
     http.DefaultRequestHeaders.UserAgent.ParseAdd("GeoPortalAddressImporter/1.0");
@@ -90,33 +89,12 @@ try
     var saved = 0;
     var deferred = 0;
     var consecutiveQueryErrors = 0;
-    while (processed < options.Limit)
-    {
-        IReadOnlyList<Company> companies;
-        if (retryIds != null)
-        {
-            var retryCompanies = new List<Company>();
-            while (retryCompanies.Count < Math.Min(ParallelAddressLookup.Concurrency, options.Limit - processed)
-                && retryPosition < retryIds.Count)
-            {
-                var id = retryIds[retryPosition++];
-                var retryCompany = await repository.ReadAsync(0, 1, id, cancellation.Token);
-                retryCompanies.AddRange(retryCompany);
-                if (retryCompany.Count == 0)
-                {
-                    await queue.RemoveAsync(id, cancellation.Token);
-                    log.Write("RETRY", id, "Firma nie kwalifikuje sie juz do importu; usunieto z listy.");
-                }
-            }
-            companies = retryCompanies;
-        }
-        else companies = await repository.ReadAsync(afterId, Math.Min(ParallelAddressLookup.Concurrency, options.Limit - processed), options.CompanyId, cancellation.Token);
-        if (companies.Count == 0) break;
-        var lookups = await ParallelAddressLookup.FindAsync(companies, geoportal, cancellation.Token);
-        foreach (var lookup in lookups)
+    var source = new CompanySource(repository, options, retryIds, afterId, log);
+    await ContinuousAddressLookup.RunAsync(source.ReadAsync(cancellation.Token), geoportal.FindAsync,
+        async (lookup, token) =>
         {
             var company = lookup.Company;
-            cancellation.Token.ThrowIfCancellationRequested();
+            token.ThrowIfCancellationRequested();
             MatchResult? result = null;
             try
             {
@@ -125,7 +103,7 @@ try
             }
             catch (GeoportalQueryException ex)
             {
-                await queue.RecordAsync(company, ex.Message, cancellation.Token);
+                await queue.RecordAsync(company, ex.Message, token);
                 deferred++;
                 consecutiveQueryErrors++;
                 log.Write("DEFER", company.Id, $"Blad zapytania UUG; odlozono do ponowienia w {deferredPath}. Dane SQL bez zmian.");
@@ -139,24 +117,27 @@ try
                 var (latitude, longitude) = Coordinates.Convert(address.X, address.Y);
                 if (options.Apply)
                 {
-                    var message = await repository.SaveAsync(company, address, cancellation.Token);
+                    var message = await repository.SaveAsync(company, address, token);
                     if (message.StartsWith("Zapisano", StringComparison.Ordinal)) saved++;
                     log.Write("SAVE", company.Id, message);
                 }
                 else
-                    log.Write("MATCH", company.Id, $"{company.City}, {address.Street} {address.Number}; rodzaj={(address.IsCity ? "miejscowosc" : "budynek")}; powiat={address.County}; gmina={address.Municipality}; GPS={latitude:F6},{longitude:F6}.");
+                    log.Write("MATCH", company.Id, $"{company.City}, {address.Street} {address.Number}; rodzaj={(address.IsCity ? "miejscowosc" : "budynek")}; {company.LocationDescription}; GPS={latitude:F6},{longitude:F6}.");
             }
             else if (result != null) log.Write("SKIP", company.Id, result.Reason);
-            if (result != null) await queue.RemoveAsync(company.Id, cancellation.Token);
+            if (result != null) await queue.RemoveAsync(company.Id, token);
 
             processed++;
-            afterId = company.Id;
-            if (!options.RetryErrors && options.CompanyId == null)
-                await Files.AtomicAsync(checkpoint, new Progress(afterId), cancellation.Token);
             if (processed % 100 == 0)
-                log.Write("PROGRESS", null, $"Sprawdzono={processed:N0}; dopasowano={matched:N0}; zapisano={saved:N0}; HTTP={geoportal.Requests:N0}; cache={geoportal.CacheHits:N0}.");
-        }
-    }
+                log.Write("PROGRESS", null, $"Sprawdzono={processed:N0}; dopasowano={matched:N0}; zapisano={saved:N0}; HTTP={geoportal.Requests:N0}; cache={geoportal.CacheHits:N0}; checkpoint Id={afterId}.");
+        },
+        async (lastId, token) =>
+        {
+            if (!options.RetryErrors && options.CompanyId == null)
+                await Files.AtomicAsync(checkpoint, new Progress(lastId), token);
+            afterId = lastId;
+        }, cancellation.Token);
+    foreach (var id in source.MissingRetryIds) await queue.RemoveAsync(id, cancellation.Token);
     log.Write("SUMMARY", null, $"Sprawdzono={processed:N0}; dopasowano={matched:N0}; zapisano={saved:N0}; odlozono={deferred:N0}; lista do ponowienia={queue.Count:N0}; HTTP={geoportal.Requests:N0}; cache={geoportal.CacheHits:N0}; ostatnie Id={afterId}.");
     return 0;
 }
@@ -215,7 +196,7 @@ internal sealed class Options
                 case "--limit": options.Limit = Number(); break;
                 case "--company-id": options.CompanyId = Number(); options.Limit = 1; break;
                 case "--after-id": options.AfterId = Number(true); break;
-                case "--delay-ms": options.DelayMilliseconds = Number(); break;
+                case "--delay-ms": options.DelayMilliseconds = Number(true); break;
                 case "--data-dir": options.DataDirectory = Value(); break;
                 default: throw new ArgumentException("Nieznany argument: " + key);
             }

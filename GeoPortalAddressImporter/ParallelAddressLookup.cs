@@ -4,7 +4,7 @@ internal sealed record AddressLookupResult(Company Company, MatchResult? Match, 
 
 internal static class ParallelAddressLookup
 {
-    public const int Concurrency = 8;
+    public const int Concurrency = 96;
 
     public static async Task<IReadOnlyList<AddressLookupResult>> FindAsync(
         IReadOnlyList<Company> companies, GeoportalClient client, CancellationToken token)
