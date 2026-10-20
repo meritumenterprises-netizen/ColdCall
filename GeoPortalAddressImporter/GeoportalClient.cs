@@ -7,13 +7,34 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
 {
     private static readonly Uri BaseUri = new("https://services.gugik.gov.pl/uug/");
     private DateTimeOffset nextRequest;
-    public int Requests { get; private set; }
-    public int CacheHits { get; private set; }
+    private readonly SemaphoreSlim requestGate = new(1, 1);
+    private readonly SemaphoreSlim cacheGate = new(1, 1);
+    private int requests;
+    private int cacheHits;
+    public int Requests => Volatile.Read(ref requests);
+    public int CacheHits => Volatile.Read(ref cacheHits);
+
+    private async Task WaitForRequestSlotAsync(CancellationToken token)
+    {
+        await requestGate.WaitAsync(token);
+        try
+        {
+            var wait = nextRequest - DateTimeOffset.UtcNow;
+            if (wait > TimeSpan.Zero) await Task.Delay(wait, token);
+            nextRequest = DateTimeOffset.UtcNow.AddMilliseconds(delayMilliseconds);
+        }
+        finally { requestGate.Release(); }
+    }
 
     public async Task<MatchResult> FindAsync(Company company, CancellationToken token)
     {
         var missing = Matching.Missing(company);
-        if (missing != null) return new(null, missing);
+        if (missing != null)
+        {
+            if (string.IsNullOrWhiteSpace(company.City)) return new(null, missing);
+            return CityMatching.Match(company, await GetAsync(
+                "?request=GetAddress&address=" + Uri.EscapeDataString(company.City.Trim()) + "&accuracy=1", token));
+        }
         var street = Text.Street(company.Street);
         var query = company.City + (street.Length == 0 ? " " : ", " + street + " ") + company.Number;
         var candidate = Matching.Candidate(company, await GetAsync(
@@ -34,6 +55,7 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
         var file = Path.Combine(directory, Text.Hash(path) + ".json");
         if (File.Exists(file))
         {
+            await cacheGate.WaitAsync(token);
             try
             {
                 var cached = JsonSerializer.Deserialize<CacheEntry>(await File.ReadAllTextAsync(file, token));
@@ -43,7 +65,7 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
                     var age = parsed.Returned == 0 ? Math.Min(1, cacheDays) : cacheDays;
                     if (cached.Created >= DateTimeOffset.UtcNow.AddDays(-age))
                     {
-                        CacheHits++;
+                        Interlocked.Increment(ref cacheHits);
                         return parsed;
                     }
                 }
@@ -52,16 +74,15 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
             {
                 log.Write("CACHE", null, "Pominieto uszkodzony cache: " + ex.Message);
             }
+            finally { cacheGate.Release(); }
         }
 
         for (var attempt = 0; attempt < 4; attempt++)
         {
-            var wait = nextRequest - DateTimeOffset.UtcNow;
-            if (wait > TimeSpan.Zero) await Task.Delay(wait, token);
-            nextRequest = DateTimeOffset.UtcNow.AddMilliseconds(delayMilliseconds);
+            await WaitForRequestSlotAsync(token);
             try
             {
-                Requests++;
+                Interlocked.Increment(ref requests);
                 using var response = await client.GetAsync(new Uri(BaseUri, path), HttpCompletionOption.ResponseHeadersRead, token);
                 if (response.StatusCode == HttpStatusCode.TooManyRequests || (int)response.StatusCode >= 500)
                 {
@@ -109,7 +130,9 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
                     throw new InvalidDataException(message, ex);
                 }
                 Directory.CreateDirectory(directory);
-                await Files.AtomicAsync(file, new CacheEntry(path, DateTimeOffset.UtcNow, json), token);
+                await cacheGate.WaitAsync(token);
+                try { await Files.AtomicAsync(file, new CacheEntry(path, DateTimeOffset.UtcNow, json), token); }
+                finally { cacheGate.Release(); }
                 return result;
             }
             catch (Exception ex) when (attempt < 3 && !token.IsCancellationRequested &&

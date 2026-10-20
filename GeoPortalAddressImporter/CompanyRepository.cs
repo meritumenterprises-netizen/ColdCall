@@ -85,7 +85,8 @@ internal sealed class CompanyRepository(string connectionString)
                 SELECT 1 FROM ColdCall.Adresy WHERE Id = @AddressId
                     AND WojewodztwoId = @ProvinceId AND MiejscowoscId = @CityId
                     AND PowiatId = @CountyId AND GminaId = @MunicipalityId
-                    AND COALESCE(Ulica, N'') = COALESCE(@Street, N'') AND NrUlicy = @Number
+                    AND COALESCE(Ulica, N'') = COALESCE(@Street, N'')
+                    AND COALESCE(NrUlicy, N'') = COALESCE(@Number, N'') AND Rodzaj = @Kind
                     AND Latitude = @Latitude AND Longitude = @Longitude)
                 THROW 51001, 'Istniejacy adres UUG ma inne dane; wymagane reczne sprawdzenie.', 1;
             IF @AddressId IS NULL
@@ -94,12 +95,12 @@ internal sealed class CompanyRepository(string connectionString)
                     (WojewodztwoId, PowiatId, GminaId, MiejscowoscId, Ulica, NrUlicy,
                      Rodzaj, Latitude, Longitude, Location, PrngId)
                 VALUES (@ProvinceId, @CountyId, @MunicipalityId, @CityId, @Street, @Number,
-                    N'punkt adresowy UUG', @Latitude, @Longitude,
+                    @Kind, @Latitude, @Longitude,
                     geography::Point(@Latitude, @Longitude, 4326), @SourceKey);
                 SET @AddressId = CONVERT(int, SCOPE_IDENTITY());
             END;
             INSERT ColdCall.CompanyAddress (CompanyId, AddressId) VALUES (@CompanyId, @AddressId);
-            UPDATE ColdCall.Companies SET AddressIsMissing = 0 WHERE Id = @CompanyId;
+            UPDATE ColdCall.Companies SET AddressIsMissing = @AddressIsMissing WHERE Id = @CompanyId;
             SELECT @AddressId;
             """, connection, transaction);
         command.Parameters.Add("@ProvinceId", SqlDbType.Int).Value = company.ProvinceId;
@@ -108,7 +109,9 @@ internal sealed class CompanyRepository(string connectionString)
         command.Parameters.Add("@MunicipalityId", SqlDbType.Int).Value = municipalityId;
         command.Parameters.Add("@CompanyId", SqlDbType.Int).Value = company.Id;
         AddText(command, "@Street", address.Street, 200);
-        AddText(command, "@Number", address.Number, 50);
+        AddText(command, "@Number", address.IsCity ? null : address.Number, 50);
+        AddText(command, "@Kind", address.IsCity ? "miejscowosc UUG (GPS przyblizony)" : "punkt adresowy UUG", 200);
+        command.Parameters.Add("@AddressIsMissing", SqlDbType.Bit).Value = address.IsCity;
         command.Parameters.Add("@SourceKey", SqlDbType.VarChar, 50).Value = address.SourceKey;
         foreach (var (name, value) in new[] { ("@Latitude", latitude), ("@Longitude", longitude) })
         {
@@ -119,7 +122,7 @@ internal sealed class CompanyRepository(string connectionString)
         }
         var addressId = (int)(await command.ExecuteScalarAsync(token))!;
         await transaction.CommitAsync(token);
-        return $"Zapisano AddressId={addressId}; powiat={address.County}; gmina={address.Municipality}; GPS={latitude:F6},{longitude:F6}.";
+        return $"Zapisano AddressId={addressId}; rodzaj={(address.IsCity ? "miejscowosc" : "budynek")}; powiat={address.County}; gmina={address.Municipality}; GPS={latitude:F6},{longitude:F6}.";
     }
 
     private static async Task<int> DictionaryIdAsync(SqlConnection connection, SqlTransaction transaction,

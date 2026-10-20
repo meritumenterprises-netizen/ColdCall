@@ -9,7 +9,7 @@ Nie potrzebuje tabel PrgAdresy, Terc ani lokalnych plikow PRG.
 W PowerShell:
 
 ```powershell
-cd C:\projects\GeoPortalAddressImporter
+cd C:\projects\ColdCall\GeoPortalAddressImporter
 dotnet build
 dotnet run -- run --limit 10
 dotnet run -- run --apply --limit 10
@@ -30,15 +30,19 @@ Uprawnienia DDL nie sa potrzebne do importu.
 
 - AddressIsMissing = 1, WojewodztwoId > 1, MiejscowoscId IS NOT NULL.
 - BlockedByRODO = 0 i brak istniejacego CompanyAddress.
-- Wymagane miasto, numer budynku i poprawny kod pocztowy XX-XXX.
-- Zastepcze numery budynkow (-, --, N/A, B/N, BRAK) sa pomijane bez HTTP.
-- Odpowiedzi typu street/city, takze bez returned objects, nie sa punktami adresowymi.
+- Wymagana miejscowosc. Dla dokladnego budynku wymagany jest tez numer i kod XX-XXX.
+- Brak numeru, numer zastepczy (-, --, N/A, B/N, BRAK) lub brak poprawnego kodu
+  pocztowego powoduje wyszukanie GPS samej miejscowosci, bez ulicy i numeru.
+- Wynik city musi miec dokladna nazwe i wojewodztwo firmy, poprawne SIMC/TERYT,
+  geometrie i jeden pasujacy wynik na kompletnej liscie. Niejednoznacznosc jest pomijana.
+- Odpowiedzi typu street nadal nie sa zapisywane.
 - found objects=null/puste/brak jest akceptowane jako zero tylko przy pustym results
   i jawnym returned objects=0. Niekompletne odpowiedzi i bledy uslugi nie sa brakiem adresu.
 - GetAddress z accuracy=1 i exact_number=1 wyszukuje kandydata.
 - Gdy odpowiedz GetAddress zawiera wiele punktow, wybierany jest pierwszy
   w kolejnosci odpowiedzi. Nadal musi przejsc wszystkie sprawdzenia adresu i geometrii.
-- Puste wyniki i odpowiedzi street/city nie maja punktu do zapisania i sa pomijane.
+- Dla pelnego adresu puste wyniki oraz odpowiedzi street/city sa pomijane;
+  GPS miejscowosci jest pobierany tylko dla niepelnego adresu.
 - Miasto, wojewodztwo, ulica, numer i kod pocztowy musza sie zgadzac.
 - Drugi request GetAddresses dla SIMC i ULIC sprawdza pelna liste punktow
   ulicy (dla miejscowosci bez ulic: tylko SIMC). Dokladnie jeden punkt musi pasowac.
@@ -51,7 +55,8 @@ UUG GetAddress udostepnia tylko najlepszy kandydat, a nie wszystkie wyniki w Pol
 Weryfikacja jednoznacznosci dotyczy zwroconego SIMC/ULIC; zgodnosc miasta,
 wojewodztwa i kodu pocztowego ogranicza ryzyko miejscowosci o tych samych nazwach,
 ale nie jest formalnym dowodem unikalnosci adresu w calym kraju.
-Importer nie wybiera punktow na podstawie samej nazwy firmy ani adresu przyblizonego.
+Importer nie wybiera punktow na podstawie samej nazwy firmy.
+Lokalizacja miejscowosci jest jawnie oznaczona jako przyblizona, nie jako budynek.
 
 Powiat i gmina pochodza z pola jednostka. Slowniki Powiaty/Gminy
 sa wyszukiwane po Name; brakujace nazwy sa dodawane transakcyjnie.
@@ -66,6 +71,12 @@ latitude/longitude WGS84, walidowane i zaokraglane do 6 miejsc.
 Do Location zapisywany jest geography::Point(latitude, longitude, 4326).
 Ulica trafia do Ulica, numer budynku do NrUlicy. Rodzaj: punkt adresowy UUG.
 
+Dla niepelnego adresu Rodzaj to `miejscowosc UUG (GPS przyblizony)`.
+Ulica i NrUlicy pozostaja NULL; Latitude, Longitude i Location wskazuja miejscowosc.
+PrngId ma oddzielny prefiks UUG:C: i hash TERYT/SIMC, wiec nie koliduje z budynkami.
+Tworzony jest CompanyAddress, ale AddressIsMissing pozostaje 1: pelny adres nadal
+jest nieznany. Istniejace powiazania nie sa nadpisywane ani automatycznie ulepszane.
+
 PrngId ma postac UUG: + 46 znakow SHA-256 identyfikatorow TERYT/SIMC/ULIC
 i numeru budynku. Nie jest oryginalnym identyfikatorem PRG: identyfikator id
 w odpowiedzi UUG zmienia sie miedzy requestami i nie nadaje sie na klucz.
@@ -75,7 +86,7 @@ Punkt wczesniej zaimportowany innym importerem, z innym PrngId, nie jest automat
 Transakcja dla jednej firmy:
 1. Ponownie sprawdza kryteria, blokade RODO, brak powiazania i niezmieniony adres.
 2. Uzupelnia slowniki i tworzy lub wykorzystuje rekord Adresy.
-3. Dodaje CompanyAddress i ustawia Companies.AddressIsMissing=0.
+3. Dodaje CompanyAddress; ustawia AddressIsMissing=0 dla budynku, 1 dla miejscowosci.
 
 Konflikt lub blad SQL powoduje rollback i zatrzymanie procesu.
 Po czterech odpowiedziach tekstowych Blad zapytania. importer odklada firme
@@ -128,8 +139,14 @@ zabezpiecz jego uprawnienia oraz ustal okres przechowywania i usuwania danych.
 
 ## Tempo
 
-Sekwencyjne zapytania, domyslnie minimum 100 ms pomiedzy startami HTTP.
---delay-ms pozwala zwiekszyc odstep, nigdy go zmniejszyc ponizej 100 ms.
+Parallel.ForEachAsync wykonuje maksymalnie 8 wyszukiwan firm jednoczesnie.
+Domyslnie globalny odstep pomiedzy startami HTTP wynosi 10 ms.
+--delay-ms pozwala zwiekszyc odstep, nigdy go zmniejszyc ponizej 10 ms.
+Oczekiwanie na odpowiedz nie blokuje pozostalych wyszukiwan. HTTP429 i bledy
+tymczasowe nadal powoduja ponowienia z opoznieniem, z uwzglednieniem Retry-After.
+Zapis SQL, lista bledow i checkpoint sa wykonywane w kolejnosci firm, po kazdej
+paczce do 8 odpowiedzi. Blad lub przerwanie nie przesuwa checkpointu za nieukonczona
+firme. Cache, limiter HTTP, liczniki i logi sa bezpieczne dla rownoleglych wywolan.
 To ostrozna konfiguracja aplikacji, nie deklarowany oficjalny limit GUGiK.
 HTTP429 i 5xx sa ponawiane do czterech prob z respektowaniem Retry-After.
 Odpowiedz niebedaca poprawnym JSON (np. tekst Blad zapytania. przy HTTP200)

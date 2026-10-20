@@ -23,11 +23,11 @@ try
             self-test
             self-test-db
 
-            Domyslnie: RAPORT bez zapisu, maksymalnie 10 firm.
-            --apply: zapis do Adresy, CompanyAddress i AddressIsMissing=0.
+            Domyslnie: RAPORT bez zapisu, maksymalnie 10 firm; 8 rownoleglych wyszukiwan.
+            --apply: zapis do Adresy i CompanyAddress; AddressIsMissing=0 tylko dla budynku.
             --all: wszystkie kwalifikujace sie firmy (dlugotrwale przetwarzanie).
             --restart: ignoruj pozycje wznowienia; cache nadal jest uzywany.
-            --delay-ms: odstep pomiedzy zadaniami HTTP, co najmniej 100 ms.
+            --delay-ms: globalny odstep pomiedzy startami HTTP, co najmniej 10 ms.
             --company-id: pojedyncza firma; bez odczytu/zapisu pozycji wznowienia.
             --retry-errors: ponow firmy odlozone po bledzie zapytania UUG.
             GEO_PORTAL_SQL_CONNECTION: opcjonalny connection string.
@@ -47,7 +47,7 @@ try
     var connectionString = Environment.GetEnvironmentVariable("GEO_PORTAL_SQL_CONNECTION") ?? config.ConnectionString;
     var connection = new SqlConnectionStringBuilder(connectionString);
     var delay = options.DelayMilliseconds ?? config.DelayMilliseconds;
-    if (delay < 100 || config.CacheDays < 1) throw new ArgumentException("DelayMilliseconds >= 100, CacheDays >= 1.");
+    if (delay < 10 || config.CacheDays < 1) throw new ArgumentException("DelayMilliseconds >= 10, CacheDays >= 1.");
     var dataDirectory = Path.GetFullPath(options.DataDirectory ?? Path.Combine(AppContext.BaseDirectory, "data"));
     Directory.CreateDirectory(dataDirectory);
     // An exclusive file handle prevents concurrent local runs from corrupting progress.
@@ -95,25 +95,34 @@ try
         IReadOnlyList<Company> companies;
         if (retryIds != null)
         {
-            companies = Array.Empty<Company>();
-            while (companies.Count == 0 && retryPosition < retryIds.Count)
+            var retryCompanies = new List<Company>();
+            while (retryCompanies.Count < Math.Min(ParallelAddressLookup.Concurrency, options.Limit - processed)
+                && retryPosition < retryIds.Count)
             {
                 var id = retryIds[retryPosition++];
-                companies = await repository.ReadAsync(0, 1, id, cancellation.Token);
-                if (companies.Count == 0)
+                var retryCompany = await repository.ReadAsync(0, 1, id, cancellation.Token);
+                retryCompanies.AddRange(retryCompany);
+                if (retryCompany.Count == 0)
                 {
                     await queue.RemoveAsync(id, cancellation.Token);
                     log.Write("RETRY", id, "Firma nie kwalifikuje sie juz do importu; usunieto z listy.");
                 }
             }
+            companies = retryCompanies;
         }
-        else companies = await repository.ReadAsync(afterId, Math.Min(200, options.Limit - processed), options.CompanyId, cancellation.Token);
+        else companies = await repository.ReadAsync(afterId, Math.Min(ParallelAddressLookup.Concurrency, options.Limit - processed), options.CompanyId, cancellation.Token);
         if (companies.Count == 0) break;
-        foreach (var company in companies)
+        var lookups = await ParallelAddressLookup.FindAsync(companies, geoportal, cancellation.Token);
+        foreach (var lookup in lookups)
         {
+            var company = lookup.Company;
             cancellation.Token.ThrowIfCancellationRequested();
             MatchResult? result = null;
-            try { result = await geoportal.FindAsync(company, cancellation.Token); }
+            try
+            {
+                if (lookup.Error != null) System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(lookup.Error).Throw();
+                result = lookup.Match;
+            }
             catch (GeoportalQueryException ex)
             {
                 await queue.RecordAsync(company, ex.Message, cancellation.Token);
@@ -135,7 +144,7 @@ try
                     log.Write("SAVE", company.Id, message);
                 }
                 else
-                    log.Write("MATCH", company.Id, $"{company.City}, {address.Street} {address.Number}; powiat={address.County}; gmina={address.Municipality}; GPS={latitude:F6},{longitude:F6}.");
+                    log.Write("MATCH", company.Id, $"{company.City}, {address.Street} {address.Number}; rodzaj={(address.IsCity ? "miejscowosc" : "budynek")}; powiat={address.County}; gmina={address.Municipality}; GPS={latitude:F6},{longitude:F6}.");
             }
             else if (result != null) log.Write("SKIP", company.Id, result.Reason);
             if (result != null) await queue.RemoveAsync(company.Id, cancellation.Token);

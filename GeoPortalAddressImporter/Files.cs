@@ -24,6 +24,7 @@ internal static class Files
 internal sealed class RunLog : IDisposable
 {
     private readonly StreamWriter writer;
+    private readonly object sync = new();
     public string Path { get; }
     public RunLog(string directory)
     {
@@ -36,8 +37,11 @@ internal sealed class RunLog : IDisposable
     {
         var clean = message.Replace("\r", " ").Replace("\n", " ");
         var line = $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz} | {stage,-8} | {(companyId is null ? "-" : companyId.Value),8} | {clean}";
-        Console.WriteLine(line);
-        writer.WriteLine(line);
+        lock (sync)
+        {
+            Console.WriteLine(line);
+            writer.WriteLine(line);
+        }
     }
     public void Dispose() => writer.Dispose();
 }
