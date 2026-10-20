@@ -7,6 +7,7 @@ namespace ColdCall.Data;
 public partial class ColdCallDbContext
 {
     public DbSet<Adres> Adresy => Set<Adres>();
+    public DbSet<CeidgImportBatch> CeidgImportBatches => Set<CeidgImportBatch>();
     public DbSet<CompanyUserNote> CompanyUserNotes => Set<CompanyUserNote>();
     public DbSet<CsvExport> CsvExports => Set<CsvExport>();
     public DbSet<CompanyAddress> CompanyAddresses => Set<CompanyAddress>();
@@ -28,6 +29,20 @@ public partial class ColdCallDbContext
 
     private static void ConfigureDatabaseSchema(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<CeidgImportBatch>(entity =>
+        {
+            entity.ToTable("CEIDGImportBatch", "ColdCall");
+            entity.HasKey(x => x.CeidgImportBatchId).HasName("PK_CEIDGImportBatch").IsClustered();
+            entity.Property(x => x.CeidgImportBatchId).HasColumnName("CEIDGImportBatchId").UseIdentityColumn();
+            entity.Property(x => x.ImportDate).HasColumnType("datetime");
+            entity.Property(x => x.CompaniesAdded).HasDefaultValue(0);
+            entity.Property(x => x.CompaniesUpdated).HasDefaultValue(0);
+            entity.Property(x => x.CompaniesSkipped).HasDefaultValue(0);
+            entity.Property(x => x.CompaniesTotal).HasDefaultValue(0);
+            entity.Property(x => x.StartDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.Property(x => x.EndDate).HasColumnType("datetime");
+            entity.Property(x => x.CreatedOn).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+        });
         modelBuilder.Entity<StripePayment>(entity =>
         {
             entity.ToTable("StripePayments", "ColdCall");
@@ -93,6 +108,7 @@ public partial class ColdCallDbContext
             .HasDefaultValue(true).HasSentinel(true);
         modelBuilder.Entity<AdminEmail>().Property(x => x.Email).HasMaxLength(450);
         modelBuilder.Entity<BusinessType>().Property(x => x.TypDzialalnosciId).ValueGeneratedNever();
+        modelBuilder.Entity<BusinessType>().Property(x => x.TypDzialalnosciSkrot).HasMaxLength(128);
         modelBuilder.Entity<Company>(entity =>
         {
             entity.Property(x => x.BlockedByRODO).HasColumnType("bit").IsRequired().HasDefaultValue(false);
@@ -121,6 +137,7 @@ public partial class ColdCallDbContext
                 .OnDelete(DeleteBehavior.NoAction);
         });
         modelBuilder.Entity<PkdCode>().Property(x => x.Code).HasMaxLength(450);
+        modelBuilder.Entity<PkdCode>().Property(x => x.NeedsClarification).HasDefaultValue(false);
         modelBuilder.Entity<PkdCode>().Property(x => x.CodeWithoutDots).HasMaxLength(4000).IsRequired(false);
         modelBuilder.Entity<CompanyPkd>().HasIndex(x => x.PkdCodeId);
         modelBuilder.Entity<CompanyPkd>().Property(x => x.Prevailing)
@@ -153,8 +170,10 @@ public partial class ColdCallDbContext
             entity.Property(x => x.Latitude).HasPrecision(9, 6);
             entity.Property(x => x.Longitude).HasPrecision(9, 6);
             entity.Property(x => x.Location).HasColumnType("geography").IsRequired(false);
-            entity.HasIndex(x => x.PrngId).HasDatabaseName("UX_Adresy_PrngId")
-                .IsUnique().HasFilter("([PrngId] IS NOT NULL)");
+            // SQL Server spatial indexes are maintained by Sql/AdresySpatialIndex.sql, not HasIndex.
+            entity.HasIndex(x => new { x.MiejscowoscId, x.WojewodztwoId, x.PowiatId, x.GminaId })
+                .HasDatabaseName("IX_Adresy_LocalityCenter")
+                .IncludeProperties(x => new { x.Latitude, x.Longitude });
             entity.HasOne(x => x.Wojewodztwo).WithMany().HasForeignKey(x => x.WojewodztwoId)
                 .HasConstraintName("FK_Adresy_Wojewodztwa").OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(x => x.Powiat).WithMany().HasForeignKey(x => x.PowiatId)

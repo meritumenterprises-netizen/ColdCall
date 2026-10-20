@@ -19,10 +19,6 @@ public sealed class CompanyImportService(CeidgXmlReader reader, CompanyRepositor
                 ? "Brak województwa" : CeidgXmlReader.ProvinceFromFile(file)
                 ?? throw new InvalidDataException($"Brak wojewodztwa w nazwie pliku: {Path.GetFileName(file)}");
             int? wojewodztwoId = repository.FindProvinceId(wojewodztwo);
-            //if (wojewodztwoId == 1)
-            //{
-            //    continue;
-            //}
             log.Write($"Plik: {Path.GetFileName(file)}; wojewodztwo={wojewodztwo}; Id={wojewodztwoId?.ToString() ?? "dry-run"}");
             await foreach (var company in reader.ReadAsync(file, token))
             {
