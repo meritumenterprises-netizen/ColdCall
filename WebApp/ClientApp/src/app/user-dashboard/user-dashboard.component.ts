@@ -553,6 +553,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.csvRequest) { this.csvRequest.unsubscribe(); }
     if (this.quotaRequest) { this.quotaRequest.unsubscribe(); }
     if (this.toastTimer) { this.toastTimer.unsubscribe(); }
+    if (this.csvFileHintTimer) { this.csvFileHintTimer.unsubscribe(); }
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     if (this.saveSearchRequest) { this.saveSearchRequest.unsubscribe(); }
     if (this.searchesRequest) { this.searchesRequest.unsubscribe(); }
@@ -978,6 +979,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   csvQuotaLoading = false;
   csvQuotaLoaded = false;
   csvToast = '';
+  csvFileHintSearchId: number | null = null;
+  private csvFileHintTimer: Subscription | null = null;
   private quotaRequest: Subscription | null = null;
   private quotaSearchId: number | null = null;
   private quotaToastPending = false;
@@ -1005,7 +1008,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
           this.quotaToastPending = false;
           this.csvToast = quota.remaining == null ? 'Eksport CSV zapisany. Brak limitu eksportow w planie.'
             : 'Eksport CSV zapisany. Pozostalo eksportow dla tego wyszukiwania: ' + this.formatNumber(quota.remaining) + '.';
-          if (this.toastTimer) { this.toastTimer.unsubscribe(); }
+    if (this.toastTimer) { this.toastTimer.unsubscribe(); }
           this.toastTimer = timer(6000).subscribe(() => this.csvToast = '');
         }
       }, () => {
@@ -1042,6 +1045,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     const searchId = this.currentSearchId;
     const searchName = this.searchName.trim();
     const days = this.activeResultTab.days;
+    const resultTab = this.activeResultTab.key;
     const notesOnly = this.activeResultTab.key === 'notes';
     const sortBy = this.sortBy;
     const direction = this.direction;
@@ -1057,7 +1061,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         }))
       : of(null);
     this.csvRequest = prepareSearch.pipe(switchMap(() => this.api.checkCsvExport(searchId))).subscribe(result => {
-      const exportAction = () => this.performCsvExport(searchId, days, sortBy, direction, searchName, notesOnly);
+      const exportAction = () => this.performCsvExport(searchId, days, sortBy, direction, searchName, notesOnly, resultTab);
       if (result.exists) {
         this.pendingCsvExport = exportAction;
         this.duplicateExportDialog.nativeElement.showModal();
@@ -1068,8 +1072,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private performCsvExport(searchId: number, days: number | undefined, sortBy: string, direction: string, searchName: string, notesOnly = false) {
-    this.csvRequest = this.api.exportCompanies(searchId, days, sortBy, direction, searchName, notesOnly)
+  private performCsvExport(searchId: number, days: number | undefined, sortBy: string, direction: string, searchName: string, notesOnly = false, resultTab?: string) {
+    this.csvRequest = this.api.exportCompanies(searchId, days, sortBy, direction, searchName, notesOnly, resultTab)
       .pipe(finalize(() => this.exportingCsv = false)).subscribe(response => {
       if (!response.body) { return; }
       const profile = this.searches.find(search => search.id === searchId);
@@ -1078,6 +1082,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       const utf8Name = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
       const plainName = /filename="([^"]+)"/i.exec(disposition);
       this.saveCsvFile(response.body, utf8Name ? decodeURIComponent(utf8Name[1]) : plainName ? plainName[1] : 'firmy.CSV');
+      if (this.csvFileHintTimer) { this.csvFileHintTimer.unsubscribe(); }
+      this.csvFileHintSearchId = searchId;
+      this.csvFileHintTimer = timer(5000).subscribe(() => this.csvFileHintSearchId = null);
       this.loadCsvExports(false);
       this.loadCsvExportQuota(true);
     }, err => {

@@ -300,8 +300,8 @@ export class ApiService {
     return this.http.put<{ notes: string }>(this.url('/api/companies/' + id + '/notes'), { notes }, this.headers());
   }
 
-  exportCompanies(searchProfileId: number, modifiedWithinDays?: number, sortBy = 'dataAktywnosci', direction = 'desc', searchName?: string, notesOnly = false) {
-    return this.http.post(this.url('/api/companies/export'), { searchProfileId, modifiedWithinDays, sortBy, direction, searchName, notesOnly },
+  exportCompanies(searchProfileId: number, modifiedWithinDays?: number, sortBy = 'dataAktywnosci', direction = 'desc', searchName?: string, notesOnly = false, resultTab?: string) {
+    return this.http.post(this.url('/api/companies/export'), { searchProfileId, modifiedWithinDays, sortBy, direction, searchName, notesOnly, resultTab },
       { ...this.headers(), responseType: 'blob', observe: 'response' });
   }
 

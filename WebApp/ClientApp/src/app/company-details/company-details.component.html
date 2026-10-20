@@ -1,6 +1,6 @@
 <dialog #dialog [class.map-view]="activeTab === 'map'" aria-labelledby="company-details-title" (cancel)="close()">
   <header>
-    <h2 id="company-details-title">{{ details && details.company.businessTypeName ? details.company.businessTypeName : 'Dzia\u0142alno\u015b\u0107' }}</h2>
+    <h2 id="company-details-title">{{ dialogTitle }}</h2>
     <div class="header-actions">
       <button type="button" class="header-icon-button" (click)="copyCompany()" [disabled]="!details || loading || copying"
               aria-label="Kopiuj do schowka" title="Kopiuj do schowka">
