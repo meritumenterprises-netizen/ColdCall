@@ -37,7 +37,7 @@ public class CompanySearchQuery
             || !miejscowoscId.HasValue))
             throw new ArgumentException("Wybierz miejscowosc i poprawny promien.");
         var query = ApplyDetailFilters(ApplyPkdFilter(BaseCompanyQuery(includeAllCompanies), pkdIds),
-            address, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
+            radiusKm.HasValue ? null : address, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
         if (!includeAllCompanies || criteria.CompanyStatusIds != null)
         {
             var statuses = CompanyStatusSelection.Parse(criteria.CompanyStatusIds);
@@ -46,7 +46,8 @@ public class CompanySearchQuery
         }
         if (radiusKm.HasValue)
         {
-            var center = await LocalityCenter(null, null, gminaId, miejscowoscId!.Value);
+            // Administrative selections identify the center only; candidates are filtered solely by distance.
+            var center = await LocalityCenter(wojewodztwoId, powiatId, gminaId, miejscowoscId!.Value);
             if (center == null) throw new ArgumentException("Brak wspolrzednych dla wybranej miejscowosci.");
             query = ApplyRadiusFilter(query, center, radiusKm.Value);
         }
