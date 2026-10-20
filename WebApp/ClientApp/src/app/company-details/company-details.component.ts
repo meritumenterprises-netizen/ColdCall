@@ -39,6 +39,14 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
 
   get notesChanged() { return this.notes !== this.savedNotes; }
 
+  get dialogTitle(): string {
+    if (!this.details) { return 'Dzia\u0142alno\u015b\u0107'; }
+    const company = this.details.company;
+    const civilPartnershipStatus = 'Dzia\u0142alno\u015b\u0107 prowadzona wy\u0142\u0105cznie w formie sp\u00f3\u0142ki cywilnej';
+    return (company.statusDzialalnosciName || '').trim().toLowerCase() === civilPartnershipStatus.toLowerCase()
+      ? civilPartnershipStatus : company.businessTypeName || 'Dzia\u0142alno\u015b\u0107';
+  }
+
   get activityDateKey(): 'startedAt' | 'resumedOn' | 'suspendedOn' {
     if (this.details && this.details.company.statusDzialalnosciId === 2) { return 'suspendedOn'; }
     return this.details && this.details.company.resumedOn != null ? 'resumedOn' : 'startedAt';

@@ -146,6 +146,8 @@ public class CompaniesController : ControllerBase
     [HttpPost("export")]
     public async Task<IActionResult> Export(ExportCompaniesRequest request, CancellationToken cancellationToken)
     {
+        var days = request.ResultTab switch { "30" => 30, "7" => 7, "all" or "notes" => (int?)null, _ => request.ModifiedWithinDays };
+        var notesOnly = request.ResultTab == null ? request.NotesOnly : request.ResultTab == "notes";
         var user = await _currentUserService.GetOrCreateAsync(User);
         var isAdmin = user.IsAdmin;
         var hasPlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow, cancellationToken);
@@ -167,12 +169,12 @@ public class CompaniesController : ControllerBase
             if (quota.Remaining == 0)
                 return StatusCode(409, new { message = "Osiagnieto limit eksportow CSV dla tego wyszukiwania." });
             var query = await new CompanySearchQuery(_db).BuildAsync(profile.Criteria ?? new SearchProfileCriteria(),
-                profile.PkdCodes.Select(x => x.PkdCodeId).ToArray(), request.ModifiedWithinDays);
-            if (request.NotesOnly) query = new CompanySearchQuery(_db).WithUserNotes(query, user.Id);
+                profile.PkdCodes.Select(x => x.PkdCodeId).ToArray(), days);
+            if (notesOnly) query = new CompanySearchQuery(_db).WithUserNotes(query, user.Id);
             var ids = await query.ApplyCompanyShortSort(request.SortBy, request.Direction).Select(x => x.Id)
                 .Take(limit).ToListAsync(cancellationToken);
             if (ids.Count == 0) return BadRequest(new { message = "Brak rekordow do eksportu." });
-            var csv = await _csvExporter.ExportAsync(user, profile, ids, request.ModifiedWithinDays, cancellationToken, request.SearchName, request.NotesOnly);
+            var csv = await _csvExporter.ExportAsync(user, profile, ids, days, cancellationToken, request.SearchName, notesOnly);
             await transaction.CommitAsync(cancellationToken);
             return File(csv.Content, "text/csv; charset=utf-8", csv.Name);
         }
