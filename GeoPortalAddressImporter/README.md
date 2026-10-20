@@ -23,12 +23,13 @@ Nie uruchamiaj pelnego importu przed ocena raportu i wykonaniem backupu bazy.
 Konfiguracja jest w appsettings.json, kopiowanym do katalogu wykonywalnego.
 Mozna nadpisac connection string zmienna GEO_PORTAL_SQL_CONNECTION.
 Wymagane: SQL Server, uprawnienia SELECT do Companies/slownikow/CompanyAddress,
-INSERT do Adresy/CompanyAddress/Powiaty/Gminy i UPDATE Companies.AddressIsMissing.
+INSERT do Adresy/CompanyAddress i UPDATE Companies.AddressIsMissing.
 Uprawnienia DDL nie sa potrzebne do importu.
 
 ## Kwalifikacja i dopasowanie
 
 - AddressIsMissing = 1, WojewodztwoId > 1, MiejscowoscId IS NOT NULL.
+- PowiatId i GminaId musza byc dodatnimi identyfikatorami w Companies.
 - BlockedByRODO = 0 i brak istniejacego CompanyAddress.
 - Wymagana miejscowosc. Dla dokladnego budynku wymagany jest tez numer i kod XX-XXX.
 - Brak numeru, numer zastepczy (-, --, N/A, B/N, BRAK) lub brak poprawnego kodu
@@ -58,11 +59,11 @@ ale nie jest formalnym dowodem unikalnosci adresu w calym kraju.
 Importer nie wybiera punktow na podstawie samej nazwy firmy.
 Lokalizacja miejscowosci jest jawnie oznaczona jako przyblizona, nie jako budynek.
 
-Powiat i gmina pochodza z pola jednostka. Slowniki Powiaty/Gminy
-sa wyszukiwane po Name; brakujace nazwy sa dodawane transakcyjnie.
-Obecny schemat slownikow jest unikalny globalnie po Name, bez hierarchii TERYT:
-importer zachowuje ten model i nie dodaje osobnych wierszy o tej samej nazwie.
-Wojewodztwo i miejscowosc uzywaja istniejacych, zweryfikowanych Id firmy.
+Wszystkie cztery identyfikatory adresu (WojewodztwoId, PowiatId, GminaId,
+MiejscowoscId) sa kopiowane bezposrednio z Companies. UUG dostarcza GPS;
+nazwy powiatu/gminy z odpowiedzi nie zmieniaja identyfikatorow firmy.
+Importer nie tworzy ani nie modyfikuje slownikow administracyjnych.
+Firmy bez wymaganych identyfikatorow nie kwalifikuja sie do zapisu.
 
 ## Zapis i bezpieczenstwo
 
@@ -77,19 +78,20 @@ PrngId ma oddzielny prefiks UUG:C: i hash TERYT/SIMC, wiec nie koliduje z budynk
 Tworzony jest CompanyAddress, ale AddressIsMissing pozostaje 1: pelny adres nadal
 jest nieznany. Istniejace powiazania nie sa nadpisywane ani automatycznie ulepszane.
 
-PrngId ma postac UUG: + 46 znakow SHA-256 identyfikatorow TERYT/SIMC/ULIC
-i numeru budynku. Nie jest oryginalnym identyfikatorem PRG: identyfikator id
+Nowe PrngId ma postac UUG:CO: + 43 znaki SHA-256 klucza punktu UUG
+i czterech identyfikatorow z Companies. Rozne zestawy identyfikatorow nie sa scalane.
+Nie jest oryginalnym identyfikatorem PRG: identyfikator id
 w odpowiedzi UUG zmienia sie miedzy requestami i nie nadaje sie na klucz.
 Istniejacy punkt z tym samym kluczem jest uzywany ponownie, o ile dane sa identyczne.
 Punkt wczesniej zaimportowany innym importerem, z innym PrngId, nie jest automatycznie scalany.
 
 Transakcja dla jednej firmy:
 1. Ponownie sprawdza kryteria, blokade RODO, brak powiazania i niezmieniony adres.
-2. Uzupelnia slowniki i tworzy lub wykorzystuje rekord Adresy.
+2. Tworzy lub wykorzystuje rekord Adresy z identyfikatorami firmy i GPS z UUG.
 3. Dodaje CompanyAddress; ustawia AddressIsMissing=0 dla budynku, 1 dla miejscowosci.
 
 Konflikt lub blad SQL powoduje rollback i zatrzymanie procesu.
-Po czterech odpowiedziach tekstowych Blad zapytania. importer odklada firme
+Po pierwszej odpowiedzi niebedacej poprawnym JSON importer odklada firme
 do trwalej listy do ponowienia i przetwarza nastepna, bez zapisu jej adresu do SQL.
 Piec kolejnych takich bledow zatrzymuje import, aby nie kontynuowac podczas awarii uslugi.
 Nie nadpisuje istniejacych powiazan ani pol adresowych Companies.
@@ -139,21 +141,30 @@ zabezpiecz jego uprawnienia oraz ustal okres przechowywania i usuwania danych.
 
 ## Tempo
 
-Parallel.ForEachAsync wykonuje maksymalnie 8 wyszukiwan firm jednoczesnie.
-Domyslnie globalny odstep pomiedzy startami HTTP wynosi 10 ms.
---delay-ms pozwala zwiekszyc odstep, nigdy go zmniejszyc ponizej 10 ms.
+Parallel.ForEachAsync wykonuje maksymalnie 96 wyszukiwan firm jednoczesnie.
+Domyslnie brak sztucznego odstepu pomiedzy startami HTTP (DelayMilliseconds=0).
+--delay-ms pozwala ustawic odstep; wartosc 0 wylacza limiter czasu.
 Oczekiwanie na odpowiedz nie blokuje pozostalych wyszukiwan. HTTP429 i bledy
 tymczasowe nadal powoduja ponowienia z opoznieniem, z uwzglednieniem Retry-After.
-Zapis SQL, lista bledow i checkpoint sa wykonywane w kolejnosci firm, po kazdej
-paczce do 8 odpowiedzi. Blad lub przerwanie nie przesuwa checkpointu za nieukonczona
-firme. Cache, limiter HTTP, liczniki i logi sa bezpieczne dla rownoleglych wywolan.
+Wyszukiwania dzialaja ciagle, bez bariery paczek: wolny request nie blokuje zapisu
+pozostalych wynikow ani startu kolejnego wyszukiwania w wolnym slocie.
+Gotowe wyniki trafiaja do ograniczonego kanalu i jednego konsumenta zapisu SQL.
+Logi SAVE/SKIP/DEFER moga miec ID w innej kolejnosci niz rosnaca.
+Checkpoint przesuwa sie tylko za ciag zapisanych lub obsluzonych rekordow,
+bez przeskakiwania wolniejszej firmy. PROGRESS podaje bezpieczny checkpoint Id.
+Kanal wynikow ma pojemnosc 192, a okno niezcheckpointowanych firm 384.
+Wyczerpanie okna lub wypelnienie kanalu wstrzymuje pobieranie kolejnych firm,
+aby opoznione HTTP lub wolny SQL nie powodowaly nieograniczonego zuzycia pamieci.
+Blad lub przerwanie anuluje i oczekuje na workerow przed zamknieciem HTTP/logu.
+Retry-errors i company-id nadal nie zmieniaja glownego checkpointu.
+Cache, limiter HTTP, liczniki i logi sa bezpieczne dla rownoleglych wywolan.
 To ostrozna konfiguracja aplikacji, nie deklarowany oficjalny limit GUGiK.
 HTTP429 i 5xx sa ponawiane do czterech prob z respektowaniem Retry-After.
 Odpowiedz niebedaca poprawnym JSON (np. tekst Blad zapytania. przy HTTP200)
-jest rowniez ponawiana do czterech prob, z odstepami 2/4/8 sekund lub Retry-After.
-Nie jest zapisywana jako pusty wynik; po wyczerpaniu prob import zatrzymuje sie
-bez przesuniecia checkpoint nieudanej firmy, z wyjatkiem rozpoznanego tekstu
-Blad zapytania., ktory trafia do trwalej listy do ponowienia i pozwala kontynuowac.
+nie jest ponawiana. Surowa odpowiedz jest zachowana diagnostycznie, a firma trafia
+do trwalej listy do recznego ponowienia przez --retry-errors. Import przechodzi dalej;
+dotychczasowy bezpiecznik pieciu kolejnych bledow nadal zatrzymuje przebieg.
+Niepoprawny JSON nie jest zapisywany w cache jako pusty wynik.
 Trwale bledy sieci lub nieznany format API zatrzymuja import, bez przesuwania checkpoint.
 
 Bez cache dopasowana firma wymaga dwoch requestow. Cache wspoldzieli

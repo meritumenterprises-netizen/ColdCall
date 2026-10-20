@@ -10,7 +10,11 @@ namespace GeoPortalAddressImporter;
 
 internal sealed record Company(
     int Id, int ProvinceId, int CityId, string Province, string City,
-    string? Street, string? Number, string? PostalCode);
+    string? Street, string? Number, string? PostalCode, int? CountyId = null, int? MunicipalityId = null,
+    string? County = null, string? Municipality = null)
+{
+    public string LocationDescription => $"Wojew\u00f3dztwo: {Province}; powiat: {County}; gmina: {Municipality}; miejscowo\u015b\u0107: {City}";
+}
 
 internal sealed record Address(
     string Province, string County, string Municipality, string City,
@@ -20,6 +24,10 @@ internal sealed record Address(
     public string SourceKey => IsCity
         ? "UUG:C:" + Text.Hash(Teryt + "|" + Simc)[..44]
         : "UUG:" + Text.Hash(Teryt + "|" + Simc + "|" + Ulic + "|" + Text.Number(Number))[..46];
+
+    public string SourceKeyFor(Company company) => "UUG:CO:" + Text.Hash(
+        SourceKey + "|" + company.ProvinceId + "|" + company.CountyId + "|"
+        + company.MunicipalityId + "|" + company.CityId)[..43];
 }
 
 internal sealed record MatchResult(Address? Address, string Reason);

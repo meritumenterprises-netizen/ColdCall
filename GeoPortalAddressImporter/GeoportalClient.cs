@@ -16,6 +16,8 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
 
     private async Task WaitForRequestSlotAsync(CancellationToken token)
     {
+        token.ThrowIfCancellationRequested();
+        if (delayMilliseconds == 0) return;
         await requestGate.WaitAsync(token);
         try
         {
@@ -116,16 +118,8 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
                         $"{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.json");
                     await Files.AtomicAsync(diagnostic, new CacheEntry(path, DateTimeOffset.UtcNow, json), token);
                     log.Write("API", null, $"Nieprawidlowa odpowiedz; zapytanie={path}; plik={diagnostic}.");
-                    if (ex is JsonException && attempt < 3)
-                    {
-                        log.Write("RETRY", null, $"Odpowiedz nie jest poprawnym JSON; proba {attempt + 1}/4.");
-                        var retry = response.Headers.RetryAfter?.Delta ??
-                            (response.Headers.RetryAfter?.Date - DateTimeOffset.UtcNow) ?? TimeSpan.FromSeconds(Math.Pow(2, attempt + 1));
-                        await Task.Delay(retry < TimeSpan.Zero ? TimeSpan.Zero : retry, token);
-                        continue;
-                    }
                     var message = $"{ex.Message} Surowa odpowiedz: {diagnostic}";
-                    if (ex is JsonException && Text.Normalize(json) is "BLAD ZAPYTANIA." or "BŁĄD ZAPYTANIA.")
+                    if (ex is JsonException)
                         throw new GeoportalQueryException(message, ex);
                     throw new InvalidDataException(message, ex);
                 }

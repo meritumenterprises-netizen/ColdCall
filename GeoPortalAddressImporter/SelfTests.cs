@@ -58,6 +58,9 @@ internal static class SelfTests
         Assert(CityMatching.Match(Company, cityResult with { Found = 2, Returned = 2, Points = new[] { Point(cityAddress), Point(cityAddress) } }).Address == null, "Niejednoznaczna miejscowosc");
         Assert(CityMatching.Match(Company, cityResult with { Found = 2 }).Address == null, "Niepelna lista miejscowosci");
         Assert(cityAddress.SourceKey.Length == 50 && cityAddress.SourceKey != Address.SourceKey, "Oddzielny klucz GPS miejscowosci");
+        Assert(Address.SourceKeyFor(Company).Length == 50
+            && Address.SourceKeyFor(Company with { CountyId = 1 }) != Address.SourceKeyFor(Company with { CountyId = 2 }),
+            "Klucz adresu uwzglednia identyfikatory Companies");
         Assert(ApiParser.Parse("""{"type":"address","found objects":0,"results":null}""").Returned == 0, "Pusta odpowiedz adresowa bez returned objects");
         Assert(ApiParser.Parse("""{"type":"address","found objects":"0","returned objects":"0","results":{}}""").Returned == 0, "Liczby jako string");
         const string nullFoundResponse = """{"type":"address","max results limit":15,"min accuracy limit":1,"only exact numbers":1,"found objects":null,"returned objects":0,"results":null,"request time":0.003420849641164144}""";
@@ -75,6 +78,7 @@ internal static class SelfTests
         Assert(Address.SourceKey.Length == 50 && Address.SourceKey == (Address with { Number = " 3 9 " }).SourceKey, "Stabilny klucz zrodla");
         Assert(Options.Parse(new[] { "--apply", "--limit", "5" }).Limit == 5, "CLI");
         Assert(Options.Parse(Array.Empty<string>()).Limit == 10, "Bezpieczny limit domyslny");
+        Assert(Options.Parse(new[] { "--delay-ms", "0" }).DelayMilliseconds == 0, "CLI bez opoznienia HTTP");
         Assert(Options.Parse(new[] { "--retry-errors", "--all" }).RetryErrors, "CLI ponowienia bledow");
 
         var temporary = Path.Combine(Path.GetTempPath(), "GeoPortalTests-" + Guid.NewGuid().ToString("N"));
@@ -82,17 +86,19 @@ internal static class SelfTests
         try
         {
             using var log = new RunLog(Path.Combine(temporary, "logs"));
+            await FileWriteTests.RunAsync(temporary);
+            await PipelineTests.RunAsync();
             using var parallelHandler = new ConcurrentHandler(cityJson);
             using var parallelHttp = new HttpClient(parallelHandler);
             var parallelClient = new GeoportalClient(parallelHttp, Path.Combine(temporary, "parallel-cache"), 0, 30, log);
             var parallelCompanies = Enumerable.Range(1, ParallelAddressLookup.Concurrency).Reverse()
                 .Select(id => Company with { Id = id, Number = null }).ToArray();
             var parallelResults = await ParallelAddressLookup.FindAsync(parallelCompanies, parallelClient, CancellationToken.None);
-            Assert(parallelHandler.MaximumActive == 8, "Osiem jednoczesnych requestow HTTP");
+            Assert(parallelHandler.MaximumActive == 96, "96 jednoczesnych requestow HTTP");
             Assert(parallelResults.All(result => result.Error == null && result.Match?.Address?.IsCity == true), "Wyniki rownoleglych requestow");
             Assert(parallelResults.Select(result => result.Company.Id).SequenceEqual(parallelCompanies.Select(company => company.Id)),
                 "Zapis i checkpoint zachowuja kolejnosc wejsciowa mimo kolejnosci odpowiedzi");
-            Assert(parallelClient.Requests == 8, "Wspoldzielony licznik requestow");
+            Assert(parallelClient.Requests == 96, "Wspoldzielony licznik requestow");
             using var failedHttp = new HttpClient(new FakeHandler("""{"error":"service unavailable"}"""));
             var failedClient = new GeoportalClient(failedHttp, Path.Combine(temporary, "parallel-error-cache"), 0, 30, log);
             var failedResults = await ParallelAddressLookup.FindAsync(new[] { Company }, failedClient, CancellationToken.None);
@@ -128,8 +134,12 @@ internal static class SelfTests
             using var plainErrorHttp = new HttpClient(plainErrorHandler);
             var plainErrorDirectory = Path.Combine(temporary, "plain-error-cache");
             var plainErrorClient = new GeoportalClient(plainErrorHttp, plainErrorDirectory, 0, 30, log);
+            var plainErrorDeferred = false;
+            try { await plainErrorClient.FindAsync(Company, CancellationToken.None); }
+            catch (GeoportalQueryException) { plainErrorDeferred = true; }
+            Assert(plainErrorDeferred && plainErrorHandler.Calls == 1, "Brak ponowienia niepoprawnego JSON");
             Assert((await plainErrorClient.FindAsync(Company, CancellationToken.None)).Address != null && plainErrorHandler.Calls == 3,
-                "Ponowienie HTTP200 z tekstem Blad zapytania zamiast JSON");
+                "Klient dziala po odlozeniu blednej odpowiedzi");
             Assert(Directory.GetFiles(Path.Combine(plainErrorDirectory, "invalid-responses"), "*.json").Length == 1,
                 "Tekstowy blad API zachowany diagnostycznie");
             var permanentHandler = new FakeHandler("Blad zapytania.", "Blad zapytania.", "Blad zapytania.", "Blad zapytania.")
@@ -140,7 +150,14 @@ internal static class SelfTests
             var deferred = false;
             try { await permanentClient.FindAsync(Company, CancellationToken.None); }
             catch (GeoportalQueryException) { deferred = true; }
-            Assert(deferred && permanentHandler.Calls == 4, "Trwaly blad zapytania odkladany po czterech probach");
+            Assert(deferred && permanentHandler.Calls == 1, "Blad zapytania odkladany po jednej probie");
+            var htmlHandler = new FakeHandler("<html>Bad Gateway</html>");
+            using var htmlHttp = new HttpClient(htmlHandler);
+            var htmlClient = new GeoportalClient(htmlHttp, Path.Combine(temporary, "html-error-cache"), 0, 30, log);
+            var htmlDeferred = false;
+            try { await htmlClient.FindAsync(Company, CancellationToken.None); }
+            catch (GeoportalQueryException) { htmlDeferred = true; }
+            Assert(htmlDeferred && htmlHandler.Calls == 1, "Dowolny niepoprawny JSON bez ponowien");
             Assert(Directory.GetFiles(permanentDirectory, "*.json").Length == 0, "Blad zapytania nie zapisany jako brak adresu");
             var queuePath = Path.Combine(temporary, "deferred.json");
             var queue = await DeferredQueue.OpenAsync(queuePath, CancellationToken.None);
@@ -206,6 +223,7 @@ internal static class SelfTests
                     CREATE TABLE ColdCall.Gminy (Id int IDENTITY PRIMARY KEY, Name nvarchar(250) NOT NULL UNIQUE);
                     CREATE TABLE ColdCall.Companies (
                         Id int IDENTITY PRIMARY KEY, WojewodztwoId int, MiejscowoscId int,
+                        PowiatId int, GminaId int,
                         Street nvarchar(max), BuildingNumber nvarchar(max), PostalCode nvarchar(max),
                         AddressIsMissing bit, BlockedByRODO bit NOT NULL);
                     CREATE TABLE ColdCall.Adresy (
@@ -225,17 +243,28 @@ internal static class SelfTests
                     CREATE INDEX IX_CA_CompanyId ON ColdCall.CompanyAddress(CompanyId);
                     INSERT ColdCall.Wojewodztwa(Name) VALUES (N'Brak wojewodztwa'), (N'Dolnośląskie');
                     INSERT ColdCall.Miejscowosci(Name) VALUES (N'Wałbrzych');
+                    INSERT ColdCall.Powiaty(Name) VALUES (N'Powiat z Companies'), (N'Inny powiat');
+                    INSERT ColdCall.Gminy(Name) VALUES (N'Gmina z Companies');
                     INSERT ColdCall.Companies (WojewodztwoId, MiejscowoscId, Street, BuildingNumber, PostalCode, AddressIsMissing, BlockedByRODO)
                     VALUES (2,1,N'ul. Psie Pole',N'39',N'58-301',1,0),
                            (2,1,N'ul. Psie Pole',N'39',N'58-301',1,0),
                            (2,1,N'ul. Psie Pole',N'39',N'58-301',1,1),
                            (2,1,N'ul. Psie Pole',N'39',N'58-301',1,0);
+                    UPDATE ColdCall.Companies SET PowiatId=1, GminaId=1;
+                    INSERT ColdCall.Companies (WojewodztwoId,MiejscowoscId,AddressIsMissing,BlockedByRODO)
+                    VALUES (2,1,1,0);
                     """;
                 await setup.ExecuteNonQueryAsync(token);
             }
             var repository = new CompanyRepository(builder.ConnectionString);
             Assert(await repository.CountAsync(token) == 3, "RODO wykluczone");
             var companies = await repository.ReadAsync(0, 10, null, token);
+            Assert(companies.All(c => c.CountyId == 1 && c.MunicipalityId == 1), "Odczyt identyfikatorow z Companies; brakujace pomijane");
+            Assert(companies.All(c => c.County == "Powiat z Companies" && c.Municipality == "Gmina z Companies"), "Nazwy slownikow firmy do logowania");
+            Assert(companies[0].LocationDescription.Contains("powiat: Powiat z Companies")
+                && companies[0].LocationDescription.Contains("gmina: Gmina z Companies")
+                && companies[0].LocationDescription.Contains("Wojew\u00f3dztwo: Dolno\u015bl\u0105skie")
+                && companies[0].LocationDescription.Contains("miejscowo\u015b\u0107: Wa\u0142brzych"), "Opis wszystkich czterech lokalizacji");
             Assert((await repository.SaveAsync(companies[0], Address, token)).StartsWith("Zapisano", StringComparison.Ordinal), "Transakcja adres+powiazanie");
             Assert(!(await repository.SaveAsync(companies[0], Address, token)).StartsWith("Zapisano", StringComparison.Ordinal), "Brak duplikatu powiazania");
             Assert((await repository.SaveAsync(companies[1], Address, token)).StartsWith("Zapisano", StringComparison.Ordinal), "Ponowne uzycie adresu");
@@ -249,6 +278,10 @@ internal static class SelfTests
             Assert((int)(await query.ExecuteScalarAsync(token))! == 2, "Flaga zmieniona tylko zapisanym firmom");
             query.CommandText = "SELECT COUNT(*) FROM ColdCall.Adresy WHERE Location.STSrid=4326 AND ABS(Location.Lat-Latitude)<0.000001 AND ABS(Location.Long-Longitude)<0.000001;";
             Assert((int)(await query.ExecuteScalarAsync(token))! == 1, "geography GPS");
+            query.CommandText = "SELECT COUNT(*) FROM ColdCall.Adresy A JOIN ColdCall.CompanyAddress CA ON CA.AddressId=A.Id JOIN ColdCall.Companies C ON C.Id=CA.CompanyId WHERE A.WojewodztwoId=C.WojewodztwoId AND A.PowiatId=C.PowiatId AND A.GminaId=C.GminaId AND A.MiejscowoscId=C.MiejscowoscId;";
+            Assert((int)(await query.ExecuteScalarAsync(token))! == 2, "Wszystkie cztery Id zachowane mimo innych nazw w Geoportalu");
+            query.CommandText = "SELECT COUNT(*) FROM ColdCall.Powiaty WHERE Name=N'Wałbrzych';";
+            Assert((int)(await query.ExecuteScalarAsync(token))! == 0, "Brak tworzenia slownikow z odpowiedzi Geoportalu");
             var rolledBack = false;
             try { await repository.SaveAsync(companies[2], Address with { Municipality = "Nowa testowa gmina", X = Address.X + 10 }, token); }
             catch (SqlException ex) when (ex.Number == 51001) { rolledBack = true; }
@@ -263,6 +296,12 @@ internal static class SelfTests
             query.CommandText = "SELECT AddressIsMissing FROM ColdCall.Companies WHERE Id=" + companies[2].Id;
             Assert((bool)(await query.ExecuteScalarAsync(token))!, "GPS miejscowosci nie oznacza kompletnego adresu");
             Assert(await repository.CountAsync(token) == 0, "Zapisana lokalizacja miejscowosci nie jest ponawiana");
+            query.CommandText = "INSERT ColdCall.Companies (WojewodztwoId,MiejscowoscId,PowiatId,GminaId,Street,BuildingNumber,PostalCode,AddressIsMissing,BlockedByRODO) VALUES (2,1,1,1,N'ul. Psie Pole',N'39',N'58-301',1,0); SELECT CONVERT(int,SCOPE_IDENTITY());";
+            var changedId = (int)(await query.ExecuteScalarAsync(token))!;
+            var changedCompany = (await repository.ReadAsync(0, 1, changedId, token)).Single();
+            query.CommandText = "UPDATE ColdCall.Companies SET PowiatId=2 WHERE Id=" + changedId;
+            await query.ExecuteNonQueryAsync(token);
+            Assert(!(await repository.SaveAsync(changedCompany, Address, token)).StartsWith("Zapisano", StringComparison.Ordinal), "Zmiana identyfikatora podczas HTTP blokuje zapis nieaktualnego adresu");
             Console.WriteLine("PASS: izolowane testy SQL, FK, idempotencja, RODO, geography i rollback.");
         }
         finally
