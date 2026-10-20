@@ -141,7 +141,7 @@ zabezpiecz jego uprawnienia oraz ustal okres przechowywania i usuwania danych.
 
 ## Tempo
 
-Parallel.ForEachAsync wykonuje maksymalnie 96 wyszukiwan firm jednoczesnie.
+Parallel.ForEachAsync wykonuje maksymalnie 128 wyszukiwan firm jednoczesnie.
 Domyslnie brak sztucznego odstepu pomiedzy startami HTTP (DelayMilliseconds=0).
 --delay-ms pozwala ustawic odstep; wartosc 0 wylacza limiter czasu.
 Oczekiwanie na odpowiedz nie blokuje pozostalych wyszukiwan. HTTP429 i bledy
@@ -152,7 +152,7 @@ Gotowe wyniki trafiaja do ograniczonego kanalu i jednego konsumenta zapisu SQL.
 Logi SAVE/SKIP/DEFER moga miec ID w innej kolejnosci niz rosnaca.
 Checkpoint przesuwa sie tylko za ciag zapisanych lub obsluzonych rekordow,
 bez przeskakiwania wolniejszej firmy. PROGRESS podaje bezpieczny checkpoint Id.
-Kanal wynikow ma pojemnosc 192, a okno niezcheckpointowanych firm 384.
+Kanal wynikow ma pojemnosc 256, a okno niezcheckpointowanych firm 512.
 Wyczerpanie okna lub wypelnienie kanalu wstrzymuje pobieranie kolejnych firm,
 aby opoznione HTTP lub wolny SQL nie powodowaly nieograniczonego zuzycia pamieci.
 Blad lub przerwanie anuluje i oczekuje na workerow przed zamknieciem HTTP/logu.

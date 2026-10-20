@@ -16,6 +16,10 @@ internal static class SelfTests
     public static async Task RunAsync()
     {
         Assert(Matching.Missing(Company) == null, "Adres kompletny");
+        Assert(Text.Province("Kujawsko Pomorskie") == Text.Province("kujawsko-pomorskie"), "Myslnik wojewodztwa kujawsko-pomorskiego");
+        Assert(Text.Province("Warmińsko Mazurskie") == Text.Province("warmińsko-mazurskie"), "Myslnik wojewodztwa warminsko-mazurskiego");
+        Assert(Text.Province("województwo  Kujawsko - Pomorskie") == Text.Province("kujawsko-pomorskie"), "Spacje wokol myslnika i prefiks");
+        Assert(Text.Province("Kujawsko Pomorskie") != Text.Province("Pomorskie"), "Rozne wojewodztwa pozostaja rozne");
         Assert(Matching.Missing(Company with { PostalCode = null }) != null, "Brak kodu pocztowego");
         Assert(Matching.Missing(Company with { Number = "-" }) != null, "Zastepczy numer budynku");
         Assert(Text.Street("pl. Plac Piastowski") == "PIASTOWSKI", "Podwojny prefiks ulicy");
@@ -94,11 +98,11 @@ internal static class SelfTests
             var parallelCompanies = Enumerable.Range(1, ParallelAddressLookup.Concurrency).Reverse()
                 .Select(id => Company with { Id = id, Number = null }).ToArray();
             var parallelResults = await ParallelAddressLookup.FindAsync(parallelCompanies, parallelClient, CancellationToken.None);
-            Assert(parallelHandler.MaximumActive == 96, "96 jednoczesnych requestow HTTP");
+            Assert(parallelHandler.MaximumActive == 128, "128 jednoczesnych requestow HTTP");
             Assert(parallelResults.All(result => result.Error == null && result.Match?.Address?.IsCity == true), "Wyniki rownoleglych requestow");
             Assert(parallelResults.Select(result => result.Company.Id).SequenceEqual(parallelCompanies.Select(company => company.Id)),
                 "Zapis i checkpoint zachowuja kolejnosc wejsciowa mimo kolejnosci odpowiedzi");
-            Assert(parallelClient.Requests == 96, "Wspoldzielony licznik requestow");
+            Assert(parallelClient.Requests == 128, "Wspoldzielony licznik requestow");
             using var failedHttp = new HttpClient(new FakeHandler("""{"error":"service unavailable"}"""));
             var failedClient = new GeoportalClient(failedHttp, Path.Combine(temporary, "parallel-error-cache"), 0, 30, log);
             var failedResults = await ParallelAddressLookup.FindAsync(new[] { Company }, failedClient, CancellationToken.None);
