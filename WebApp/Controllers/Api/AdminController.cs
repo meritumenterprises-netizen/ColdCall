@@ -36,7 +36,8 @@ public class AdminController : ControllerBase
         [FromQuery] DateOnly? startedFrom = null, [FromQuery] DateOnly? startedTo = null,
         [FromQuery] int? wojewodztwoId = null, [FromQuery] int? powiatId = null,
         [FromQuery] int? gminaId = null, [FromQuery] int? miejscowoscId = null, [FromQuery] int? radiusKm = null,
-        [FromQuery] string? nip = null, [FromQuery] bool? blockedByRODO = null)
+        [FromQuery] string? nip = null, [FromQuery] bool? blockedByRODO = null,
+        [FromQuery] string? companyStatusIds = null)
     {
         var admin = await _adminAccess.RequireAdminAsync(User);
         if (admin == null)
@@ -79,13 +80,16 @@ public class AdminController : ControllerBase
 
         if ((companyName?.Trim().Length ?? 0) >= 3 || hasPhone.HasValue || hasEmail.HasValue || hasWebsite.HasValue
             || startedFrom.HasValue || startedTo.HasValue || wojewodztwoId.HasValue || powiatId.HasValue
-            || gminaId.HasValue || miejscowoscId.HasValue || radiusKm.HasValue || pkdIds?.Length > 0)
+            || gminaId.HasValue || miejscowoscId.HasValue || radiusKm.HasValue || pkdIds?.Length > 0
+            || companyStatusIds != null)
         {
         try
         {
             var matches = await new CompanySearchQuery(_db).BuildAsync(new SearchProfileCriteria
             {
                 CompanyName = companyName ?? "", HasPhone = hasPhone, HasEmail = hasEmail, HasWebsite = hasWebsite,
+                CompanyStatusIds = companyStatusIds == null ? null
+                    : CompanyStatusSelection.Serialize(CompanyStatusSelection.Parse(companyStatusIds)),
                 DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue, DateFrom = startedFrom, DateTo = startedTo,
                 WojewodztwoId = wojewodztwoId, PowiatId = powiatId, GminaId = gminaId, MiejscowoscId = miejscowoscId,
                 HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm

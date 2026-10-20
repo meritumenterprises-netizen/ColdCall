@@ -14,6 +14,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   isFutureActivityDate = isFutureActivityDate;
   @Input() companyId: number;
   @Input() companyName = '';
+  @Input() showNotes = true;
   @Output() closed = new EventEmitter<void>();
   @Output() notesSaved = new EventEmitter<{ companyId: number; notes: string }>();
   @ViewChild('dialog', { static: true }) dialog: ElementRef;
@@ -61,7 +62,8 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   navigateTabs(event: KeyboardEvent) {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) < 0) { return; }
     event.preventDefault();
-    const tabs: ('description' | 'notes' | 'map')[] = ['description', 'map', 'notes'];
+    const tabs: ('description' | 'notes' | 'map')[] = this.showNotes
+      ? ['description', 'map', 'notes'] : ['description', 'map'];
     const index = tabs.indexOf(this.activeTab);
     this.activeTab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] :
       tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
@@ -126,6 +128,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   close() { this.closed.emit(); }
 
   openNotesTab() {
+    if (!this.showNotes) { return; }
     this.activeTab = 'notes';
     this.focusNotesAtEnd();
   }
@@ -143,6 +146,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   }
 
   loadNotes() {
+    if (!this.showNotes) { return; }
     if (this.notesRequest) { this.notesRequest.unsubscribe(); }
     this.notesLoading = true;
     this.notesLoaded = false;
@@ -157,7 +161,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   }
 
   saveNotes() {
-    if (!this.notesChanged || !this.notesLoaded || this.notesSaving || this.notesLoading) { return; }
+    if (!this.showNotes || !this.notesChanged || !this.notesLoaded || this.notesSaving || this.notesLoading) { return; }
     const notes = this.notes;
     this.notesSaving = true;
     this.notesError = '';

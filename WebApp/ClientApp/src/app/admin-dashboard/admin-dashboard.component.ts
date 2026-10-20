@@ -52,6 +52,23 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
   filters: CompanyFilters = { companyName: '', address: '', hasPhone: null, hasEmail: null, hasWebsite: null, recordLimit: 1000 };
   dateRangeEnabled = false;
+  companyStatuses: AddressOption[] = [];
+  companyStatusesError = '';
+  private companyStatusesRequest: Subscription | null = null;
+
+  loadCompanyStatuses() {
+    if (this.companyStatusesRequest) { this.companyStatusesRequest.unsubscribe(); }
+    this.companyStatusesError = '';
+    this.companyStatusesRequest = this.api.companyStatuses().subscribe(statuses => this.companyStatuses = statuses,
+      () => this.companyStatusesError = 'Nie udalo sie pobrac statusow dzialalnosci.');
+  }
+
+  toggleCompanyStatus(id: number, checked: boolean) {
+    const selected = this.filters.companyStatusIds || [1];
+    this.filters.companyStatusIds = (checked ? selected.concat(id) : selected.filter(value => value !== id))
+      .filter((value, index, values) => values.indexOf(value) === index).sort((a, b) => a - b);
+    this.updateFilters();
+  }
   dateFrom = '2020-01-01';
   dateTo = new Date().toLocaleDateString('sv-SE');
   radiusEnabled = false;
@@ -123,6 +140,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }, () => this.filterError = 'Nie udalo sie rozpoznac kodow PKD.');
   }
   ngOnDestroy() {
+    if (this.companyStatusesRequest) { this.companyStatusesRequest.unsubscribe(); }
     this.userActionRequests.forEach(request => request.unsubscribe());
     this.rodoRequests.forEach(request => request.unsubscribe());
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
@@ -231,6 +249,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   constructor(private api: ApiService) {}
 
   ngOnInit() {
+    this.loadCompanyStatuses();
     this.loadPkds();
     this.loadAddressOptions(0);
     this.loadCompanies();
