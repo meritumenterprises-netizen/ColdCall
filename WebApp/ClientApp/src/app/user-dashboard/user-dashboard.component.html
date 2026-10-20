@@ -305,7 +305,8 @@
       <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
       <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>
       <button (click)="next()" [disabled]="loading || page >= totalPages()">Nast&#281;pna</button>
-      <span>{{ formatNumber(total) }} rekord&#243;w<ng-container *ngIf="totalWithoutLimit > total"> (max. {{ formatNumber(totalWithoutLimit) }} rekord&#243;w)</ng-container></span>
+      <span *ngIf="!loading; else resultsCountLoading">{{ formatNumber(totalWithoutLimit) }} rekord&#243;w<ng-container *ngIf="totalWithoutLimit > total"> (dost&#281;pne w planie: {{ formatNumber(total) }})</ng-container></span>
+      <ng-template #resultsCountLoading><span role="status">Wczytywanie...</span></ng-template>
     </footer>
     </ng-template>
 <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name"
