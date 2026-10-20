@@ -50,7 +50,7 @@
         <button type="button" role="tab" id="company-map-tab" aria-controls="company-map-panel"
                 [attr.aria-selected]="activeTab === 'map'" [attr.tabindex]="activeTab === 'map' ? 0 : -1"
                 (click)="activeTab = 'map'" (keydown)="navigateTabs($event)">Mapa</button>
-        <button type="button" role="tab" id="company-notes-tab" aria-controls="company-notes-panel"
+        <button *ngIf="showNotes" type="button" role="tab" id="company-notes-tab" aria-controls="company-notes-panel"
                 [attr.aria-selected]="activeTab === 'notes'" [attr.tabindex]="activeTab === 'notes' ? 0 : -1"
                 (click)="openNotesTab()" (keydown)="navigateTabs($event)">Notatki</button>
       </div>
@@ -75,7 +75,7 @@
         </dl>
       </section>
       </div>
-      <div id="company-notes-panel" class="company-notes-panel" role="tabpanel" aria-labelledby="company-notes-tab" [hidden]="activeTab !== 'notes'" [attr.inert]="activeTab !== 'notes' ? '' : null">
+      <div *ngIf="showNotes" id="company-notes-panel" class="company-notes-panel" role="tabpanel" aria-labelledby="company-notes-tab" [hidden]="activeTab !== 'notes'" [attr.inert]="activeTab !== 'notes' ? '' : null">
         <div *ngIf="notesError" class="error-state" role="alert">{{ notesError }}
           <button type="button" class="ghost-button" (click)="loadNotes()" *ngIf="!notesLoaded">Pon&#243;w</button>
         </div>

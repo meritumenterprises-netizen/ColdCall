@@ -35,16 +35,33 @@
           </div>
         </section>
         <section id="admin-criteria-panel" role="tabpanel" [hidden]="activeFilterTab !== 'criteria'">
-          <label for="admin-company-name">Nazwa firmy</label>
-          <input id="admin-company-name" [(ngModel)]="filters.companyName" (ngModelChange)="updateFilters(true)" (keydown.enter)="$event.preventDefault(); updateFilters()" placeholder="Min. 3 znaki" maxlength="1000">
-          <div class="admin-presence" *ngFor="let key of ['hasPhone', 'hasEmail', 'hasWebsite']">
-            <label><input type="checkbox" [checked]="filters[key] === true" [indeterminate]="filters[key] === null" [attr.aria-checked]="filters[key] === null ? 'mixed' : filters[key]" (change)="cyclePresence(key)">{{ key === 'hasPhone' ? 'Telefon' : key === 'hasEmail' ? 'Email' : 'Witryna WWW' }}</label>
-            <span>{{ presenceLabel(filters[key]) }}</span>
+          <div class="admin-company-name-filter">
+            <label for="admin-company-name">Nazwa firmy</label>
+            <input id="admin-company-name" [(ngModel)]="filters.companyName" (ngModelChange)="updateFilters(true)" (keydown.enter)="$event.preventDefault(); updateFilters()" placeholder="Min. 3 znaki" maxlength="1000">
           </div>
-          <div class="admin-date-range">
-            <label><input type="checkbox" [(ngModel)]="dateRangeEnabled" (ngModelChange)="updateFilters()">Data aktywno&#347;ci</label>
-            <label>Od <input [(ngModel)]="dateFrom" [disabled]="!dateRangeEnabled" (ngModelChange)="updateFilters(true)" placeholder="YYYY-MM-DD" maxlength="10"></label>
-            <label>Do <input [(ngModel)]="dateTo" [disabled]="!dateRangeEnabled" (ngModelChange)="updateFilters(true)" placeholder="YYYY-MM-DD" maxlength="10"></label>
+          <div class="admin-presence-row">
+            <div class="admin-presence-criterion" *ngFor="let key of ['hasPhone', 'hasEmail', 'hasWebsite']">
+              <label><input type="checkbox" [checked]="filters[key] === true" [indeterminate]="filters[key] === null" [class.neutral]="filters[key] === null" [attr.aria-checked]="filters[key] === null ? 'mixed' : filters[key]" (change)="cyclePresence(key)">{{ key === 'hasPhone' ? 'Telefon' : key === 'hasEmail' ? 'Email' : 'Witryna WWW' }}</label>
+              <span aria-live="polite">{{ presenceLabel(filters[key]) }}</span>
+            </div>
+          </div>
+          <div class="admin-date-filter">
+            <label class="admin-date-toggle"><input type="checkbox" [(ngModel)]="dateRangeEnabled" (ngModelChange)="updateFilters()">Data aktywno&#347;ci</label>
+            <div class="admin-date-fields">
+              <div><label for="admin-started-from">Od</label><input id="admin-started-from" type="date" [(ngModel)]="dateFrom" [disabled]="!dateRangeEnabled" (ngModelChange)="updateFilters()"></div>
+              <div><label for="admin-started-to">Do</label><input id="admin-started-to" type="date" [(ngModel)]="dateTo" [min]="dateFrom" [disabled]="!dateRangeEnabled" (ngModelChange)="updateFilters()"></div>
+            </div>
+          </div>
+          <div class="admin-company-status-filter" role="group" aria-labelledby="admin-company-status-label">
+            <span id="admin-company-status-label">Status dzia&#322;alno&#347;ci</span>
+            <div class="admin-company-status-options">
+              <label *ngFor="let status of companyStatuses"><input type="checkbox"
+                [checked]="(filters.companyStatusIds || [1]).includes(status.id)"
+                (change)="toggleCompanyStatus(status.id, $event.target.checked)">{{ status.name === 'Aktywny' ? 'Aktywna' : status.name }}</label>
+            </div>
+          </div>
+          <div *ngIf="companyStatusesError" class="error" role="alert">
+            {{ companyStatusesError }} <button type="button" (click)="loadCompanyStatuses()">Pon&#243;w</button>
           </div>
         </section>
         <section id="admin-address-panel" role="tabpanel" [hidden]="activeFilterTab !== 'address'">
@@ -131,7 +148,7 @@
         <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
         <button (click)="next()" [disabled]="loading || page >= totalPages()">Nast&#281;pna</button>
       </footer>
-      <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name" (notesSaved)="updateCompanyNotes($event)" (closed)="detailsCompany = null"></app-company-details>
+      <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name" [showNotes]="false" (notesSaved)="updateCompanyNotes($event)" (closed)="detailsCompany = null"></app-company-details>
     </section>
 
       <div class="admin-user-email-filter" *ngIf="tab === 'users'">
