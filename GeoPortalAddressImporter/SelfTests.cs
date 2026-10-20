@@ -46,7 +46,18 @@ internal static class SelfTests
         Assert(ApiParser.Parse("""{"type":"address","found objects":7,"returned objects":0,"results":null}""").Points.Count == 0, "Brak wyniku");
         var streetFallback = ApiParser.Parse("""{"type":"street","found objects":0,"results":null,"request time":0.0017712831497192383}""");
         Assert(Matching.Candidate(Company, streetFallback).Address == null, "Rzeczywista odpowiedz bez returned objects");
-        Assert(ApiParser.Parse("""{"type":"city","found objects":1,"results":{"1":{"city":"Legnica"}}}""").Points.Count == 0, "Centrum miasta nie jest adresem");
+        AssertInvalid("""{"type":"city","found objects":1,"results":{"1":{"city":"Legnica"}}}""", "Miejscowosc bez GPS nie jest poprawnym wynikiem");
+        var cityAddress = Address with { IsCity = true, Street = null, Number = "", PostalCode = "", Ulic = "" };
+        var cityResult = new ApiResult("city", 1, 1, new[] { Point(cityAddress) });
+        var cityJson = Json(cityResult);
+        Assert(ApiParser.Parse(cityJson).Points[0].Address.IsCity, "Parser miejscowosci");
+        Assert(ApiParser.Parse(cityJson.Replace("\"returned objects\":1,", "")).Returned == 1, "Miasto bez returned objects");
+        Assert(CityMatching.Match(Company, cityResult).Address == cityAddress, "GPS miejscowosci");
+        Assert(CityMatching.Match(Company with { Province = "mazowieckie" }, cityResult).Address == null, "Inne wojewodztwo miasta");
+        Assert(CityMatching.Match(Company with { City = "Inne miasto" }, cityResult).Address == null, "Inna nazwa miasta");
+        Assert(CityMatching.Match(Company, cityResult with { Found = 2, Returned = 2, Points = new[] { Point(cityAddress), Point(cityAddress) } }).Address == null, "Niejednoznaczna miejscowosc");
+        Assert(CityMatching.Match(Company, cityResult with { Found = 2 }).Address == null, "Niepelna lista miejscowosci");
+        Assert(cityAddress.SourceKey.Length == 50 && cityAddress.SourceKey != Address.SourceKey, "Oddzielny klucz GPS miejscowosci");
         Assert(ApiParser.Parse("""{"type":"address","found objects":0,"results":null}""").Returned == 0, "Pusta odpowiedz adresowa bez returned objects");
         Assert(ApiParser.Parse("""{"type":"address","found objects":"0","returned objects":"0","results":{}}""").Returned == 0, "Liczby jako string");
         const string nullFoundResponse = """{"type":"address","max results limit":15,"min accuracy limit":1,"only exact numbers":1,"found objects":null,"returned objects":0,"results":null,"request time":0.003420849641164144}""";
@@ -71,10 +82,35 @@ internal static class SelfTests
         try
         {
             using var log = new RunLog(Path.Combine(temporary, "logs"));
-            using var emptyHttp = new HttpClient(new FakeHandler());
+            using var parallelHandler = new ConcurrentHandler(cityJson);
+            using var parallelHttp = new HttpClient(parallelHandler);
+            var parallelClient = new GeoportalClient(parallelHttp, Path.Combine(temporary, "parallel-cache"), 0, 30, log);
+            var parallelCompanies = Enumerable.Range(1, ParallelAddressLookup.Concurrency).Reverse()
+                .Select(id => Company with { Id = id, Number = null }).ToArray();
+            var parallelResults = await ParallelAddressLookup.FindAsync(parallelCompanies, parallelClient, CancellationToken.None);
+            Assert(parallelHandler.MaximumActive == 8, "Osiem jednoczesnych requestow HTTP");
+            Assert(parallelResults.All(result => result.Error == null && result.Match?.Address?.IsCity == true), "Wyniki rownoleglych requestow");
+            Assert(parallelResults.Select(result => result.Company.Id).SequenceEqual(parallelCompanies.Select(company => company.Id)),
+                "Zapis i checkpoint zachowuja kolejnosc wejsciowa mimo kolejnosci odpowiedzi");
+            Assert(parallelClient.Requests == 8, "Wspoldzielony licznik requestow");
+            using var failedHttp = new HttpClient(new FakeHandler("""{"error":"service unavailable"}"""));
+            var failedClient = new GeoportalClient(failedHttp, Path.Combine(temporary, "parallel-error-cache"), 0, 30, log);
+            var failedResults = await ParallelAddressLookup.FindAsync(new[] { Company }, failedClient, CancellationToken.None);
+            Assert(failedResults[0].Error is InvalidDataException && failedResults[0].Match == null, "Blad workera nie udaje poprawnego przetworzenia");
+            using var cancelled = new CancellationTokenSource();
+            cancelled.Cancel();
+            var cancelledCorrectly = false;
+            try { await ParallelAddressLookup.FindAsync(parallelCompanies, parallelClient, cancelled.Token); }
+            catch (OperationCanceledException) { cancelledCorrectly = true; }
+            Assert(cancelledCorrectly, "Anulowanie nie daje kompletu wynikow do checkpointu");
+            using var emptyHttp = new HttpClient(new FakeHandler(cityJson));
             var missingClient = new GeoportalClient(emptyHttp, Path.Combine(temporary, "missing-cache"), 100, 30, log);
-            Assert((await missingClient.FindAsync(Company with { Number = "-" }, CancellationToken.None)).Address == null && missingClient.Requests == 0,
-                "Zastepczy numer nie wywoluje HTTP");
+            Assert((await missingClient.FindAsync(Company with { City = "" }, CancellationToken.None)).Address == null && missingClient.Requests == 0,
+                "Brak miejscowosci nie wywoluje HTTP");
+            Assert((await missingClient.FindAsync(Company with { Number = "-" }, CancellationToken.None)).Address?.IsCity == true,
+                "Zastepczy numer powoduje wyszukiwanie miejscowosci");
+            Assert((await missingClient.FindAsync(Company with { PostalCode = null }, CancellationToken.None)).Address?.IsCity == true && missingClient.CacheHits == 1,
+                "Brak kodu pocztowego uzywa GPS miejscowosci z cache");
             var fallbackHandler = new FakeHandler("""{"type":"street","found objects":0,"results":null}""", Json(candidate), Json(list));
             using var fallbackHttp = new HttpClient(fallbackHandler);
             var fallbackClient = new GeoportalClient(fallbackHttp, Path.Combine(temporary, "fallback-cache"), 0, 30, log);
@@ -220,6 +256,13 @@ internal static class SelfTests
             query.CommandText = "SELECT COUNT(*) FROM ColdCall.Gminy WHERE Name=N'Nowa testowa gmina';";
             Assert((int)(await query.ExecuteScalarAsync(token))! == 0, "Rollback zmian slownikow");
             Assert(await repository.CountAsync(token) == 1, "Po zapisie firmy nie sa ponownie kwalifikowane");
+            var cityAddress = Address with { IsCity = true, Street = null, Number = "", PostalCode = "", Ulic = "" };
+            Assert((await repository.SaveAsync(companies[2], cityAddress, token)).StartsWith("Zapisano", StringComparison.Ordinal), "Zapis lokalizacji miejscowosci");
+            query.CommandText = "SELECT COUNT(*) FROM ColdCall.Adresy WHERE Rodzaj=N'miejscowosc UUG (GPS przyblizony)' AND NrUlicy IS NULL AND Ulica IS NULL AND Latitude IS NOT NULL AND Longitude IS NOT NULL;";
+            Assert((int)(await query.ExecuteScalarAsync(token))! == 1, "GPS miejscowosci bez fikcyjnego budynku");
+            query.CommandText = "SELECT AddressIsMissing FROM ColdCall.Companies WHERE Id=" + companies[2].Id;
+            Assert((bool)(await query.ExecuteScalarAsync(token))!, "GPS miejscowosci nie oznacza kompletnego adresu");
+            Assert(await repository.CountAsync(token) == 0, "Zapisana lokalizacja miejscowosci nie jest ponawiana");
             Console.WriteLine("PASS: izolowane testy SQL, FK, idempotencja, RODO, geography i rollback.");
         }
         finally
@@ -264,6 +307,29 @@ internal static class SelfTests
                 ["city_accuracy"] = x.Point.CityAccuracy, ["street_accuracy"] = x.Point.StreetAccuracy
             })
     });
+
+    private sealed class ConcurrentHandler(string response) : HttpMessageHandler
+    {
+        private readonly TaskCompletionSource allStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int active;
+        private int calls;
+        public int MaximumActive { get; private set; }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var concurrent = Interlocked.Increment(ref active);
+            if (concurrent == ParallelAddressLookup.Concurrency) MaximumActive = concurrent;
+            var call = Interlocked.Increment(ref calls);
+            if (call == ParallelAddressLookup.Concurrency) allStarted.TrySetResult();
+            try
+            {
+                await allStarted.Task.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
+                await Task.Delay((ParallelAddressLookup.Concurrency + 1 - call) * 10, cancellationToken);
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(response) };
+            }
+            finally { Interlocked.Decrement(ref active); }
+        }
+    }
 
     private sealed class FakeHandler(params string[] responses) : HttpMessageHandler
     {

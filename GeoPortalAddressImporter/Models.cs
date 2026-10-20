@@ -15,9 +15,11 @@ internal sealed record Company(
 internal sealed record Address(
     string Province, string County, string Municipality, string City,
     string? Street, string Number, string PostalCode, string Teryt,
-    string Simc, string Ulic, double X, double Y)
+    string Simc, string Ulic, double X, double Y, bool IsCity = false)
 {
-    public string SourceKey => "UUG:" + Text.Hash(Teryt + "|" + Simc + "|" + Ulic + "|" + Text.Number(Number))[..46];
+    public string SourceKey => IsCity
+        ? "UUG:C:" + Text.Hash(Teryt + "|" + Simc)[..44]
+        : "UUG:" + Text.Hash(Teryt + "|" + Simc + "|" + Ulic + "|" + Text.Number(Number))[..46];
 }
 
 internal sealed record MatchResult(Address? Address, string Reason);
@@ -62,8 +64,8 @@ internal static class ApiParser
         if (!string.IsNullOrWhiteSpace(Get(root, "error")) || !string.IsNullOrWhiteSpace(Get(root, "errors")))
             throw new InvalidDataException("UUG zwrocil blad zamiast wyniku wyszukiwania.");
         // GetAddress may fall back to a street/city response without returned objects.
-        if (type is "street" or "city") return new ApiResult(type, 0, 0, Array.Empty<ApiPoint>());
-        if (type != "address") throw new InvalidDataException($"Nieznany typ odpowiedzi UUG: '{type}'.");
+        if (type == "street") return new ApiResult(type, 0, 0, Array.Empty<ApiPoint>());
+        if (type is not ("address" or "city")) throw new InvalidDataException($"Nieznany typ odpowiedzi UUG: '{type}'.");
         if (!root.TryGetProperty("results", out var results))
             throw new InvalidDataException("Brak pola results w odpowiedzi UUG.");
         var empty = results.ValueKind == JsonValueKind.Null ||
@@ -73,8 +75,8 @@ internal static class ApiParser
             CultureInfo.InvariantCulture, out var explicitReturned) && explicitReturned == 0;
         var found = confirmedEmpty && string.IsNullOrWhiteSpace(Get(root, "found objects"))
             ? 0 : Count(root, "found objects");
-        var returned = !root.TryGetProperty("returned objects", out _) && found == 0 && empty
-            ? 0 : Count(root, "returned objects");
+        var returned = !root.TryGetProperty("returned objects", out _) && (type == "city" || found == 0 && empty)
+            ? found : Count(root, "returned objects");
         var points = new List<ApiPoint>();
         if (results.ValueKind == JsonValueKind.Object)
         {
@@ -87,7 +89,7 @@ internal static class ApiParser
                 var address = new Address(
                     units[1], units[2], units[3], Get(p, "city"), Null(p, "street"),
                     Get(p, "number"), Get(p, "code"), Get(p, "teryt"), Get(p, "simc"),
-                    Get(p, "ulic"), RequiredDouble(p, "x"), RequiredDouble(p, "y"));
+                    Get(p, "ulic"), RequiredDouble(p, "x"), RequiredDouble(p, "y"), type == "city");
                 points.Add(new ApiPoint(address, Get(p, "geometry_wkt"),
                     Double(p, "accuracy"), Double(p, "city_accuracy"), Double(p, "street_accuracy")));
             }
@@ -197,7 +199,7 @@ internal static class Matching
         return new(address, "Jednoznaczny punkt adresowy.");
     }
 
-    private static void ValidatePoint(ApiPoint p)
+    internal static void ValidatePoint(ApiPoint p)
     {
         var match = Regex.Match(p.Geometry, @"^POINT\s*\(\s*([-+\d.eE]+)\s+([-+\d.eE]+)\s*\)$", RegexOptions.CultureInvariant);
         if (!match.Success ||
@@ -218,7 +220,8 @@ internal static class Coordinates
     public static (decimal Latitude, decimal Longitude) Convert(double x, double y)
     {
         // UUG WKT uses easting, northing (unlike the northing, easting axes in PRG GML).
-        var result = Transform.MathTransform.Transform(new[] { x, y });
+        double[] result;
+        lock (Transform) result = Transform.MathTransform.Transform(new[] { x, y });
         var longitude = result[0];
         var latitude = result[1];
         if (!double.IsFinite(latitude) || !double.IsFinite(longitude) || latitude is < 48 or > 56 || longitude is < 13 or > 25)
