@@ -411,7 +411,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   get radiusAvailable() {
-    return this.addressFields[0].selectedId !== null && this.addressFields[1].selectedId !== null;
+    return this.addressFields.every(field => field.selectedId != null && field.selectedId > 0);
   }
 
   loadAddressOptions(index: number) {
@@ -638,7 +638,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       powiatId: this.addressFields[1].selectedId || undefined,
       gminaId: this.addressFields[2].selectedId || undefined,
       miejscowoscId: this.addressFields[3].selectedId || undefined,
-      radiusKm: this.radiusAvailable && this.radiusEnabled && this.addressFields[3].selectedId !== null ? this.radiusKm : undefined,
+      radiusKm: this.radiusAvailable && this.radiusEnabled ? this.radiusKm : undefined,
       addressLocality: undefined,
       startedFrom: this.dateRangeEnabled ? this.dateFrom : undefined,
       startedTo: this.dateRangeEnabled ? this.dateTo : undefined
@@ -865,7 +865,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       ['wojewodztwoId', 'powiatId', 'gminaId', 'miejscowoscId'].forEach((key, index) => {
         this.appliedFilters[key] = this.addressFields[index].selectedId === null ? undefined : this.addressFields[index].selectedId;
       });
-      this.appliedFilters.radiusKm = this.radiusEnabled && this.addressFields[3].selectedId !== null ? this.radiusKm : undefined;
+      this.appliedFilters.radiusKm = this.radiusEnabled ? this.radiusKm : undefined;
       this.lastUpdatedFilterState = this.filterState();
       this.savedSearchState = profile.id > 0 ? this.searchState() : null;
       this.addressFiltersChanged = false;
