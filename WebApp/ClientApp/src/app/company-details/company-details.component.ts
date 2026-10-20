@@ -39,11 +39,13 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
 
   get notesChanged() { return this.notes !== this.savedNotes; }
 
-  get activityDateKey(): 'startedAt' | 'resumedOn' {
+  get activityDateKey(): 'startedAt' | 'resumedOn' | 'suspendedOn' {
+    if (this.details && this.details.company.statusDzialalnosciId === 2) { return 'suspendedOn'; }
     return this.details && this.details.company.resumedOn != null ? 'resumedOn' : 'startedAt';
   }
 
   get activityDateLabel(): string {
+    if (this.activityDateKey === 'suspendedOn') { return 'Zawieszono dnia'; }
     return this.activityDateKey === 'resumedOn'
       ? 'Dzia\u0142alno\u015b\u0107 wznowiona od' : 'Dzia\u0142alno\u015b\u0107 aktywna od';
   }
@@ -257,7 +259,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
       if (/^\+48\d{9}$/.test(phone)) { return phone.replace(/^(\+48)(\d{3})(\d{3})(\d{3})$/, '$1 $2 $3 $4'); }
       if (/^\d{9}$/.test(phone)) { return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3'); }
     }
-    if ((key === 'startedAt' || key === 'resumedOn' || key === 'dataModifiedOn') && value) { return String(value).substring(0, 10); }
+    if ((key === 'startedAt' || key === 'resumedOn' || key === 'suspendedOn' || key === 'dataModifiedOn') && value) { return String(value).substring(0, 10); }
     return value == null || value === '' ? '\u2014' : String(value);
   }
 

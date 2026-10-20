@@ -60,7 +60,8 @@ public record CompanyDto(
     int? PowiatId,
     DateTime? DataModifiedOn = null,
     DateTime? ResumedOn = null,
-    string? UserNotes = null);
+    string? UserNotes = null,
+    DateTime? SuspendedOn = null);
 
 public record CompanyUpdateDto(
     [System.ComponentModel.DataAnnotations.StringLength(1000)] string Name,
