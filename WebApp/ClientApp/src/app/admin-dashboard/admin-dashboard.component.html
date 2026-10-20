@@ -64,7 +64,7 @@
             <label><input type="checkbox" [(ngModel)]="radiusEnabled" [disabled]="!addressFields[3].selectedId" (ngModelChange)="updateFilters()">Firmy w promieniu</label>
             <select [(ngModel)]="radiusKm" [disabled]="!radiusEnabled" (ngModelChange)="updateFilters()" aria-label="Promie&#324;">
               <option *ngFor="let km of radiusOptions" [ngValue]="km">{{ km }}</option>
-            </select><span>km od wybranej lokalizacji</span>
+            </select><span>km od wybranej miejscowo&#347;ci</span>
           </div>
         </section>
         <section id="admin-pkd-panel" role="tabpanel" [hidden]="activeFilterTab !== 'pkd'">
