@@ -61,55 +61,55 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - brak województwa.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo dolnośląskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo kujawsko-pomorskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo lubelskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo lubuskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo mazowieckie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo małopolskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo opolskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo podkarpackie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo podlaskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo pomorskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo warmińsko-mazurskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo wielkopolskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo zachodniopomorskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo łódzkie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo śląskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
     <None Update="CEIDG_Modified\Zarejestrowane działalności - 2026-09-21 - województwo świętokrzyskie.xml">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
