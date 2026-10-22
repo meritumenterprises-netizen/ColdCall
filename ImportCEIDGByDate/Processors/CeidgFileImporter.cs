@@ -21,12 +21,14 @@ namespace ImportCEIDGByDate
 
         public FirmyImportRepository ImportRepository { get; set; }
         public FirmyImportDbContext ImportDbContext { get; set; }
+        public FirmyTempDbContext FirmyTempDbContext { get; set; }
 
-        public CeidgFileImporter(ImportStatistics statistics, List<Wojewodztwa> wojewodztwa, FirmyImportRepository repository, FirmyImportDbContext context)
+        public CeidgFileImporter(ImportStatistics statistics, List<Wojewodztwa> wojewodztwa, FirmyImportRepository repository, FirmyImportDbContext context, FirmyTempDbContext firmyTempDbContext)
         {
             this.Statistics = statistics;
             this.ImportRepository = repository;
             this.ImportDbContext = context;
+            this.FirmyTempDbContext = firmyTempDbContext;
             this.Wojewodztwa = wojewodztwa;
         }
 
@@ -44,20 +46,29 @@ namespace ImportCEIDGByDate
 
             var culture = CultureInfo.GetCultureInfo("pl-PL");
             var xmlDocument = new XmlDocument();
-            var flushTableEveryRecordCount = 5000;
+            var flushTableEveryRecordCount = 10000;
 
             var globalRecordCounter = 0;
+            var skippedBlankNips = 0;
             var pendingMd5s = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var globalMd5s = await FirmyTempDbContext.CompanyXml
+                .AsNoTracking()
+                .Select(companyXml => companyXml.Md5)
+                .ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
+
             var swGlobal = Stopwatch.StartNew();
+            int fileCounter = 1;
+            int fileCount = Statistics.OldReports.Sum((r) => r.Value.Count);
             foreach (var key in Statistics.OldReports.Keys)
             {
                 foreach (var report in Statistics.OldReports[key])
                 {
+                    double progress = fileCount > 0 ? (double)fileCounter / fileCount * 100.0 : 0;
                     var recordCounter = 0;
                     var skippedRecordCounter = 0;
 
                     Statistics.StartNewPhase(ImportPhasesEnum.ImportOldFileToTable, $"Importing file {report.FileName} to table ImportOrigin");
-                    Console.WriteLine($"Importing {report.FileName} to table ImportOrigin");
+                    Console.WriteLine($"Importing {progress:F2}% {fileCounter}/{fileCount} - {Path.GetFileName(report.FileName)} to table ImportOrigin");
 
                     var match = Regex.Match(report.FileName, @"województwo (?<nazwa>[^_]+)_");
                     string? wojewodztwo = match.Success ? match.Groups["nazwa"].Value : null;
@@ -103,10 +114,22 @@ namespace ImportCEIDGByDate
                         var xml = xmlDocument.OuterXml;
                         var md5 = MD5Utils.CalculateMD5(xml);
 
+                        if (globalMd5s.Contains(md5))
+                        {
+                            skippedRecordCounter++;
+                            continue;
+                        }
+
                         if (pendingMd5s.Contains(md5)
                             || await ImportRepository.ImportOrigins.AnyAsync(origin => origin.Md5 == md5))
                         {
                             skippedRecordCounter++;
+                            continue;
+                        }
+
+                        if (string.IsNullOrEmpty(nip))
+                        {
+                            skippedBlankNips++;
                             continue;
                         }
 
@@ -132,15 +155,17 @@ namespace ImportCEIDGByDate
                     sw.Stop();
                     Statistics.CurrentPhase.EntriesCount = recordCounter;
                     globalRecordCounter += recordCounter;
-                    Console.WriteLine($"Done importing {report.FileName} to table ImportOrigin. Imported {recordCounter} records, skipped {skippedRecordCounter} records. Elapsed time: {sw.Elapsed}");
+                    Console.WriteLine($"Done importing. Imported {recordCounter} records, skipped {skippedRecordCounter} records, skipped {skippedBlankNips} blank NIPs. Elapsed time: {sw.ElapsedTime()}");
+                    fileCounter++;
                 }
             }
             pendingMd5s.Clear();
 
             await ImportRepository.SaveChangesAsync();
             swGlobal.Stop();
-            Console.WriteLine($"Finished importing table ImportOrigin. Total records: {globalRecordCounter}. Total elapsed time: {swGlobal.Elapsed.ToString(@"mm\:ss")}");
+            Console.WriteLine($"Done importing. Total records: {globalRecordCounter}. Total elapsed time: {swGlobal.ElapsedTime()}");
             Statistics.StartNewPhase(ImportPhasesEnum.FinishedImportingNewFiles, "Finished importing old files to ImportOrigin");
+            Statistics.FinishCurrentPhase("Finished");
         }
 
         public async Task ImportNewFiles()
@@ -156,10 +181,16 @@ namespace ImportCEIDGByDate
             this.ImportDbContext.Database.AutoTransactionBehavior = Microsoft.EntityFrameworkCore.AutoTransactionBehavior.Never;
 
             var globalRecordCounter = 0;
+            var skippedBlankNips = 0;
 
             var culture = CultureInfo.GetCultureInfo("pl-PL");
             var xmlDocument = new XmlDocument();
-            var flushTableEveryRecordCount = 5000;
+            var flushTableEveryRecordCount = 10000;
+
+            var globalMd5s = await FirmyTempDbContext.CompanyXml
+                .AsNoTracking()
+                .Select(companyXml => companyXml.Md5)
+                .ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
 
             Console.Write($"Reading MD5 hashes from table ImportOrigin...");
             Stopwatch swPendingMd5s = Stopwatch.StartNew();
@@ -171,15 +202,20 @@ namespace ImportCEIDGByDate
             Console.WriteLine($"Finished in {swPendingMd5s.Elapsed.TotalSeconds:F2} second(s)");
             var swGlobal = Stopwatch.StartNew();
             Console.WriteLine($"Processing XML files");
+
+            int fileCounter = 1;
+            int fileCount = Statistics.NewReports.Sum((r) => r.Value.Count);
+
             foreach (var key in Statistics.NewReports.Keys)
             {
                 foreach (var report in Statistics.NewReports[key])
                 {
                     var recordCounter = 0;
                     var skippedRecordCounter = 0;
+                    double progress = fileCount > 0 ? (double)fileCounter / fileCount * 100.0 : 0;
 
                     Statistics.StartNewPhase(ImportPhasesEnum.ImportNewFileToTable, $"Importing file {report.FileName} to table ImportTarget");
-                    Console.WriteLine($"Importing {report.FileName} to table ImportTarget");
+                    Console.WriteLine($"Importing {progress:F2}% {fileCounter}/{fileCount} - {Path.GetFileName(report.FileName)} to table ImportTarget");
 
                     var match = Regex.Match(report.FileName, @"województwo (?<nazwa>[^_]+)_");
                     string? wojewodztwo = match.Success ? match.Groups["nazwa"].Value : null;
@@ -225,10 +261,22 @@ namespace ImportCEIDGByDate
                         var xml = xmlDocument.OuterXml;
                         var md5 = MD5Utils.CalculateMD5(xml);
 
+                        if (globalMd5s.Contains(md5))
+                        {
+                            skippedRecordCounter++;
+                            continue;
+                        }
+
                         if (pendingMd5s.Contains(md5)
                             || await ImportRepository.ImportOrigins.AnyAsync(origin => origin.Md5 == md5))
                         {
                             skippedRecordCounter++;
+                            continue;
+                        }
+
+                        if (string.IsNullOrEmpty(nip))
+                        {
+                            skippedBlankNips++;
                             continue;
                         }
 
@@ -255,16 +303,17 @@ namespace ImportCEIDGByDate
 
                     sw.Stop();
                     Statistics.CurrentPhase.EntriesCount = recordCounter;
-                    Console.WriteLine($"Done importing {report.FileName} to table ImportTarget. Imported {recordCounter} records, skipped {skippedRecordCounter} records. Elapsed time: {sw.Elapsed}");
-                    globalRecordCounter += recordCounter;
+                    Console.WriteLine($"Done importing. Imported {recordCounter} records, skipped {skippedRecordCounter} records, skipped {skippedBlankNips} blank NIPs. Elapsed time: {sw.ElapsedTime()}"); globalRecordCounter += recordCounter;
+                    fileCounter++;
                 }
             }
             pendingMd5s.Clear();
 
             await ImportRepository.SaveChangesAsync();
             swGlobal.Stop();
-            Console.WriteLine($"Finished importing table ImportTarget. Total records: {globalRecordCounter}. Total elapsed time: {swGlobal.Elapsed.ToString(@"mm\:ss")}");
+            Console.WriteLine($"Done importing. Total records: {globalRecordCounter}. Total elapsed time: {swGlobal.ElapsedTime()}");
             Statistics.StartNewPhase(ImportPhasesEnum.FinishedImportingNewFiles, "Finished importing new files to ImportTarget");
+            Statistics.FinishCurrentPhase("Finished");
         }
         public async Task UpdateImportTargetMetadata()
         {
@@ -314,6 +363,7 @@ namespace ImportCEIDGByDate
             Console.WriteLine($"Done. Found {existingNips.Count} existing NIPs");
 
             Console.WriteLine($"Finished updating metadata in table ImportTarget.");
+            Statistics.FinishCurrentPhase("Finished");
         }
     }
 }

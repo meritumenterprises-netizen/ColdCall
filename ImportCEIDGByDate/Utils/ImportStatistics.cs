@@ -10,6 +10,8 @@ namespace ImportCEIDGByDate
         public DateTime ProcessStart { get; set; }
         public DateTime? ProcessEnd { get; set; }
 
+        public string FinishMessage { get; set; }
+
         public string Summary
         {
             get
@@ -33,8 +35,11 @@ namespace ImportCEIDGByDate
                 sb.AppendLine("Phases:");
                 foreach (var phase in Phases)
                 {
-                    sb.AppendLine($"\tPhase: {phase.PhaseName}={Convert.ToInt32(phase.PhaseName)}, Description: {phase.Description}, Start: {phase.Start}, End: {(phase.End.HasValue ? phase.End.Value.ToString() : "Still running")}, Duration: {(phase.End.HasValue ? (phase.End.Value - phase.Start).ToString() : "Still running")}, Entries count: {phase.EntriesCount}, Finish result: {phase.FinishResult}");
+                    sb.AppendLine($"\tPhase: {phase.PhaseName}, Start: {phase.Start}, End: {(phase.End.HasValue ? phase.End.Value.ToString() : "Still running")}, Duration: {(phase.End.Value - phase.Start).ToString("mm:ss.fff")}, Entries count: {phase.EntriesCount}, Finish result: {phase.FinishResult}");
                 }
+                sb.AppendLine();
+                sb.AppendLine($"==== SUMMARY ====");
+                sb.AppendLine($"Duration: {this.ProcessEnd.Value.Subtract(ProcessStart).ToString("hh:mm:ss")}");
                 return sb.ToString();
             }
         }
@@ -133,6 +138,13 @@ namespace ImportCEIDGByDate
             currentPhase.IsCurrentPhase = false;
             currentPhase.FinishResult = comment;
             currentPhase.EntriesCount = entriesCount.HasValue ? entriesCount.Value: 0;
+        }
+
+        public void Finish(string comment)
+        {
+            this.Phases.Last().End = DateTime.Now;
+            this.ProcessEnd = DateTime.Now;
+            this.FinishMessage = comment;
         }
     }
 }

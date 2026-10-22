@@ -291,13 +291,6 @@ namespace ImportCEIDGByDate
         }
 
 
-        public async Task<string> ConvertCompanyToXml ( Company company )
-        {
-            XmlDocument xmlDoc = new XmlDocument();
-            xmlDoc.LoadXml("<Detail></Detail>");
-            return xmlDoc.OuterXml;
-        }
-
         public async Task AddNewCompaniesFromImportToTemp()
         {
             Statistics.StartNewPhase(ImportPhasesEnum.ImportNewCompanies, "Importing new companies");
@@ -307,6 +300,14 @@ namespace ImportCEIDGByDate
             var companyTotal = newCompanies.Count;
             foreach (var company in newCompanies)
             {
+                XmlDocument xmlDoc = new XmlDocument();
+                xmlDoc.LoadXml(company.CompanyXml);
+                var nip = xmlDoc.GetInnerTextOrEmpty("Nip");
+                if (this.FirmyTempDbContext.Companies.Where((comp) => comp.Nip == nip).FirstOrDefault() != null)
+                {
+                    Console.WriteLine($"Company with NIP={nip} already exists, skipping");
+                    continue;
+                }
                 var newCompany = await ConvertXmlToNewCompany(company.WojewodztwoId, company.CompanyXml);
                 Console.WriteLine($"Adding a new company {companyCounter+1}/{companyTotal} with NIP={newCompany.Nip}");
                 FirmyTempDbContext.Companies.Add(newCompany);
@@ -316,6 +317,7 @@ namespace ImportCEIDGByDate
                 await FirmyImportDbContext.SaveChangesAsync();
                 companyCounter++;
             }
+            Statistics.FinishCurrentPhase("Finished");
         }
 
         public async Task UpdateExistingCompaniesFromImportToTemp()
@@ -338,7 +340,7 @@ namespace ImportCEIDGByDate
                 await FirmyImportDbContext.SaveChangesAsync();
                 companyCounter++;
             }
-
+            Statistics.FinishCurrentPhase("Finished");
         }
 
     }

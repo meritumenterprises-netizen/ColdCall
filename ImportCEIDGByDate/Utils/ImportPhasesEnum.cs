@@ -22,6 +22,7 @@ namespace ImportCEIDGByDate
         FinishedImportingOldFiles,
         FinishedImportingNewFiles,
         UpdateImportTargetMetadata,
+        UpdateCompanyXml,
         ImportNewCompanies,
         UpdateExistingCompanies,
         UpdateAdresyForChangedCompanies

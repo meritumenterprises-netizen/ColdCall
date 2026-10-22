@@ -7,6 +7,7 @@ namespace ImportCEIDGByDate.Repositories;
 public sealed class FirmyTempRepository(FirmyTempDbContext context)
 {
     public DbSet<Company> Companies => context.Companies;
+    public DbSet<CompanyXml> CompanyXml => context.CompanyXml;
     public DbSet<Wojewodztwa> Wojewodztwa => context.Wojewodztwas;
     public DbSet<Powiaty> Powiaty => context.Powiaties;
     public DbSet<Gminy> Gminy => context.Gminies;
