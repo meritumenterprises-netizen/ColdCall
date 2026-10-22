@@ -17,6 +17,7 @@ public partial class FirmyTempDbContext : DbContext
     public virtual DbSet<BusinessType> BusinessTypes { get; set; }
 
     public virtual DbSet<Company> Companies { get; set; }
+    public virtual DbSet<CompanyXml> CompanyXml { get; set; }
     public virtual DbSet<CompanyPkd> CompanyPkds { get; set; }
 
     public virtual DbSet<CompanyAddress> CompanyAddresses { get; set; }
@@ -36,6 +37,19 @@ public partial class FirmyTempDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<CompanyXml>(entity =>
+        {
+            entity.ToTable("CompanyXml", "ColdCall");
+            entity.HasKey(e => e.CompanyXmlId).HasName("PK_CompanyXml");
+            entity.Property(e => e.CompanyXmlId).ValueGeneratedOnAdd();
+            entity.Property(e => e.Nip).HasMaxLength(32);
+            entity.HasIndex(e => e.Nip, "IX_CompanyXml_NIP");
+            entity.Property(e => e.XmlContent).HasColumnName("CompanyXml")
+                .HasColumnType("nvarchar(max)").IsRequired();
+            entity.Property(e => e.Md5).HasColumnName("MD5")
+                .HasMaxLength(128).IsUnicode(false).IsRequired();
+        });
+
         modelBuilder.Entity<Adresy>(entity =>
         {
             entity.ToTable("Adresy", "ColdCall");
@@ -114,7 +128,20 @@ public partial class FirmyTempDbContext : DbContext
                 .HasColumnType("datetime");
             entity.Property(e => e.DataModifiedOn).HasColumnType("datetime");
             entity.Property(e => e.ImportedOn).HasColumnType("datetime");
-            entity.Property(e => e.Krs).HasMaxLength(450);
+            entity.Property(e => e.Krs).HasMaxLength(32);
+            entity.Property(e => e.Nip).HasMaxLength(32);
+            entity.Property(e => e.FirstName).HasMaxLength(128);
+            entity.Property(e => e.LastName).HasMaxLength(128);
+            entity.Property(e => e.PostalCode).HasMaxLength(8);
+            entity.Property(e => e.Street).HasMaxLength(1024);
+            entity.Property(e => e.BuildingNumber).HasMaxLength(32);
+            entity.Property(e => e.ApartmentNumber).HasMaxLength(32);
+            entity.Property(e => e.Phone).HasMaxLength(32);
+            entity.Property(e => e.Email).HasMaxLength(256);
+            entity.Property(e => e.GoogleEmail).HasMaxLength(256);
+            entity.Property(e => e.Website).HasMaxLength(512);
+            entity.Property(e => e.InstagramAccount).HasMaxLength(512);
+            entity.Property(e => e.FacebookAccount).HasMaxLength(512);
             entity.Property(e => e.Name).HasMaxLength(1000);
             entity.Property(e => e.Regon).HasMaxLength(50);
             entity.Property(e => e.ResumedOn).HasColumnType("datetime");

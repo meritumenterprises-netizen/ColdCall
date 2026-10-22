@@ -79,24 +79,46 @@ if (!parseReport)
     statistics.CurrentPhase.CriticalErrorMessage = "Unable to download and/or parse reports from CEIDG website";
     goto summary;
 }
+if (statistics.OldReports.Count == 0)
+{
+    statistics.CurrentPhase.IsCriticalError = true;
+    statistics.CurrentPhase.CriticalErrorMessage = $"Unable to download files for old date {statistics.OldDate}";
+    goto summary;
+}
+
+if (statistics.NewReports.Count == 0)
+{
+    statistics.CurrentPhase.IsCriticalError = true;
+    statistics.CurrentPhase.CriticalErrorMessage = $"Unable to download files for new date {statistics.NewDate}";
+    goto summary;
+}
 
 await ceidgDownloader.DownloadOldFiles();
-//ceidgImporter.DeduplicateOldFiles();
 await ceidgDownloader.DownloadNewFiles();
-//ceidgImporter.DeduplicateNewFiles();
+
 ceidgDownloader.UnpackOldReports();
 ceidgDownloader.UnpackNewReports();
 
-var ceidgImporter = new CeidgFileImporter(statistics, wojewodztwa, firmyImportRepository, firmyImportDbContext);
-//await ceidgImporter.ImportOldFiles();
-//await ceidgImporter.ImportNewFiles();
-//await ceidgImporter.UpdateImportTargetMetadata();
+await ceidgDownloader.DeduplicateOldFiles();
+await ceidgDownloader.DeduplicateNewFiles();
+
+var ceidgImporter = new CeidgFileImporter(statistics, wojewodztwa, firmyImportRepository, firmyImportDbContext, firmyTempDbContext);
+await ceidgImporter.ImportOldFiles();
+await ceidgImporter.ImportNewFiles();
+await ceidgImporter.UpdateImportTargetMetadata();
 
 var ceidgConverter = new CeidgCompanyXmlConverter(statistics, firmyTempRepository, firmyImportRepository, firmyImportDbContext, firmyTempDbContext);
-//await ceidgConverter.AddNewCompaniesFromImportToTemp();
+await ceidgConverter.AddNewCompaniesFromImportToTemp();
 await ceidgConverter.UpdateExistingCompaniesFromImportToTemp();
 
+var ceidgCompanyXmlUpdater = new CeidgCompanyXmlUpdater(statistics, firmyTempRepository, firmyImportRepository, firmyImportDbContext, firmyTempDbContext);
+await ceidgCompanyXmlUpdater.UpdateCompaniesXml();
+
+
+
 summary:
+
+statistics.Finish("Finished");
 
 Console.WriteLine();
 Console.WriteLine("===== SUMMARY =====");

@@ -8,6 +8,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Security.Cryptography;
 
 namespace ImportCEIDGByDate
 {
@@ -118,7 +119,7 @@ namespace ImportCEIDGByDate
             }
         }
 
-        public async Task DownloadIndividualFile(CeidgReport report, string targetFolder, string fileName)
+        private async Task DownloadIndividualFile(CeidgReport report, string targetFolder, string fileName)
         {
             ArgumentNullException.ThrowIfNull(report);
             ArgumentException.ThrowIfNullOrWhiteSpace(targetFolder);
@@ -206,9 +207,10 @@ namespace ImportCEIDGByDate
             {
                 Statistics.CurrentPhase.PhaseSkipped = true;
             }
+            Statistics.FinishCurrentPhase("Finished");
         }
 
-        public void DeduplicateOldFiles()
+        public async Task DeduplicateOldFiles()
         {
             Statistics.StartNewPhase(ImportPhasesEnum.DeduplicateOldFiles, "Deduplication of old files");
             Console.WriteLine("Deduplication of old files");
@@ -224,9 +226,19 @@ namespace ImportCEIDGByDate
                     Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s)");
                 }
             }
-        }
 
-        public void DeduplicateNewFiles()
+            foreach (var key in Statistics.OldReports.Keys.ToList())
+            {
+                Statistics.OldReports[key] = Statistics.OldReports[key]
+                    .DistinctBy(report => report.MD5, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            Console.WriteLine($"Old files count after deduplication: {Statistics.OldReports.Sum((r) => r.Value.Count)}");
+            Statistics.FinishCurrentPhase("Finished");
+        }
+        
+
+        public async Task DeduplicateNewFiles()
         {
             Statistics.StartNewPhase(ImportPhasesEnum.DeduplicateNewFiles, "Deduplication of new files");
             Console.WriteLine("Deduplication of new files");
@@ -242,7 +254,14 @@ namespace ImportCEIDGByDate
                     Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s)");
                 }
             }
-
+            foreach (var key in Statistics.NewReports.Keys.ToList())
+            {
+                Statistics.NewReports[key] = Statistics.NewReports[key]
+                    .DistinctBy(report => report.MD5, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            Console.WriteLine($"New files count after deduplication: {Statistics.NewReports.Sum((r) => r.Value.Count)}");
+            Statistics.FinishCurrentPhase("Finished");
         }
 
         public async Task DownloadNewFiles()
@@ -278,6 +297,7 @@ namespace ImportCEIDGByDate
             {
                 Statistics.CurrentPhase.PhaseSkipped = true;
             }
+            Statistics.FinishCurrentPhase("Finished");
         }
 
         public static string UnpackIndividualFile(string zipFilePath, string fileName)
@@ -322,14 +342,14 @@ namespace ImportCEIDGByDate
             {
                 foreach (var report in Statistics.OldReports[key])
                 {
-                    Console.Write($"Unpacking {report.FileName}... ");
                     if (File.Exists(Path.Combine(Statistics.OldFilesFolder, report.FileName)))
                     {
                         skippedFiles++;
-                        Console.WriteLine("File exists, skipped.");
+                        Console.WriteLine($"File {report.FileName} exists, skipped.");
                         continue;
                     }
 
+                    Console.Write($"Unpacking {report.FileName}... ");
                     Console.Write($"Processing... ");
                     Stopwatch sw = Stopwatch.StartNew();
                     UnpackIndividualFile(Path.Combine(Statistics.OldFilesFolder, report.FileNameZip), report.FileName);
@@ -341,6 +361,7 @@ namespace ImportCEIDGByDate
             {
                 Statistics.CurrentPhase.PhaseSkipped = true;
             }
+            Statistics.FinishCurrentPhase("Finished");
         }
 
         public void UnpackNewReports()
@@ -352,14 +373,14 @@ namespace ImportCEIDGByDate
             {
                 foreach (var report in Statistics.NewReports[key])
                 {
-                    Console.Write($"Unpacking {report.FileName}... ");
                     if (File.Exists(Path.Combine(Statistics.NewFilesFolder, report.FileName)))
                     {
                         skippedFiles++;
-                        Console.WriteLine("File exists, skipped.");
+                        Console.WriteLine($"File {report.FileName} exists, skipped.");
                         continue;
                     }
 
+                    Console.Write($"Unpacking {report.FileName}... ");
                     Console.Write($"Processing... ");
                     Stopwatch sw = Stopwatch.StartNew();
                     UnpackIndividualFile(Path.Combine(Statistics.NewFilesFolder, report.FileNameZip), report.FileName);
@@ -371,6 +392,7 @@ namespace ImportCEIDGByDate
             {
                 Statistics.CurrentPhase.PhaseSkipped = true;
             }
+            Statistics.FinishCurrentPhase("Finished");
         }
     }
 }
