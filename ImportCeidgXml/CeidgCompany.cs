@@ -20,6 +20,8 @@ public sealed record CeidgCompany
     public string? BuildingNumber { get; init; }
     public string? ApartmentNumber { get; init; }
     public string? Phone { get; init; }
+    public bool PhoneWasNormalized { get; init; }
+    public bool PhoneWasRejected { get; init; }
     public string? Email { get; init; }
     public string? GoogleEmail { get; init; }
     public string? Website { get; init; }
@@ -43,6 +45,7 @@ public sealed record CeidgCompany
     public string? Commune { get; init; }
     public string? City { get; init; }
     public string? Status { get; init; }
+    public string SourceXml { get; init; } = "";
 
     public List<string> PKDs { get; init; } = new();
     public string PrevailingPKD { get; init; } = "";
