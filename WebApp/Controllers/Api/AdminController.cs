@@ -10,7 +10,7 @@ namespace ColdCall.Controllers.Api;
 [ApiController]
 [Route("api/admin")]
 [Authorize]
-public class AdminController : ControllerBase
+public partial class AdminController : ControllerBase
 {
     private readonly ColdCallDbContext _db;
     private readonly AdminAccessService _adminAccess;
@@ -110,7 +110,7 @@ public class AdminController : ControllerBase
                 x.Street, x.BuildingNumber, x.ApartmentNumber, x.Phone, x.Email, x.GoogleEmail,
                 x.Website, x.InstagramAccount, x.FacebookAccount, x.StartedAt, x.CreatedOn,
                 x.Regon, x.StatusDzialalnosciId, x.StatusDzialalnosci!.Nazwa, x.AddressIsMissing, x.BlockedByRODO,
-                x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId))
+                x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId, x.DataModifiedOn))
             .ToListAsync();
 
         return Ok(new PagedResult<CompanyDto>(items, total, page, pageSize, QueryableExtensions.CompanySortableColumns));
@@ -189,10 +189,49 @@ public class AdminController : ControllerBase
                 x.Id,
                 x.GoogleEmail,
                 x.DisplayName,
-                x.Plans.OrderByDescending(p => p.ExpiresAtUtc)
+                x.Plans.OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
                     .Select(p => new UserPlanDto(p.PlanDefinition.Code, p.PurchasedAtUtc, p.ExpiresAtUtc, p.Source, p.PlanDefinition.DescriptionHtml))
-                    .ToList(), DateTime.SpecifyKind(x.CreatedAtUtc, DateTimeKind.Utc)))
+                    .ToList(), DateTime.SpecifyKind(x.CreatedAtUtc, DateTimeKind.Utc), x.DisablePlanPurchase))
             .ToListAsync();
+    }
+
+    [HttpPut("users/{id:int}/plan-purchase")]
+    public async Task<IActionResult> UpdatePlanPurchase(int id, UpdatePlanPurchaseRequest request, CancellationToken token)
+    {
+        if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
+        if (!request.DisablePlanPurchase.HasValue)
+            return BadRequest(new { message = "Podaj ustawienie blokady zakupu planu." });
+        var disabled = request.DisablePlanPurchase.Value;
+        var updated = await _db.Users.Where(u => u.Id == id && !u.IsAdmin)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(u => u.DisablePlanPurchase, disabled), token);
+        return updated == 1 ? Ok(new { DisablePlanPurchase = disabled }) : NotFound();
+    }
+
+    [HttpGet("plan-definitions")]
+    public async Task<IActionResult> PlanDefinitions(CancellationToken token)
+    {
+        if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
+        return Ok(await _db.PlanDefinitions.AsNoTracking()
+            .Where(p => !p.IsUpgrade)
+            .OrderBy(p => p.Order).ThenBy(p => p.Code).ThenBy(p => p.Id)
+            .Select(p => new { p.Id, p.Code, p.DescriptionHtml }).ToListAsync(token));
+    }
+
+    [HttpPut("users/{id:int}/plan")]
+    public async Task<IActionResult> ChangePlan(int id, ChangeUserPlanRequest request, CancellationToken token)
+    {
+        if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
+        if (!await _db.Users.AnyAsync(u => u.Id == id && !u.IsAdmin, token)) return NotFound();
+        if (!await _db.PlanDefinitions.AnyAsync(p => p.Id == request.PlanDefinitionId, token))
+            return BadRequest(new { message = "Wybrany plan nie istnieje." });
+        var planId = await _db.UserPlans.Where(p => p.AppUserId == id)
+            .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
+            .Select(p => (int?)p.Id).FirstOrDefaultAsync(token);
+        if (!planId.HasValue)
+            return BadRequest(new { message = "Uzytkownik nie ma planu do zmiany." });
+        var updated = await _db.UserPlans.Where(p => p.Id == planId.Value && p.AppUserId == id)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.PlanDefinitionId, request.PlanDefinitionId), token);
+        return updated == 1 ? NoContent() : NotFound();
     }
 
     [HttpPost("users/{id:int}/extend-plan")]

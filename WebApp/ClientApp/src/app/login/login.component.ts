@@ -49,7 +49,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
     if (this.localBusy) { return; }
     this.localError = ''; this.localMessage = '';
     const email = this.localEmail.trim();
-    if (/@(?:gmail|googlemail)\.com$/i.test(email)) { this.googleRequiredDialog.nativeElement.showModal(); return; }
+    if (this.localMode === 'register' && /@(?:gmail|googlemail)\.com$/i.test(email)) { this.googleRequiredDialog.nativeElement.showModal(); return; }
     if ((this.localMode === 'register' || this.localMode === 'reset') && this.localPassword !== this.localPasswordConfirmation) {
       this.localError = 'Hasla musza byc takie same.'; return;
     }

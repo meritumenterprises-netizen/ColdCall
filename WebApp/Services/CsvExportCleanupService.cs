@@ -59,6 +59,46 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
     public async Task<int> DeleteForUserAsync(int userId, CancellationToken token)
         => await DeleteAsync(userId, false, token);
 
+    public async Task<bool> DeleteExportAsync(int userId, int exportId, CancellationToken token)
+    {
+        if (userId <= 0 || exportId <= 0) return false;
+        await using var transaction = await db.Database.BeginTransactionAsync(token);
+        await LockAsync("UserExports:" + userId, token);
+        var export = await db.CsvExports.AsNoTracking()
+            .Where(e => e.EksportCsvId == exportId && e.SearchProfile != null
+                && e.SearchProfile.AppUserId == userId)
+            .Select(e => new { e.SearchProfileId, e.CsvFileName }).SingleOrDefaultAsync(token);
+        if (export?.SearchProfileId is not int profileId) return false;
+        await LockAsync("CSVExport:" + profileId, token);
+
+        var configuredRoot = configuration["CSVExportFolder"];
+        if (string.IsNullOrWhiteSpace(configuredRoot)) throw new InvalidOperationException("Brak CSVExportFolder.");
+        var root = Path.GetFullPath(configuredRoot, environment.ContentRootPath);
+        var folder = Path.GetFullPath(Path.Combine(root,
+            userId.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            profileId.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        if (!folder.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrWhiteSpace(export.CsvFileName)
+            || export.CsvFileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0
+            || export.CsvFileName.Contains('/') || export.CsvFileName.Contains('\\')
+            || !export.CsvFileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+            throw new IOException("Niepoprawna sciezka pliku eksportu.");
+        EnsureSafeDirectory(folder);
+        var file = Path.Combine(folder, export.CsvFileName);
+        var files = new List<string>();
+        if (File.Exists(file))
+        {
+            if (File.GetAttributes(file).HasFlag(FileAttributes.ReparsePoint))
+                throw new IOException("Plik eksportu nie moze byc dowiazaniem.");
+            files.Add(file);
+        }
+        var deleted = await StageAndCommitAsync(root, files, transaction,
+            () => db.CsvExports.Where(e => e.EksportCsvId == exportId
+                && e.SearchProfile!.AppUserId == userId).ExecuteDeleteAsync(token), token);
+        return deleted == 1;
+    }
+
     public async Task<bool> DeleteSearchAsync(int userId, int profileId, CancellationToken token)
     {
         if (userId <= 0 || profileId <= 0) return false;

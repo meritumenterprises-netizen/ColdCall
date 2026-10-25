@@ -75,12 +75,13 @@ public class CompanySearchQuery
         ? _db.Companies.AsNoTracking().Select(c => new CompanyShortDto
         {
             Id = c.Id, Name = c.Name, Nip = c.Nip, Phone = c.Phone, Email = c.Email,
-            Www = c.Website, DataAktywnosci = c.StartedAt,
+            Www = c.Website, DataAktywnosci = c.StartedAt, DataModifiedOn = c.DataModifiedOn,
             FullAddress = (c.Miejscowosc!.Name ?? "") + " " + (c.PostalCode ?? "") + " " + (c.Street ?? "") + " "
                 + (c.BuildingNumber ?? "") + (c.ApartmentNumber == null ? "" : "/" + c.ApartmentNumber)
         })
         :
         from row in _db.CompaniesShort
+        join company in _db.Companies on row.Id equals company.Id
         select new CompanyShortDto
         {
             Id = row.Id,
@@ -91,6 +92,7 @@ public class CompanySearchQuery
             Email = row.Email,
             Www = row.Www,
             DataAktywnosci = row.DataAktywnosci,
+            DataModifiedOn = company.DataModifiedOn,
             TypyDzialalnosci = row.TypDzialalnosci
         };
 

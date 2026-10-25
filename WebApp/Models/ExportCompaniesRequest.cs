@@ -12,7 +12,7 @@ public class ExportCompaniesRequest
     public bool NotesOnly { get; set; }
     [RegularExpression("^(all|30|7|notes)$")]
     public string? ResultTab { get; set; }
-    [Required, RegularExpression("^(name|nip|fullAddress|phone|email|www|dataAktywnosci)$")]
+    [Required, RegularExpression("^(name|nip|fullAddress|phone|email|www|dataAktywnosci|dataModifiedOn)$")]
     public string SortBy { get; set; } = "dataAktywnosci";
     [Required, RegularExpression("^(asc|desc)$")]
     public string Direction { get; set; } = "desc";

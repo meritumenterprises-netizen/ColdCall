@@ -167,6 +167,15 @@ if (useBuiltFrontend &&
 app.Use(async (context, next) =>
 {
     context.Response.Headers["Referrer-Policy"] = "no-referrer";
+    context.Response.OnStarting(() =>
+    {
+        if (context.Response.ContentType?.StartsWith("text/html", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            context.Response.Headers.CacheControl = "no-store";
+            context.Response.Headers.Pragma = "no-cache";
+        }
+        return Task.CompletedTask;
+    });
     await next();
 });
 app.UseHttpsRedirection();

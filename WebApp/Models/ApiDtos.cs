@@ -93,9 +93,9 @@ public record SaveSearchProfileDto(string Name, IReadOnlyList<int> PkdCodeIds, S
 public record PlanDto(string Code, int SearchLimit, string DescriptionHtml, decimal Price, string Currency, DateTime? ActiveUntil,
     int Order, bool CanPurchase);
 
-public record UserPlanDto(string PlanCode, DateTime PurchasedAtUtc, DateTime ExpiresAtUtc, string Source, string DescriptionHtml = "");
+public record UserPlanDto(string PlanCode, DateTime PurchasedAtUtc, DateTime ExpiresAtUtc, string? Source, string DescriptionHtml = "");
 
-public record UserDto(int Id, string GoogleEmail, string? DisplayName, IReadOnlyList<UserPlanDto> Plans, DateTime CreatedAtUtc = default);
+public record UserDto(int Id, string GoogleEmail, string? DisplayName, IReadOnlyList<UserPlanDto> Plans, DateTime CreatedAtUtc = default, bool DisablePlanPurchase = false);
 
 public record GrantPlanDto(int UserId, string PlanCode);
 

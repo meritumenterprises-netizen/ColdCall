@@ -143,6 +143,7 @@ public static class QueryableExtensions
         new SortableColumnDto("email", "Email"),
         new SortableColumnDto("www", "Witryna WWW"),
         new SortableColumnDto("dataAktywnosci", "Data aktywno\u015bci"),
+        new SortableColumnDto("dataModifiedOn", "Zmodyfikowano"),
         new SortableColumnDto("typyDzialalnosci", "Typ Dzia\u0142alno\u015bci")
     };
 
@@ -159,6 +160,7 @@ public static class QueryableExtensions
                 "email" => x => x.Email,
                 "www" => x => x.Www,
                 "dataaktywnosci" => x => x.DataAktywnosci,
+                "datamodifiedon" => x => x.DataModifiedOn,
                 "typydzialalnosci" => x => x.TypyDzialalnosci,
                 _ => x => x.Name
             };
@@ -190,7 +192,8 @@ public static class QueryableExtensions
         new SortableColumnDto("website", "WWW"),
         new SortableColumnDto("instagramAccount", "Instagram"),
         new SortableColumnDto("facebookAccount", "Facebook"),
-        new SortableColumnDto("startedAt", "Start")
+        new SortableColumnDto("startedAt", "Start"),
+        new SortableColumnDto("dataModifiedOn", "Zmodyfikowano")
     };
 
     public static IOrderedQueryable<Company> ApplyCompanySort(this IQueryable<Company> query, string? sortBy, string? direction)
@@ -221,6 +224,7 @@ public static class QueryableExtensions
             "instagramaccount" => desc ? query.OrderByDescending(x => x.InstagramAccount) : query.OrderBy(x => x.InstagramAccount),
             "facebookaccount" => desc ? query.OrderByDescending(x => x.FacebookAccount) : query.OrderBy(x => x.FacebookAccount),
             "startedat" => desc ? query.OrderByDescending(x => x.StartedAt) : query.OrderBy(x => x.StartedAt),
+            "datamodifiedon" => desc ? query.OrderByDescending(x => x.DataModifiedOn) : query.OrderBy(x => x.DataModifiedOn),
             _ => desc ? query.OrderByDescending(x => x.Name) : query.OrderBy(x => x.Name)
         };
     }

@@ -1,11 +1,18 @@
 <header class="topbar">
-  <a class="logo" routerLink="/">FindMeNow</a>
+  <a class="logo" routerLink="/">FindMyClient</a>
   <div class="plan-summary" *ngIf="activePlan as plan">
-    <span>Plan: {{ plan.code }}<ng-container *ngIf="plan.isTrial"> (pr&#243;bny)</ng-container></span>
+    <div class="current-plan-label" tabindex="0"
+         (mouseenter)="planHintOpen = true" (mouseleave)="planHintOpen = false"
+         (focus)="planHintOpen = true" (blur)="planHintOpen = false"
+         [attr.aria-describedby]="planHintOpen && plan.descriptionHtml ? 'current-plan-tooltip' : null">
+      Plan: {{ plan.code }}<ng-container *ngIf="plan.isTrial"> (pr&#243;bny)</ng-container>
+      <div *ngIf="planHintOpen && plan.descriptionHtml" id="current-plan-tooltip"
+           role="tooltip" class="current-plan-tooltip" [innerHTML]="plan.descriptionHtml"></div>
+    </div>
     <span>Wygasa: {{ plan.expiresAtUtc | slice:0:10 }} (za {{ planDaysRemaining }} {{ planDaysRemaining === 1 ? 'dzie&#324;' : 'dni' }})</span>
   </div>
   <nav *ngIf="showAuthenticatedMenu()">
-    <a *ngIf="!api.isAdmin()" routerLink="/plans" routerLinkActive="active">Plany</a>
+    <a *ngIf="showPlansLink" routerLink="/plans" routerLinkActive="active">Plany</a>
     <a *ngIf="api.isAdmin()" routerLink="/admin" routerLinkActive="active">Admin</a>
     <div class="user-menu" *ngIf="api.user()">
       <button #userMenuButton type="button" class="user-chip" [attr.aria-expanded]="userMenuOpen" aria-controls="user-menu-links"

@@ -41,8 +41,11 @@ button {
 .avatar-fallback { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%; background: #0f8f6a; color: #fff; font-size: 12px; font-weight: 700; }
 .topbar { gap: 24px; }
 .topbar nav { align-items: center; margin-left: auto; }
-.plan-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 32px; color: #cbd5e1; font-size: 12px; font-weight: 600; min-width: 0; }
+.plan-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 32px; color: #4b5563; font-size: 12px; font-weight: 600; min-width: 0; }
 .plan-summary span { overflow-wrap: anywhere; }
+.current-plan-label { position: relative; cursor: help; }
+.current-plan-label:focus-visible { outline: 2px solid #087f5b; outline-offset: 4px; }
+.current-plan-tooltip { position: absolute; top: calc(100% + 8px); left: 0; z-index: 1200; width: 420px; max-width: calc(100vw - 56px); max-height: min(320px, calc(100vh - 120px)); overflow: auto; padding: 14px 18px; border: 1px solid #d1d5db; border-radius: 6px; background: #fff; color: #1f2937; box-shadow: 0 4px 16px #0002; font-size: 13px; font-weight: normal; line-height: 1.5; overflow-wrap: anywhere; pointer-events: none; }
 @media (min-width: 901px) {
   .topbar .logo { flex: 0 0 calc(var(--sidebar-width) - 28px - 24px); }
 }

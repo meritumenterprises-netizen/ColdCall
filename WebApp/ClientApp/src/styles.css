@@ -1,10 +1,10 @@
 * { box-sizing: border-box; }
-:root { --sidebar-width: 260px; }
+:root { --sidebar-width: 260px; color-scheme: light; }
 
 body {
   margin: 0;
-  background: #eef2f6;
-  color: #14213d;
+  background: #fff;
+  color: #1f2937;
   font-family: Inter, Segoe UI, Arial, sans-serif;
 }
 
@@ -18,13 +18,13 @@ button, input, textarea, select {
   align-items: center;
   justify-content: space-between;
   padding: 0 28px;
-  background: #101828;
-  color: white;
-  border-bottom: 1px solid rgba(255,255,255,.08);
+  background: #fff;
+  color: #1f2937;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .logo {
-  color: white;
+  color: #087f5b;
   font-weight: 800;
   letter-spacing: 0;
   text-decoration: none;
@@ -33,12 +33,12 @@ button, input, textarea, select {
 
 .topbar nav { display: flex; gap: 10px; }
 .topbar nav a {
-  color: #cbd5e1;
+  color: #374151;
   text-decoration: none;
   padding: 9px 12px;
   border-radius: 8px;
 }
-.topbar nav a.active, .topbar nav a:hover { background: #24324a; color: white; }
+.topbar nav a.active, .topbar nav a:hover { background: #edf7f2; color: #075f48; }
 
 .login-shell {
   min-height: calc(100vh - 64px);
@@ -47,24 +47,22 @@ button, input, textarea, select {
   gap: 32px;
   align-items: center;
   padding: 48px;
-  background:
-    linear-gradient(135deg, rgba(16,24,40,.96), rgba(31,41,55,.88)),
-    url('https://images.unsplash.com/photo-1497366811353-6870744d04b2?auto=format&fit=crop&w=1400&q=80') center/cover;
+  background: #fff;
 }
 
-.login-art { color: white; max-width: 760px; }
+.login-art { color: #1f2937; max-width: 760px; }
 .brand-mark {
   width: 72px; height: 72px; display: grid; place-items: center;
   background: #21a67a; color: white; border-radius: 8px; font-weight: 900; margin-bottom: 28px;
 }
 .login-art h1 { font-size: 64px; margin: 0 0 18px; }
-.login-art p { max-width: 560px; color: #dbeafe; font-size: 20px; line-height: 1.5; }
+.login-art p { max-width: 560px; color: #4b5563; font-size: 20px; line-height: 1.5; }
 
 .login-card, .data-panel, .plan-card, .user-row {
   background: white;
   border: 1px solid #d9e2ec;
   border-radius: 8px;
-  box-shadow: 0 16px 36px rgba(15,23,42,.10);
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
 }
 
 .login-card { padding: 28px; }
@@ -121,29 +119,32 @@ textarea { resize: vertical; }
 }
 
 .sidebar {
-  background: #172033;
-  color: white;
+  background: #fff;
+  color: #1f2937;
+  border-right: 1px solid #e5e7eb;
   padding: 22px;
 }
-.sidebar-title { color: #93c5fd; font-weight: 800; margin-bottom: 18px; }
-.sidebar-nav-link { display: block; padding: 10px 12px; border-radius: 4px; color: #e2e8f0; text-decoration: none; font-weight: 600; }
-.sidebar-nav-link:hover, .sidebar-nav-link:focus-visible { background: #24324a; color: white; }
-.sidebar-nav-link.active { background: #0f8f6a; color: white; }
-.sidebar-subnav { list-style: none; margin: 4px 0 16px 16px; padding: 0 0 0 8px; border-left: 1px solid #475569; }
+.sidebar-title { color: #374151; font-weight: 800; margin-bottom: 18px; }
+.sidebar-nav-link { display: block; padding: 10px 12px; border-radius: 4px; color: #374151; text-decoration: none; font-weight: 600; }
+.sidebar-nav-link:hover, .sidebar-nav-link:focus-visible { background: #f3f4f6; color: #075f48; }
+.sidebar-nav-link.active { background: #edf7f2; color: #075f48; }
+.sidebar-subnav { list-style: none; margin: 4px 0 16px 16px; padding: 0 0 0 8px; border-left: 1px solid #d1d5db; }
 .sidebar-heading .sidebar-nav-link { flex: 1; }
 .search-item {
   width: 100%;
   text-align: left;
   display: block;
-  background: #22304a;
-  color: white;
-  border: 1px solid #334155;
+  background: #fff;
+  color: #1f2937;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 10px;
 }
-.search-item span { display: block; color: #cbd5e1; font-size: 12px; margin-top: 4px; }
-.search-item.active { background: #0f8f6a; }
+.search-item span { display: block; color: #6b7280; font-size: 12px; margin-top: 4px; }
+.search-item:hover { background: #f9fafb; }
+.search-item.active { background: #edf7f2; border-color: #9ccdb8; color: #075f48; }
+.search-item.active span { color: #25634b; }
 
 .workspace {
   min-width: 0;

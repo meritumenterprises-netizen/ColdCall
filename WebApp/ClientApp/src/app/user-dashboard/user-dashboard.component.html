@@ -7,6 +7,16 @@
     <button type="button" class="primary-button" (click)="confirmDuplicateSearch()">Yes</button>
   </div>
 </dialog>
+<dialog #deleteCsvDialog class="save-search-dialog" role="alertdialog"
+        aria-labelledby="delete-csv-title" aria-describedby="delete-csv-message"
+        (cancel)="$event.preventDefault(); cancelCsvDeletion()">
+  <h2 id="delete-csv-title">Usu&#324; plik CSV</h2>
+  <p id="delete-csv-message">Czy chcesz usun&#261;&#263; ten plik CSV?</p>
+  <div class="save-search-dialog-actions">
+    <button type="button" class="primary-button" (click)="confirmCsvDeletion()">Tak</button>
+    <button type="button" class="ghost-button" autofocus (click)="cancelCsvDeletion()">Nie</button>
+  </div>
+</dialog>
 <div class="app-layout">
   <aside class="sidebar">
     <nav aria-label="Nawigacja użytkownika">
@@ -53,11 +63,11 @@
       <button class="primary-button" (click)="saveSearch()" [disabled]="!canSaveSearch">Zapisz</button>
     </section>
 
-    <div class="filters-layout">
+    <section class="filters-layout" aria-label="Filtry wyszukiwania">
     <div class="filter-tabs" role="tablist" aria-label="Filtry firm">
       <button type="button" id="criteria-tab" role="tab" aria-controls="criteria-panel"
               [attr.aria-selected]="activeFilterTab === 'criteria'" [attr.tabindex]="activeFilterTab === 'criteria' ? 0 : -1"
-              (click)="selectFilterTab('criteria')" (keydown)="navigateFilterTabs($event)">Kryteria</button>
+              (click)="selectFilterTab('criteria')" (keydown)="navigateFilterTabs($event)">Og&#243;lne</button>
       <button type="button" id="address-tab" role="tab" aria-controls="address-panel"
               [attr.aria-selected]="activeFilterTab === 'address'" [attr.tabindex]="activeFilterTab === 'address' ? 0 : -1"
               (click)="selectFilterTab('address')" (keydown)="navigateFilterTabs($event)">Adres</button>
@@ -184,7 +194,7 @@
         <div class="presence-filter">
           <input id="date-range" name="dateRangeEnabled" type="checkbox" [ngModel]="dateRangeEnabled"
                  (ngModelChange)="setDateRangeEnabled($event)">
-          <label for="date-range">Data aktywno&#347;ci</label>
+          <label for="date-range">Data dzia&#322;alno&#347;ci</label>
         </div>
         <div class="date-range">
           <div><label for="started-from">Od</label>
@@ -210,7 +220,7 @@
     </form>
     <div *ngIf="filterError" class="filter-error" role="alert">{{ filterError }}</div>
     </fieldset>
-    </div>
+    </section>
 
     <dialog #duplicateExportDialog class="save-search-dialog" role="alertdialog"
             aria-labelledby="duplicate-export-title" aria-describedby="duplicate-export-message"
@@ -252,6 +262,10 @@
     <section class="companies-grid-panel" [attr.aria-busy]="loading">
       <div class="data-panel companies-grid-table">
       <table>
+        <colgroup>
+          <col class="grid-number"><col class="grid-name"><col class="grid-notes"><col class="grid-address">
+          <col class="grid-phone"><col class="grid-email"><col class="grid-website"><col class="grid-date"><col class="grid-date"><col class="grid-details">
+        </colgroup>
         <thead>
           <tr>
             <th hidden>Id</th>
@@ -259,6 +273,7 @@
             <ng-container *ngFor="let col of columns">
             <th *ngIf="col.key === 'fullAddress'" class="company-notes-cell" scope="col" aria-label="Notatki"></th>
             <th [class.sort-disabled]="col.key === 'details' || loading"
+                [class.modified-date-heading]="col.key === 'dataModifiedOn'"
                 [attr.aria-disabled]="col.key === 'details' || loading"
                 [attr.aria-sort]="col.key === 'details' ? null : sortBy === col.key ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'"
                 (click)="sort(col.key)">
@@ -280,13 +295,14 @@
               (click)="selectedCompanyId = row.id" (focus)="selectedCompanyId = row.id"
               (dblclick)="openCompany(row)" (keydown.enter)="$event.preventDefault(); openCompany(row)">
             <td>{{ formatNumber((page - 1) * pageSize + rowIndex + 1) }}</td>
-            <td hidden>{{ row.id }}</td><td>{{ row.name.length > 50 ? (row.name | slice:0:50) + '...' : row.name }}</td>
+            <td hidden>{{ row.id }}</td><td class="grid-name-value" [title]="row.name">{{ row.name }}</td>
             <td class="company-notes-cell"><app-company-notes-indicator [notes]="row.userNotes" (opened)="openCompany(row, 'notes')"></app-company-notes-indicator></td>
-            <td>{{ row.fullAddress }}</td><td>{{ formatPhone(row.phone) }}</td><td><a *ngIf="row.email && row.email.trim()"
-              [href]="emailUrl(row.email)" title="Email" target="_blank" rel="noopener noreferrer"
+            <td class="grid-address-value" [title]="row.fullAddress">{{ row.fullAddress }}</td><td [title]="formatPhone(row.phone)">{{ formatPhone(row.phone) }}</td><td [title]="row.email || ''"><a *ngIf="row.email && row.email.trim()"
+              [href]="emailUrl(row.email)" [title]="row.email" target="_blank" rel="noopener noreferrer"
               (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ row.email }}</a></td>
-            <td><a *ngIf="row.www && row.www.trim()" [href]="websiteHref(row.www)" target="_blank" rel="noopener noreferrer"
+            <td [title]="row.www || ''"><a *ngIf="row.www && row.www.trim()" [href]="websiteHref(row.www)" [title]="row.www" target="_blank" rel="noopener noreferrer"
               (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ row.www }}</a></td><td [class.future-activity-date]="isFutureActivityDate(row.dataAktywnosci)">{{ row.dataAktywnosci | date:'yyyy-MM-dd' }}</td>
+            <td>{{ row.dataModifiedOn | date:'yyyy-MM-dd' }}</td>
             <td class="company-details-cell">
               <button type="button" class="company-details-button" aria-label="Szczeg&#243;&#322;y firmy" title="Szczeg&#243;&#322;y firmy"
                       (click)="$event.stopPropagation(); openCompany(row)" (dblclick)="$event.stopPropagation()"
@@ -308,7 +324,7 @@
       <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
       <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>
       <button (click)="next()" [disabled]="loading || page >= totalPages()">Nast&#281;pna</button>
-      <span *ngIf="!loading; else resultsCountLoading">{{ formatNumber(totalWithoutLimit) }} rekord&#243;w<ng-container *ngIf="totalWithoutLimit > total"> (dost&#281;pne w planie: {{ formatNumber(total) }})</ng-container></span>
+      <span *ngIf="!loading; else resultsCountLoading">{{ formatNumber(totalWithoutLimit) }} rekord&#243;w (dost&#281;pne w planie: {{ formatNumber(maxRecordLimit) }})</span>
       <ng-template #resultsCountLoading><span role="status">Wczytywanie...</span></ng-template>
     </footer>
     </ng-template>
@@ -339,17 +355,26 @@
             <span *ngIf="exportsSortBy === 'numberOfRecords'" aria-hidden="true"><ng-container *ngIf="exportsDirection === 'asc'">&#9650;</ng-container><ng-container *ngIf="exportsDirection === 'desc'">&#9660;</ng-container></span>
           </button>
         </th>
+        <th scope="col" class="export-delete" aria-label="Usu&#324; plik CSV"></th>
       </tr></thead>
       <tbody>
-        <tr *ngIf="exportsLoading"><td colspan="3" role="status">Wczytywanie...</td></tr>
+        <tr *ngIf="exportsLoading"><td colspan="4" role="status">Wczytywanie...</td></tr>
         <ng-container *ngIf="!exportsLoading">
           <tr *ngFor="let row of csvExports">
             <td><a [href]="api.csvDownloadUrl(row)" (click)="downloadCsvExport($event, row)"
-                   [attr.aria-disabled]="downloadingExportId !== null" title="Pobierz CSV">{{ row.csvFileName }}</a></td>
+                   [attr.aria-disabled]="downloadingExportId !== null || deletingExportId !== null" title="Pobierz CSV">{{ row.csvFileName }}</a></td>
             <td>{{ row.createdOn | date:'dd.MM.yyyy HH:mm:ss' }}</td>
             <td class="export-count">{{ row.numberOfRecords == null ? '-' : formatNumber(row.numberOfRecords) }}</td>
+            <td class="export-delete">
+              <button type="button" class="csv-delete-button" title="Usu&#324; plik CSV"
+                      [attr.aria-label]="'Usu&#324; plik CSV: ' + row.csvFileName"
+                      [disabled]="deletingExportId !== null || downloadingExportId !== null"
+                      [attr.aria-busy]="deletingExportId === row.id" (click)="deleteCsvExport(row)">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </td>
           </tr>
-          <tr *ngIf="!csvExports.length && !exportsError"><td colspan="3">Brak eksportów CSV.</td></tr>
+          <tr *ngIf="!csvExports.length && !exportsError"><td colspan="4">Brak eksportów CSV.</td></tr>
         </ng-container>
       </tbody>
     </table>

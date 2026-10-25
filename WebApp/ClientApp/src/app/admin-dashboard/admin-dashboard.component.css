@@ -1,15 +1,46 @@
-.admin-company-grid { overflow-x: auto; }
-.admin-company-grid table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.admin-company-grid { min-width: 0; max-width: 100%; overflow-x: hidden; }
+.admin-company-grid table { width: 100%; min-width: 0; table-layout: fixed; border-collapse: collapse; font-size: 12px; }
+.admin-company-grid col.grid-number { width: 40px; }
+.admin-company-grid col.grid-nip { width: 94px; }
+.admin-company-grid col.grid-phone { width: 128px; }
+.admin-company-grid col.grid-date { width: 124px; }
+.admin-company-grid col.grid-details { width: 90px; }
+.admin-company-grid col.grid-address { width: 16%; }
+.admin-company-grid col.grid-email, .admin-company-grid col.grid-website { width: 7%; }
+.admin-company-grid td.grid-name-value { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+@media (max-width: 1200px) {
+  .admin-company-grid col.grid-number { width: 3%; }
+  .admin-company-grid col.grid-name { width: 29%; }
+  .admin-company-grid col.grid-nip { width: 8%; }
+  .admin-company-grid col.grid-address { width: 15%; }
+  .admin-company-grid col.grid-phone { width: 10%; }
+  .admin-company-grid col.grid-email, .admin-company-grid col.grid-website { width: 6%; }
+  .admin-company-grid col.grid-date { width: 8%; }
+  .admin-company-grid col.grid-details { width: 90px; }
+}
+.admin-company-grid td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-company-grid th { white-space: normal; overflow-wrap: anywhere; }
+.admin-company-grid th.nowrap-heading { white-space: nowrap; overflow-wrap: normal; overflow: hidden; text-overflow: ellipsis; }
+.admin-company-grid th.nowrap-heading:last-child { overflow: visible; text-overflow: clip; }
+.admin-company-grid th.nowrap-heading button { max-width: 100%; white-space: nowrap; overflow-wrap: normal; overflow: hidden; text-overflow: ellipsis; vertical-align: middle; }
+@media (max-width: 760px) {
+  .admin-company-grid td, .admin-company-grid th { padding-left: 2px; padding-right: 2px; }
+  .admin-company-grid td:last-child button { width: 20px; height: 20px; }
+}
 .admin-company-grid td, .admin-company-grid th { padding: 6px 8px; border-bottom: 1px solid #cbd5e1; }
 .admin-company-grid th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .admin-company-grid tbody tr { cursor: pointer; }
 .admin-company-grid tbody tr.selected { background: #d1fae5; }
 .admin-company-grid td:last-child button { width: 28px; height: 28px; padding: 0; }
 .admin-users-grid { overflow-x: auto; }
-.admin-users-grid table { width: 100%; min-width: 620px; border-collapse: collapse; }
+.admin-users-grid table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 12px; }
+.admin-users-grid th, .admin-users-grid button { font-size: inherit; }
 .admin-users-grid td, .admin-users-grid th { padding: 10px 12px; border-bottom: 1px solid #cbd5e1; text-align: left; }
 .admin-users-grid th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .admin-users-grid .expired { color: #b91c1c; }
+.admin-users-grid .admin-plan-purchase-cell { text-align: center; }
+.admin-plan-purchase-cell input { width: 18px; height: 18px; margin: 0; padding: 0; accent-color: #087f5b; cursor: pointer; }
+.admin-plan-purchase-cell input:disabled { cursor: wait; }
 .admin-filters { width: 50vw; max-width: 100%; min-width: 0; margin-bottom: 20px; }
 .admin-filter-tabs { display: flex; border-bottom: 1px solid #cbd5e1; margin-bottom: 12px; }
 .admin-filter-tabs button { padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #475569; cursor: pointer; }
@@ -67,6 +98,15 @@
 .delete-csv-dialog h2 { font-size: 22px; margin-top: 0; }
 .delete-csv-dialog::backdrop { background: #0008; }
 .delete-csv-actions { display: flex; justify-content: flex-end; gap: 12px; }
+.change-plan-dialog label { display: block; margin-bottom: 6px; }
+.change-plan-dialog select { width: 100%; margin-bottom: 20px; }
+.change-plan-dialog { max-height: calc(100vh - 48px); overflow-y: auto; }
+.create-user-dialog { max-height: calc(100vh - 48px); overflow-y: auto; }
+.create-user-dialog fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.create-user-dialog input:not([type="checkbox"]), .create-user-dialog select { margin-bottom: 16px; }
+.create-user-dialog .new-user-purchase-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
+.new-user-purchase-toggle input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padding: 0; accent-color: #087f5b; }
+.change-plan-description { max-height: 260px; overflow: auto; overflow-wrap: anywhere; padding: 12px; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; line-height: 1.5; }
 .admin-user-email-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 .admin-user-email-filter input { width: 400px; max-width: calc(100% - 60px); }
 .admin-plan-label { cursor: default; }

@@ -48,6 +48,10 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   exportsSortBy: 'csvFileName' | 'createdOn' | 'numberOfRecords' = 'createdOn';
   exportsDirection: 'asc' | 'desc' = 'desc';
   downloadingExportId: number | null = null;
+  deletingExportId: number | null = null;
+  @ViewChild('deleteCsvDialog', { static: true }) deleteCsvDialog: ElementRef;
+  private pendingCsvDeletion: CsvExportRow | null = null;
+  private deleteExportRequest: Subscription | null = null;
   private exportsRequest: Subscription | null = null;
   private downloadRequest: Subscription | null = null;
   activeFilterTab: 'pkd' | 'criteria' | 'address' = 'criteria';
@@ -129,7 +133,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     { key: 'phone', label: 'Telefon' },
     { key: 'email', label: 'Email' },
     { key: 'www', label: 'Witryna WWW' },
-    { key: 'dataAktywnosci', label: 'Aktywne od' },
+    { key: 'dataAktywnosci', label: 'Dzia\u0142alno\u015b\u0107 od' },
+    { key: 'dataModifiedOn', label: 'Zmodyfikowano' },
     { key: 'details', label: 'Szczeg\u00f3\u0142y' }
   ];
 
@@ -354,6 +359,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       .pipe(timeout(15000), take(1), finalize(() => this.exportsLoading = false)).subscribe(rows => {
         this.exportsLoading = false;
         this.csvExports = rows;
+        const profile = this.searches.find(search => search.id === this.currentSearchId);
+        if (profile) { profile.hasCsvExports = rows.length > 0; }
       }, err => {
         this.exportsLoading = false;
         this.exportsError = err.name === 'TimeoutError'
@@ -372,12 +379,47 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   downloadCsvExport(event: Event, row: CsvExportRow) {
     event.preventDefault();
     if (this.searchPlanExpired) { return; }
-    if (!this.api.isAuthenticated() || this.downloadingExportId !== null) { return; }
+    if (!this.api.isAuthenticated() || this.downloadingExportId !== null || this.deletingExportId !== null) { return; }
     this.downloadingExportId = row.id;
     this.exportsError = '';
     this.downloadRequest = this.api.downloadCsv(row).pipe(finalize(() => this.downloadingExportId = null))
       .subscribe(blob => this.saveCsvFile(blob, row.csvFileName),
         err => this.exportsError = err.status === 404 ? 'Nie znaleziono pliku CSV.' : 'Nie udało się pobrać pliku CSV.');
+  }
+
+  deleteCsvExport(row: CsvExportRow) {
+    if (this.searchPlanExpired || !this.api.isAuthenticated() || this.exportsLoading
+        || this.deletingExportId !== null || this.downloadingExportId !== null) { return; }
+    this.pendingCsvDeletion = row;
+    this.deleteCsvDialog.nativeElement.showModal();
+  }
+
+  cancelCsvDeletion() {
+    this.pendingCsvDeletion = null;
+    this.deleteCsvDialog.nativeElement.close();
+  }
+
+  confirmCsvDeletion() {
+    const row = this.pendingCsvDeletion;
+    this.cancelCsvDeletion();
+    if (row) { this.performCsvDeletion(row); }
+  }
+
+  private performCsvDeletion(row: CsvExportRow) {
+    if (this.searchPlanExpired || !this.api.isAuthenticated() || this.exportsLoading
+        || this.deletingExportId !== null || this.downloadingExportId !== null) { return; }
+    const hasOtherExports = this.csvExports.some(exportRow => exportRow.id !== row.id);
+    this.deletingExportId = row.id;
+    this.exportsError = '';
+    this.deleteExportRequest = this.api.deleteCsvExport(row.id)
+      .pipe(take(1), finalize(() => this.deletingExportId = null)).subscribe(() => {
+        const profile = this.searches.find(search => search.id === row.searchProfileId);
+        if (profile) { profile.hasCsvExports = hasOtherExports; }
+        if (this.currentSearchId === row.searchProfileId) { this.loadCsvExports(); }
+      }, err => {
+        this.exportsError = err.error && err.error.message ? err.error.message
+          : err.status === 404 ? 'Nie znaleziono pliku CSV.' : 'Nie udalo sie usunac pliku CSV.';
+      });
   }
 
   private saveCsvFile(blob: Blob, name: string) {
@@ -530,11 +572,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       if (refreshSearchCount && this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = result.total; }
       this.page = result.page;
       this.activeResultTab.page = this.page;
-      if (result.sortableColumns && result.sortableColumns.length) {
-        this.columns = result.sortableColumns.filter(column => column.key !== 'id' && column.key !== 'nip')
-          .map(column => column.key === 'typyDzialalnosci' ? { key: 'details', label: 'Szczeg\u00f3\u0142y' } :
-            column.key === 'dataAktywnosci' ? { ...column, label: 'Aktywne od' } : column);
-      }
     }, err => {
       this.companies = [];
       this.total = 0;
@@ -546,6 +583,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.cancelCsvDeletion();
+    if (this.deleteExportRequest) { this.deleteExportRequest.unsubscribe(); }
     if (this.companyStatusesRequest) { this.companyStatusesRequest.unsubscribe(); }
     if (this.deleteSearchRequest) { this.deleteSearchRequest.unsubscribe(); }
     if (this.exportsRequest) { this.exportsRequest.unsubscribe(); }

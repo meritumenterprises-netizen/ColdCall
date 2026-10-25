@@ -2,15 +2,15 @@
 .search-item-container { position: relative; }
 .search-item-container .search-item span { padding-right: 28px; }
 .delete-search { position: absolute; right: 6px; bottom: 6px; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 6px; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }
-.delete-search img { filter: brightness(0) invert(1); }
-.delete-search:hover { background: #ffffff26; }
-.delete-search:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.delete-search img { filter: none; }
+.delete-search:hover { background: #e2eee7; }
+.delete-search:focus-visible { outline: 2px solid #087f5b; outline-offset: 2px; }
 .delete-search:disabled { opacity: .5; cursor: not-allowed; }
 .sidebar-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 18px; }
 .sidebar-heading .sidebar-title { margin: 0; }
-.add-search { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; height: 28px; padding: 0; border: 1px solid #667085; border-radius: 4px; background: transparent; color: white; font-size: 24px; line-height: 1; cursor: pointer; }
-.add-search:hover { background: #344054; }
-.add-search:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+.add-search { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; height: 28px; padding: 0; border: 1px solid #d1d5db; border-radius: 4px; background: #fff; color: #087f5b; font-size: 24px; line-height: 1; cursor: pointer; }
+.add-search:hover { background: #edf7f2; }
+.add-search:focus-visible { outline: 2px solid #087f5b; outline-offset: 2px; }
 .add-search:disabled { opacity: .5; cursor: not-allowed; }
 .toolbar { display: grid; grid-template-columns: max-content minmax(0, 1fr) 100px; align-items: center; gap: 10px; padding-top: 20px; width: 50vw; max-width: 100%; }
 .toolbar > label { margin: 0; white-space: nowrap; }
@@ -23,8 +23,10 @@
 }
 
 .filters-layout {
-  border: 0;
-  padding: 0;
+  border: 1px solid #d1d5db;
+  padding: 16px;
+  background: #fff;
+  box-sizing: border-box;
   margin: 0;
   min-width: 0;
   width: 50vw;
@@ -186,7 +188,31 @@
   height: auto;
   max-height: none;
   font-size: 14px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
+
+.companies-grid-table table { width: 100%; min-width: 0; table-layout: fixed; }
+.companies-grid-table col.grid-number { width: 40px; }
+.companies-grid-table col.grid-notes { width: 28px; }
+.companies-grid-table col.grid-phone { width: 142px; }
+.companies-grid-table col.grid-date { width: 104px; }
+.companies-grid-table col.grid-details { width: 76px; }
+.companies-grid-table col.grid-address { width: 16%; }
+.companies-grid-table col.grid-email, .companies-grid-table col.grid-website { width: 7%; }
+.companies-grid-table td.grid-name-value { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+@media (max-width: 1200px) {
+  .companies-grid-table col.grid-number { width: 3%; }
+  .companies-grid-table col.grid-name { width: 29%; }
+  .companies-grid-table col.grid-notes { width: 2%; }
+  .companies-grid-table col.grid-address { width: 17%; }
+  .companies-grid-table col.grid-phone { width: 11%; }
+  .companies-grid-table col.grid-date { width: 9%; }
+  .companies-grid-table col.grid-details { width: 6%; }
+}
+.companies-grid-table td { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.companies-grid-table .column-heading { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
 
 .companies-grid-table th {
   font-size: 10px;
@@ -194,6 +220,7 @@
 }
 
 .companies-grid-table th.sort-disabled { cursor: default; }
+.companies-grid-table th.modified-date-heading .column-heading { white-space: nowrap; overflow-wrap: normal; }
 .column-heading { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 .sort-indicator { display: inline-block; width: 10px; flex: 0 0 10px; font-size: 10px; line-height: 1; visibility: hidden; }
 .sort-indicator.sort-active { visibility: visible; }
@@ -201,13 +228,18 @@
 .companies-grid-table th,
 .companies-grid-table td {
   height: 44px;
-  padding: 8px 12px;
+  padding: 8px 6px;
   line-height: 20px;
 }
 
 .companies-grid-table td {
   height: 37px;
-  padding: 2px 12px;
+  padding: 2px 6px;
+}
+
+@media (max-width: 760px) {
+  .companies-grid-table th, .companies-grid-table td { padding-left: 2px; padding-right: 2px; }
+  .companies-grid-table .column-heading { display: block; }
 }
 
 .grid-loading {
@@ -241,8 +273,8 @@
 .search-export-container { position: relative; }
 .csv-file-hint { position: absolute; top: 50%; left: 112px; transform: translateY(-50%); z-index: 20; width: max-content; max-width: calc(100vw - 150px); box-sizing: border-box; padding: 10px 12px; border: 2px solid #000; border-radius: 0; background: #ffeb3b; color: #000; font-size: 12px; font-weight: 700; line-height: 1.5; pointer-events: none; }
 .csv-file-hint::before { content: ''; position: absolute; left: -16px; top: 50%; width: 26px; height: 26px; box-sizing: border-box; border-left: 2px solid #000; border-bottom: 2px solid #000; background: #ffeb3b; transform: translateY(-50%) rotate(45deg); }
-.search-export-link { display: block; width: calc(100% - 16px); margin: 4px 0 12px 16px; padding: 8px 12px; text-align: left; border: 0; border-left: 2px solid #475569; border-radius: 0; background: transparent; color: #cbd5e1; font-size: 13px; cursor: pointer; }
-.search-export-link:hover, .search-export-link.active { border-left-color: #34d399; color: white; background: #24324a; }
+.search-export-link { display: block; width: calc(100% - 16px); margin: 4px 0 12px 16px; padding: 8px 12px; text-align: left; border: 0; border-left: 2px solid #d1d5db; border-radius: 0; background: transparent; color: #4b5563; font-size: 13px; cursor: pointer; }
+.search-export-link:hover, .search-export-link.active { border-left-color: #0f8f6a; color: #075f48; background: #edf7f2; }
 .search-export-link:focus-visible { outline: 2px solid white; outline-offset: 2px; }
 .search-export-link:disabled { opacity: .5; cursor: not-allowed; }
 .dashboard-panel[hidden] { display: none !important; }
@@ -258,6 +290,11 @@
 .csv-exports-table th:nth-child(2) { width: 190px; }
 .csv-exports-table th.export-count { width: 110px; }
 .csv-exports-table .export-count { text-align: right; }
+.csv-exports-table .export-delete { width: 64px; text-align: center; }
+.csv-delete-button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 3px; background: transparent; color: #dc2626; font-size: 24px; line-height: 1; cursor: pointer; }
+.csv-delete-button:hover:not(:disabled) { background: #fee2e2; color: #b91c1c; }
+.csv-delete-button:focus-visible { outline: 2px solid #b91c1c; outline-offset: 2px; }
+.csv-delete-button:disabled { opacity: .45; cursor: not-allowed; }
 .csv-exports-table td:first-child { overflow-wrap: anywhere; white-space: normal; }
 .csv-exports-table td:last-child { white-space: nowrap; }
 .csv-exports-table th button { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }

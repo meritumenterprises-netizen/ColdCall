@@ -81,8 +81,8 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
     public async Task<IActionResult> Login(PasswordLoginRequest request)
     {
         var email = Normalize(request.Email);
-        if (await RequiresGoogle(email)) return GoogleRequired();
         var account = await manager.FindByEmailAsync(email);
+        if (account == null && await RequiresGoogle(email)) return GoogleRequired();
         var user = account == null ? null : await db.Users.SingleOrDefaultAsync(u => u.Id == account.Id);
         if (account == null || user == null || !user.IsEnabled || await manager.IsLockedOutAsync(account))
         {
@@ -132,12 +132,12 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
     public async Task<IActionResult> ForgotPassword(EmailRequest request)
     {
         var email = Normalize(request.Email);
-        if (await RequiresGoogle(email)) return GoogleRequired();
         var account = await manager.FindByEmailAsync(email);
+        if (account == null && await RequiresGoogle(email)) return GoogleRequired();
         if (account != null && account.EmailConfirmed && await db.Users.AnyAsync(u => u.Id == account.Id && u.IsEnabled))
         {
             var token = await manager.GeneratePasswordResetTokenAsync(account);
-            await emailSender.SendAsync(email, "FindMeNow - reset hasla", "Aby ustawic nowe haslo, otworz:\n" + Link("reset-password", email, token), HttpContext.RequestAborted);
+            await emailSender.SendAsync(email, "FindMyClient - reset hasla", "Aby ustawic nowe haslo, otworz:\n" + Link("reset-password", email, token), HttpContext.RequestAborted);
         }
         return Ok(new { message = MailMessage });
     }
@@ -145,8 +145,8 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
     [AllowAnonymous, HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword(ResetPasswordRequest request)
     {
-        if (await RequiresGoogle(Normalize(request.Email))) return GoogleRequired();
         var account = await manager.FindByEmailAsync(Normalize(request.Email));
+        if (account == null && await RequiresGoogle(Normalize(request.Email))) return GoogleRequired();
         var token = DecodeToken(request.Token);
         if (account == null || token == null || !account.EmailConfirmed || !(await manager.ResetPasswordAsync(account, token, request.Password)).Succeeded)
             return BadRequest(new { message = "Link jest nieprawidlowy lub wygasl albo haslo ma mniej niz 12 znakow." });
@@ -163,7 +163,7 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
     private async Task SendConfirmation(LocalAccount account)
     {
         var token = await manager.GenerateEmailConfirmationTokenAsync(account);
-        await emailSender.SendAsync(account.Email!, "FindMeNow - potwierdz email", "Aby potwierdzic adres email, otworz:\n"
+        await emailSender.SendAsync(account.Email!, "FindMyClient - potwierdz email", "Aby potwierdzic adres email, otworz:\n"
             + Link("confirm-email", account.Email!, token), HttpContext.RequestAborted);
     }
 

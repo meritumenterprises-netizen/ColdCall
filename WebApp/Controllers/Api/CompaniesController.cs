@@ -232,6 +232,23 @@ public class CompaniesController : ControllerBase
         }
     }
 
+    [HttpDelete("exports/{id:int}")]
+    public async Task<IActionResult> DeleteExport(int id, [FromServices] CsvExportCleanupService cleanup,
+        CancellationToken cancellationToken)
+    {
+        var user = await _currentUserService.GetOrCreateAsync(User);
+        try
+        {
+            return await cleanup.DeleteExportAsync(user.Id, id, cancellationToken) ? NoContent() : NotFound();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            HttpContext.RequestServices.GetRequiredService<ILogger<CompaniesController>>()
+                .LogError(ex, "CSV deletion failed for user {UserId}, export {ExportId}", user.Id, id);
+            return StatusCode(500, new { message = "Nie udalo sie usunac pliku CSV." });
+        }
+    }
+
     [HttpGet("DownloadCSV")]
     public async Task<IActionResult> DownloadCSV([FromQuery] int searchProfileId,
         [FromQuery] string fileName, CancellationToken cancellationToken)
