@@ -4,9 +4,11 @@ public sealed class CompanyImportService(CeidgXmlReader reader, CompanyRepositor
 {
     public async Task ImportAsync(ImportOptions options, CancellationToken token)
     {
+        var sourceDate = ImportSourceDate.Parse(options.Folder);
         var files = Directory.GetFiles(options.Folder, "*.xml").Order(StringComparer.OrdinalIgnoreCase).ToArray();
         if (files.Length == 0) throw new InvalidOperationException("Brak plikow XML w podanym folderze.");
         log.Write(options.Apply ? "APPLY: zapis firm i przypisan PKD." : "DRY RUN: walidacja XML i PKD, bez zapisu.");
+        log.Write($"DataModifiedOn z katalogu XML: {sourceDate:yyyy-MM-dd}");
         await repository.OpenAsync(token);
         var checkpointStore = options.Apply ? new ImportCheckpointStore(options.Folder, options.ConnectionString) : null;
         var checkpoint = checkpointStore == null ? null
@@ -63,7 +65,8 @@ public sealed class CompanyImportService(CeidgXmlReader reader, CompanyRepositor
                 var companyFromFile = company with
                 {
                     Province = wojewodztwo,
-                    WojewodztwoId = wojewodztwoId
+                    WojewodztwoId = wojewodztwoId,
+                    DataModifiedOn = sourceDate
                 };
 
                 if (!string.IsNullOrWhiteSpace(company.Nip) && company.PhoneWasRejected)

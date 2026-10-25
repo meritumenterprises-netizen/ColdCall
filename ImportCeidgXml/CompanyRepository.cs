@@ -73,11 +73,11 @@ public sealed partial class CompanyRepository(string connectionString) : IAsyncD
             (Name,BusinessType,FirstName,LastName,Nip,Regon,Krs,WojewodztwoId,PowiatId,GminaId,MiejscowoscId,
              PostalCode,Street,BuildingNumber,ApartmentNumber,Phone,Email,GoogleEmail,Website,
              StartedAt,StatusDzialalnosciId,AddressIsMissing,ImportedOn,BatchImported,
-             InstagramAccount,FacebookAccount,SuspendedOn,ResumedOn)
+             InstagramAccount,FacebookAccount,SuspendedOn,ResumedOn,DataModifiedOn)
             VALUES
             (@name,@type,@first,@last,@nip,@regon,@krs,@province,@county,@commune,@city,
              @postal,@street,@building,@apartment,@phone,@email,@googleEmail,@website,
-             @started,@status,1,GETDATE(),1,@instagram,@facebook,@suspended,@resumed);
+             @started,@status,1,GETDATE(),1,@instagram,@facebook,@suspended,@resumed,@modified);
                 SET @companyId=CONVERT(int,SCOPE_IDENTITY());
                 SET @inserted=1;
             END
@@ -98,7 +98,7 @@ public sealed partial class CompanyRepository(string connectionString) : IAsyncD
                     FacebookAccount=COALESCE(@facebook,FacebookAccount),
                     StartedAt=COALESCE(@started,StartedAt), StatusDzialalnosciId=@status,
                     SuspendedOn=@suspended, ResumedOn=COALESCE(@resumed,ResumedOn),
-                    ImportedOn=GETDATE(), BatchImported=1, DataModifiedOn=GETDATE()
+                    ImportedOn=GETDATE(), BatchImported=1, DataModifiedOn=@modified
                 WHERE Id=@companyId;
             END;
             SELECT @companyId,@inserted;
@@ -129,6 +129,7 @@ public sealed partial class CompanyRepository(string connectionString) : IAsyncD
             IsSuspended(company.Status) ? (object?)company.SuspendedOn ?? DBNull.Value : DBNull.Value;
         insert.Parameters.Add("@resumed", SqlDbType.DateTime).Value = (object?)company.ResumedOn ?? DBNull.Value;
         insert.Parameters.Add("@started", SqlDbType.DateTime2).Value = (object?)company.StartedAt ?? DBNull.Value;
+        insert.Parameters.Add("@modified", SqlDbType.DateTime).Value = (object?)company.DataModifiedOn ?? DBNull.Value;
         insert.Parameters.Add("@status", SqlDbType.TinyInt).Value = statusId;
         int companyId;
         bool inserted;
