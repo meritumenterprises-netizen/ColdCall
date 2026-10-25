@@ -7,7 +7,7 @@ namespace ColdCall.Data;
 public partial class ColdCallDbContext
 {
     public DbSet<Adres> Adresy => Set<Adres>();
-    public DbSet<CeidgImportBatch> CeidgImportBatches => Set<CeidgImportBatch>();
+    public DbSet<CompanyXml> CompanyXml => Set<CompanyXml>();
     public DbSet<CompanyUserNote> CompanyUserNotes => Set<CompanyUserNote>();
     public DbSet<CsvExport> CsvExports => Set<CsvExport>();
     public DbSet<CompanyAddress> CompanyAddresses => Set<CompanyAddress>();
@@ -29,19 +29,18 @@ public partial class ColdCallDbContext
 
     private static void ConfigureDatabaseSchema(ModelBuilder modelBuilder)
     {
-        modelBuilder.Entity<CeidgImportBatch>(entity =>
+        modelBuilder.Entity<CompanyXml>(entity =>
         {
-            entity.ToTable("CEIDGImportBatch", "ColdCall");
-            entity.HasKey(x => x.CeidgImportBatchId).HasName("PK_CEIDGImportBatch").IsClustered();
-            entity.Property(x => x.CeidgImportBatchId).HasColumnName("CEIDGImportBatchId").UseIdentityColumn();
-            entity.Property(x => x.ImportDate).HasColumnType("datetime");
-            entity.Property(x => x.CompaniesAdded).HasDefaultValue(0);
-            entity.Property(x => x.CompaniesUpdated).HasDefaultValue(0);
-            entity.Property(x => x.CompaniesSkipped).HasDefaultValue(0);
-            entity.Property(x => x.CompaniesTotal).HasDefaultValue(0);
-            entity.Property(x => x.StartDate).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
-            entity.Property(x => x.EndDate).HasColumnType("datetime");
-            entity.Property(x => x.CreatedOn).HasColumnType("datetime").HasDefaultValueSql("GETDATE()");
+            entity.ToTable("CompanyXml", "ColdCall");
+            entity.HasKey(x => x.CompanyXmlId).HasName("PK_CompanyXml").IsClustered();
+            entity.Property(x => x.CompanyXmlId).UseIdentityColumn();
+            entity.Property(x => x.Nip).HasMaxLength(32).IsRequired(false);
+            entity.Property(x => x.XmlContent).HasColumnName("CompanyXml").HasColumnType("nvarchar(max)").IsRequired();
+            entity.Property(x => x.Md5).HasColumnName("MD5").HasMaxLength(128).IsUnicode(false).IsRequired();
+            entity.HasIndex(x => x.Nip).HasDatabaseName("IX_CompanyXml_NIP");
+            // An alternate key would incorrectly make nullable NIP required in EF.
+            entity.HasIndex(x => x.Nip, "UQ_CompanyXml_Nip")
+                .HasDatabaseName("UQ_CompanyXml_Nip").IsUnique().HasFilter(null);
         });
         modelBuilder.Entity<StripePayment>(entity =>
         {
@@ -106,6 +105,8 @@ public partial class ColdCallDbContext
             .HasDefaultValue(true).HasSentinel(true);
         modelBuilder.Entity<AppUser>().Property(x => x.UsesGmail).HasColumnType("bit").IsRequired()
             .HasDefaultValue(true).HasSentinel(true);
+        modelBuilder.Entity<AppUser>().Property(x => x.DisablePlanPurchase).HasColumnType("bit").IsRequired()
+            .HasDefaultValue(false);
         modelBuilder.Entity<AdminEmail>().Property(x => x.Email).HasMaxLength(450);
         modelBuilder.Entity<BusinessType>().Property(x => x.TypDzialalnosciId).ValueGeneratedNever();
         modelBuilder.Entity<BusinessType>().Property(x => x.TypDzialalnosciSkrot).HasMaxLength(128);
@@ -118,9 +119,25 @@ public partial class ColdCallDbContext
             entity.Property(x => x.ResumedOn).HasColumnType("datetime").IsRequired(false);
             entity.Property(x => x.ImportedOn).HasColumnType("datetime").IsRequired(false);
             entity.Property(x => x.BatchImported).HasColumnType("bit").IsRequired().HasDefaultValue(false);
-            entity.Property(x => x.Krs).HasMaxLength(450);
-            entity.Property(x => x.Nip).HasMaxLength(450);
+            entity.Property(x => x.FirstName).HasMaxLength(128);
+            entity.Property(x => x.LastName).HasMaxLength(128);
+            entity.Property(x => x.Krs).HasMaxLength(32);
+            entity.Property(x => x.Nip).HasMaxLength(32);
+            entity.Property(x => x.PostalCode).HasMaxLength(8);
+            entity.Property(x => x.Street).HasMaxLength(1024);
+            entity.Property(x => x.BuildingNumber).HasMaxLength(32);
+            entity.Property(x => x.ApartmentNumber).HasMaxLength(32);
+            entity.Property(x => x.Phone).HasMaxLength(32);
+            entity.Property(x => x.Email).HasMaxLength(256);
+            entity.Property(x => x.GoogleEmail).HasMaxLength(256);
+            entity.Property(x => x.Website).HasMaxLength(512);
+            entity.Property(x => x.InstagramAccount).HasMaxLength(512);
+            entity.Property(x => x.FacebookAccount).HasMaxLength(512);
+            entity.Property(x => x.StartedAt).HasColumnType("datetime2");
             entity.Property(x => x.Regon).HasMaxLength(50);
+            // Preserve nullable NIP; an alternate key would make it required in EF.
+            entity.HasIndex(x => x.Nip, "UQ_Companies_Nip")
+                .HasDatabaseName("UQ_Companies_Nip").IsUnique().HasFilter(null);
             entity.HasIndex(x => x.Id).HasDatabaseName("IX_PrgImporter_Companies_MissingAddress")
                 .HasFilter("([AddressIsMissing]=(1) AND [BlockedByRODO]=(0))")
                 .IncludeProperties(x => new { x.MiejscowoscId, x.WojewodztwoId, x.PowiatId });
@@ -159,6 +176,7 @@ public partial class ColdCallDbContext
         });
         modelBuilder.Entity<UserPlan>().HasIndex(x => x.AppUserId);
         modelBuilder.Entity<UserPlan>().Property(x => x.IsActive).HasColumnType("bit").IsRequired(false);
+        modelBuilder.Entity<UserPlan>().Property(x => x.Source).HasColumnType("nvarchar(max)").IsRequired(false);
         modelBuilder.Entity<UserPlan>().HasIndex(x => x.PlanDefinitionId);
         modelBuilder.Entity<Adres>(entity =>
         {

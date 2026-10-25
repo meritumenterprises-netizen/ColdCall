@@ -6,6 +6,7 @@ public class AppUser
     public string GoogleSubject { get; set; } = "";
     public string GoogleEmail { get; set; } = "";
     public bool UsesGmail { get; set; } = true;
+    public bool DisablePlanPurchase { get; set; }
     public bool IsAdmin { get; set; }
     public bool IsEnabled { get; set; } = true;
     public string? DisplayName { get; set; }
@@ -197,7 +198,7 @@ public class UserPlan
     public DateTime PurchasedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime ExpiresAtUtc { get; set; }
     public decimal PricePaid { get; set; }
-    public string Source { get; set; } = "Manual";
+    public string? Source { get; set; } = "Manual";
     public string? StripeSessionId { get; set; }
 }
 

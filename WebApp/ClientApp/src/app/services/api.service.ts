@@ -43,7 +43,7 @@ export interface CompanyFilters {
 export interface CompanyShort {
   userNotes?: string | null;
   id: number; name: string; nip?: string; fullAddress: string;
-  phone?: string; email?: string; www?: string; dataAktywnosci?: string;
+  phone?: string; email?: string; www?: string; dataAktywnosci?: string; dataModifiedOn?: string | null;
   typyDzialalnosci?: string;
 }
 export interface SearchCriteria {
@@ -64,9 +64,10 @@ export interface StripePurchase {
   maxNumberOfExportedRecords: number | null; amountPaid: number; paidAtUtc: string;
 }
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
-export interface Me { id: number; googleEmail: string; usesGmail?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
-export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string; descriptionHtml?: string; }
-export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; }
+export interface Me { id: number; googleEmail: string; usesGmail?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
+export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string | null; descriptionHtml?: string; }
+export interface PlanDefinitionOption { id: number; code: string; descriptionHtml: string; }
+export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; }
 export interface AuthConfig { googleClientId: string; }
 export interface CsvExportRow { id: number; userId: number; searchProfileId: number; csvFileName: string; createdOn: string; numberOfRecords: number | null; }
 
@@ -291,7 +292,10 @@ export class ApiService {
     return this.http.get<CompanyDetails>(this.url('/api/companies/' + id), this.headers());
   }
   companyStatuses(): Observable<AddressOption[]> {
-    return this.http.get<AddressOption[]>(this.url('/api/company-statuses'), this.headers());
+    return this.http.get<AddressOption[]>(this.url('/api/company-statuses'), this.headers()).pipe(
+      map(statuses => statuses.map(status => status.name === 'Zawieszony'
+        ? { ...status, name: 'Zawieszona' } : status))
+    );
   }
   companyNotes(id: number): Observable<{ notes: string }> {
     return this.http.get<{ notes: string }>(this.url('/api/companies/' + id + '/notes'), this.headers());
@@ -318,6 +322,10 @@ export class ApiService {
   csvExportQuota(searchProfileId: number): Observable<{ used: number; limit: number | null; remaining: number | null }> {
     return this.http.get<{ used: number; limit: number | null; remaining: number | null }>(
       this.url('/api/companies/export-quota'), { ...this.headers(), params: { searchProfileId: String(searchProfileId) } });
+  }
+
+  deleteCsvExport(id: number): Observable<void> {
+    return this.http.delete<void>(this.url('/api/companies/exports/' + id), this.headers());
   }
 
   csvDownloadUrl(row: CsvExportRow) {
@@ -350,7 +358,20 @@ export class ApiService {
   }
   businessTypes(): Observable<BusinessType[]> { return this.http.get<BusinessType[]>(this.url('/api/admin/business-types'), this.headers()); }
   users(): Observable<AppUser[]> { return this.http.get<AppUser[]>(this.url('/api/admin/users'), this.headers()); }
+  createAdminUser(request: { email: string; password: string; disablePlanPurchase: boolean; planDefinitionId: number }): Observable<{ id: number; email: string }> {
+    return this.http.post<{ id: number; email: string }>(this.url('/api/admin/users'), request, this.headers());
+  }
   extendUserPlan(id: number) { return this.http.post(this.url('/api/admin/users/' + id + '/extend-plan'), {}, this.headers()); }
+  updateUserPlanPurchase(id: number, disablePlanPurchase: boolean): Observable<{ disablePlanPurchase: boolean }> {
+    return this.http.put<{ disablePlanPurchase: boolean }>(this.url('/api/admin/users/' + id + '/plan-purchase'),
+      { disablePlanPurchase }, this.headers());
+  }
+  adminPlanDefinitions(): Observable<PlanDefinitionOption[]> {
+    return this.http.get<PlanDefinitionOption[]>(this.url('/api/admin/plan-definitions'), this.headers());
+  }
+  changeUserPlan(id: number, planDefinitionId: number): Observable<void> {
+    return this.http.put<void>(this.url('/api/admin/users/' + id + '/plan'), { planDefinitionId }, this.headers());
+  }
   deleteUserCsvExports(id: number): Observable<{ deleted: number }> {
     return this.http.delete<{ deleted: number }>(this.url('/api/admin/users/' + id + '/csv-exports'), this.headers());
   }

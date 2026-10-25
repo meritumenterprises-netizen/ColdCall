@@ -7,7 +7,7 @@ public class SearchProfileCriteriaDto : IValidatableObject
     public int[] CompanyStatusIds { get; set; } = new[] { 1 };
     [Required(AllowEmptyStrings = true), StringLength(1000)]
     public string CompanyName { get; set; } = "";
-    [Required, RegularExpression("^(name|nip|fullAddress|phone|email|www|dataAktywnosci)$")]
+    [Required, RegularExpression("^(name|nip|fullAddress|phone|email|www|dataAktywnosci|dataModifiedOn)$")]
     public string SortColumn { get; set; } = "dataAktywnosci";
     [Required, RegularExpression("^(asc|desc)$")]
     public string SortDirection { get; set; } = "desc";

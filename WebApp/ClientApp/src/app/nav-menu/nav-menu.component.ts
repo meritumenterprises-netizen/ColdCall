@@ -10,6 +10,7 @@ import { ApiService } from '../services/api.service';
 export class NavMenuComponent {
   isExpanded = false;
   userMenuOpen = false;
+  planHintOpen = false;
   failedAvatarUrl = '';
 
   get avatarUrl() {
@@ -37,6 +38,7 @@ export class NavMenuComponent {
 
   @HostListener('document:keydown.escape')
   escapeUserMenu() {
+    this.planHintOpen = false;
     if (this.userMenuOpen) {
       this.userMenuOpen = false;
       if (this.userMenuButton) { this.userMenuButton.nativeElement.focus(); }
@@ -64,6 +66,11 @@ export class NavMenuComponent {
     return this.api.isAuthenticated() && this.router.url !== '/';
   }
 
+  get showPlansLink() {
+    const user = this.api.user();
+    return this.api.isAuthenticated() && !!user && !user.isAdmin && !user.disablePlanPurchase;
+  }
+
   collapse() {
     this.isExpanded = false;
   }
@@ -73,6 +80,7 @@ export class NavMenuComponent {
   }
 
   logout() {
+    this.planHintOpen = false;
     this.userMenuOpen = false;
     this.api.logoutSession().subscribe(() => this.router.navigateByUrl('/'));
   }

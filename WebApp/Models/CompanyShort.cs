@@ -16,6 +16,7 @@ public class CompanyShortView
 
 public class CompanyShortDto : CompanyShortView
 {
+    public DateTime? DataModifiedOn { get; set; }
     public string? UserNotes { get; set; }
     public string? TypyDzialalnosci { get; set; }
 }

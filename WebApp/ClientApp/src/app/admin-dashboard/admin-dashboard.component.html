@@ -11,6 +11,7 @@
         <span class="eyebrow">Tryb administratora</span>
         <h1 *ngIf="tab === 'companies'">Wyszukiwanie firm</h1>
       </div>
+      <button type="button" class="primary-button" [disabled]="creatingUser" (click)="requestCreateUser()">Utw&#243;rz u&#380;ytkownika</button>
     </header>
 
     <div class="message" *ngIf="message">{{ message }}</div>
@@ -20,7 +21,7 @@
         <div class="admin-filter-tabs" role="tablist" aria-label="Filtry firm">
           <button *ngFor="let filterTab of ['criteria', 'address', 'pkd', 'nip', 'rodo']" type="button" role="tab" [attr.aria-selected]="activeFilterTab === filterTab"
                   [attr.aria-controls]="'admin-' + filterTab + '-panel'" [class.active]="activeFilterTab === filterTab" (click)="activeFilterTab = filterTab">
-            {{ filterTab === 'criteria' ? 'Kryteria' : filterTab === 'address' ? 'Adres' : filterTab === 'pkd' ? 'PKD' : filterTab === 'nip' ? 'NIP' : 'RODO' }}
+            {{ filterTab === 'criteria' ? 'Ogólne' : filterTab === 'address' ? 'Adres' : filterTab === 'pkd' ? 'PKD' : filterTab === 'nip' ? 'NIP' : 'RODO' }}
           </button>
         </div>
         <section id="admin-nip-panel" role="tabpanel" [hidden]="activeFilterTab !== 'nip'">
@@ -46,7 +47,7 @@
             </div>
           </div>
           <div class="admin-date-filter">
-            <label class="admin-date-toggle"><input type="checkbox" [(ngModel)]="dateRangeEnabled" (ngModelChange)="updateFilters()">Data aktywno&#347;ci</label>
+            <label class="admin-date-toggle"><input type="checkbox" [(ngModel)]="dateRangeEnabled" (ngModelChange)="updateFilters()">Data dzia&#322;alno&#347;ci</label>
             <div class="admin-date-fields">
               <div><label for="admin-started-from">Od</label><input id="admin-started-from" type="date" [(ngModel)]="dateFrom" [disabled]="!dateRangeEnabled" (ngModelChange)="updateFilters()"></div>
               <div><label for="admin-started-to">Do</label><input id="admin-started-to" type="date" [(ngModel)]="dateTo" [min]="dateFrom" [disabled]="!dateRangeEnabled" (ngModelChange)="updateFilters()"></div>
@@ -104,29 +105,34 @@
       </div>
       <div class="admin-company-grid" [attr.aria-busy]="loading">
         <table>
+          <colgroup>
+            <col class="grid-number"><col class="grid-name"><col class="grid-nip"><col class="grid-address"><col class="grid-phone">
+            <col class="grid-email"><col class="grid-website"><col class="grid-date"><col class="grid-date"><col class="grid-details">
+          </colgroup>
           <thead><tr>
             <th>Lp.</th>
             <ng-container *ngFor="let col of companyColumns">
-            <th [attr.aria-sort]="sortBy === col.key ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
+            <th [class.nowrap-heading]="col.key === 'startedAt' || col.key === 'dataModifiedOn'" [attr.aria-sort]="sortBy === col.key ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
               <button type="button" (click)="sort(col.key)" [disabled]="loading">{{ col.label }} <span *ngIf="sortBy === col.key"><ng-container *ngIf="direction === 'asc'">&#9650;</ng-container><ng-container *ngIf="direction === 'desc'">&#9660;</ng-container></span></button>
             </th>
             </ng-container>
-            <th>Szczeg&#243;&#322;y</th>
+            <th class="nowrap-heading">Szczeg&#243;&#322;y</th>
           </tr></thead>
           <tbody>
-            <tr *ngIf="loading"><td colspan="9" role="status">Wczytywanie...</td></tr>
+            <tr *ngIf="loading"><td [attr.colspan]="companyColumns.length + 2" role="status">Wczytywanie...</td></tr>
             <ng-container *ngIf="!loading">
               <tr *ngFor="let company of companies; let i = index" (click)="selectedCompanyId = company.id" (dblclick)="detailsCompany = company" [class.selected]="selectedCompanyId === company.id">
                 <td>{{ formatNumber((page - 1) * pageSize + i + 1) }}</td>
-                <td [title]="company.name">{{ company.name.length > 50 ? (company.name | slice:0:50) + '...' : company.name }}</td>
+                <td class="grid-name-value" [title]="company.name">{{ company.name }}</td>
                 <td>{{ company.nip }}</td>
-                <td>{{ fullAddress(company) }}</td>
-                <td>{{ formatPhone(company.phone) }}</td>
-                <td><a *ngIf="company.email && company.email.trim()" [href]="emailUrl(company.email)" title="Email" target="_blank" rel="noopener noreferrer"
+                <td class="grid-address-value" [title]="fullAddress(company)">{{ fullAddress(company) }}</td>
+                <td [title]="formatPhone(company.phone)">{{ formatPhone(company.phone) }}</td>
+                <td [title]="company.email || ''"><a *ngIf="company.email && company.email.trim()" [href]="emailUrl(company.email)" [title]="company.email" target="_blank" rel="noopener noreferrer"
                        (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ company.email }}</a></td>
-                <td><a *ngIf="company.website && company.website.trim()" [href]="websiteHref(company.website)" target="_blank" rel="noopener noreferrer"
+                <td [title]="company.website || ''"><a *ngIf="company.website && company.website.trim()" [href]="websiteHref(company.website)" [title]="company.website" target="_blank" rel="noopener noreferrer"
                        (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ company.website }}</a></td>
                 <td [class.future-activity-date]="isFutureActivityDate(company.startedAt)">{{ company.startedAt | date:'yyyy-MM-dd' }}</td>
+                <td>{{ company.dataModifiedOn | date:'yyyy-MM-dd' }}</td>
                 <td class="admin-company-actions">
                   <button type="button" class="ghost-button compact" title="Szczegóły firmy" aria-label="Szczegóły firmy" (click)="$event.stopPropagation(); detailsCompany = company"><img src="assets/icons/info.svg" width="18" height="18" alt=""></button>
                   <button type="button" class="ghost-button compact" [title]="company.blockedByRODO ? 'Włącz do RODO' : 'Wyłącz z powodu RODO'"
@@ -166,7 +172,7 @@
           <th>Akcje</th>
         </tr></thead>
         <tbody>
-          <tr *ngIf="usersLoading"><td colspan="6" role="status">Wczytywanie...</td></tr>
+          <tr *ngIf="usersLoading"><td [attr.colspan]="userColumns.length + 1" role="status">Wczytywanie...</td></tr>
           <ng-container *ngIf="!usersLoading">
             <tr *ngFor="let row of userRows; trackBy: trackUser">
               <td>{{ row.displayName || '-' }}</td>
@@ -177,18 +183,76 @@
                         [attr.aria-describedby]="planHint ? 'admin-plan-tooltip' : null">{{ row.planCode }}</span><ng-template #noUserPlan>-</ng-template></td>
               <td [class.expired]="row.expired">{{ row.expiresAtUtc ? (row.expiresAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
               <td>{{ row.createdAtUtc ? (row.createdAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
+              <td class="admin-plan-purchase-cell">
+                <input type="checkbox" [checked]="row.disablePlanPurchase"
+                       [disabled]="busyUserIds.has(row.id)"
+                       [attr.aria-label]="'Nie pozwól na zakup planu: ' + row.googleEmail"
+                       (change)="updatePlanPurchase(row.id, $event.target.checked)">
+              </td>
               <td class="admin-user-actions">
+                <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="requestChangePlan(row)">Zmie&#324; plan</button>
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="extendPlan(row.id)">Przed&#322;u&#380; o 7 dni</button>
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id)" (click)="requestDeleteCsv(row)">Usu&#324; pliki CSV</button>
               </td>
             </tr>
-            <tr *ngIf="!userRows.length"><td colspan="6">Brak u&#380;ytkownik&#243;w.</td></tr>
+            <tr *ngIf="!userRows.length"><td [attr.colspan]="userColumns.length + 1">Brak u&#380;ytkownik&#243;w.</td></tr>
           </ng-container>
         </tbody>
       </table>
     </section>
     <div *ngIf="tab === 'users' && planHint" id="admin-plan-tooltip" role="tooltip" class="admin-plan-tooltip"
          [style.left.px]="planHint.left" [style.top.px]="planHint.top" [innerHTML]="planHint.html"></div>
+    <dialog #createUserDialog class="delete-csv-dialog create-user-dialog" aria-labelledby="create-user-title"
+            (cancel)="$event.preventDefault(); cancelCreateUser()">
+      <h2 id="create-user-title">Utw&#243;rz u&#380;ytkownika</h2>
+      <form #createUserForm="ngForm" (ngSubmit)="createUserForm.valid && confirmCreateUser()">
+        <fieldset [disabled]="creatingUser">
+          <label for="new-user-email">Nazwa u&#380;ytkownika (email)</label>
+          <input id="new-user-email" name="email" type="email" email required maxlength="254"
+                 [(ngModel)]="newUserEmail" autocomplete="off" autofocus>
+          <label for="new-user-password">Has&#322;o</label>
+          <input id="new-user-password" name="password" type="password" required minlength="12" maxlength="128"
+                 [(ngModel)]="newUserPassword" autocomplete="new-password">
+          <label class="new-user-purchase-toggle">
+            <input name="disablePlanPurchase" type="checkbox" [(ngModel)]="newUserDisablePlanPurchase">
+            Uniemo&#380;liw zakup plan&#243;w
+          </label>
+          <label for="new-user-plan">Plan</label>
+          <select id="new-user-plan" name="plan" required [(ngModel)]="newUserPlanId" [disabled]="newUserPlansLoading">
+            <option [ngValue]="null" disabled>{{ newUserPlansLoading ? 'Wczytywanie...' : 'Wybierz plan' }}</option>
+            <option *ngFor="let plan of newUserPlans" [ngValue]="plan.id">{{ plan.code }}</option>
+          </select>
+          <section *ngIf="newUserPlanId !== null" class="change-plan-description" aria-label="Opis planu"
+                   [innerHTML]="newUserPlanDescriptionHtml"></section>
+          <p *ngIf="createUserError" class="error" role="alert">{{ createUserError }}</p>
+          <div class="delete-csv-actions">
+            <button type="submit" class="primary-button"
+                    [disabled]="!createUserForm.valid || creatingUser || newUserPlansLoading || newUserPlanId === null">Utw&#243;rz</button>
+            <button type="button" class="ghost-button" [disabled]="creatingUser" (click)="cancelCreateUser()">Anuluj</button>
+          </div>
+        </fieldset>
+      </form>
+    </dialog>
+    <dialog #changePlanDialog class="delete-csv-dialog change-plan-dialog" aria-labelledby="change-plan-title"
+            (cancel)="$event.preventDefault(); cancelChangePlan()">
+      <h2 id="change-plan-title">Zmie&#324; plan</h2>
+      <p>{{ userToChangePlan ? userToChangePlan.googleEmail : '' }}</p>
+      <label for="admin-plan-definition">Plan</label>
+      <select id="admin-plan-definition" [(ngModel)]="selectedPlanDefinitionId"
+              [disabled]="planDefinitionsLoading || changingPlan">
+        <option [ngValue]="null" disabled>{{ planDefinitionsLoading ? 'Wczytywanie...' : 'Wybierz plan' }}</option>
+        <option *ngFor="let plan of planDefinitions" [ngValue]="plan.id">{{ plan.code }}</option>
+      </select>
+      <section *ngIf="selectedPlanDefinitionId !== null && !planDefinitionsLoading"
+               class="change-plan-description" aria-label="Opis planu"
+               [innerHTML]="selectedPlanDescriptionHtml"></section>
+      <p *ngIf="changePlanError" class="error" role="alert">{{ changePlanError }}</p>
+      <div class="delete-csv-actions">
+        <button type="button" class="primary-button" [disabled]="planDefinitionsLoading || changingPlan || selectedPlanDefinitionId === null"
+                (click)="confirmChangePlan()">Wybierz</button>
+        <button type="button" class="ghost-button" autofocus [disabled]="changingPlan" (click)="cancelChangePlan()">Anuluj</button>
+      </div>
+    </dialog>
     <dialog #deleteCsvDialog class="delete-csv-dialog" aria-labelledby="delete-csv-title" (cancel)="$event.preventDefault(); cancelDeleteCsv()">
       <h2 id="delete-csv-title">Usu&#324; eksporty CSV</h2>
       <p>Czy trwale usun&#261;&#263; wszystkie eksporty CSV u&#380;ytkownika {{ userToDelete ? userToDelete.googleEmail : '' }} z bazy i dysku?</p>

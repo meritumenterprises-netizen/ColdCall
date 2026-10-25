@@ -1,0 +1,9 @@
+namespace ColdCall.Models;
+
+public class CompanyXml
+{
+    public int CompanyXmlId { get; set; }
+    public string? Nip { get; set; }
+    public string XmlContent { get; set; } = "";
+    public string Md5 { get; set; } = "";
+}

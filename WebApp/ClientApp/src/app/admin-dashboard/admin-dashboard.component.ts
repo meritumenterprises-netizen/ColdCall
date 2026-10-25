@@ -2,7 +2,7 @@ import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/co
 import { isFutureActivityDate } from '../services/activity-date';
 import { Subscription, timer } from 'rxjs';
 import { finalize } from 'rxjs/operators';
-import { AddressLevel, AddressOption, ApiService, AppUser, BusinessType, Company, CompanyFilters, Pkd, SortableColumn } from '../services/api.service';
+import { AddressLevel, AddressOption, ApiService, AppUser, BusinessType, Company, CompanyFilters, Pkd, PlanDefinitionOption, SortableColumn } from '../services/api.service';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -19,6 +19,142 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   busyUserIds = new Set<number>();
   userToDelete: { id: number; googleEmail: string } | null = null;
   private userActionRequests = new Set<Subscription>();
+  @ViewChild('createUserDialog', { static: true }) createUserDialog: ElementRef;
+  newUserEmail = '';
+  newUserPassword = '';
+  newUserDisablePlanPurchase = false;
+  newUserPlanId: number | null = null;
+  newUserPlans: PlanDefinitionOption[] = [];
+  newUserPlansLoading = false;
+  creatingUser = false;
+  createUserError = '';
+  private newUserPlansRequest: Subscription | null = null;
+
+  get newUserPlanDescriptionHtml(): string {
+    const plan = this.newUserPlans.find(item => item.id === this.newUserPlanId);
+    return plan ? plan.descriptionHtml || '' : '';
+  }
+
+  requestCreateUser() {
+    if (this.creatingUser) { return; }
+    if (this.newUserPlansRequest) { this.newUserPlansRequest.unsubscribe(); }
+    this.newUserEmail = '';
+    this.newUserPassword = '';
+    this.newUserDisablePlanPurchase = false;
+    this.newUserPlanId = null;
+    this.newUserPlans = [];
+    this.createUserError = '';
+    this.newUserPlansLoading = true;
+    this.createUserDialog.nativeElement.showModal();
+    this.newUserPlansRequest = this.api.adminPlanDefinitions()
+      .pipe(finalize(() => this.newUserPlansLoading = false)).subscribe(plans => this.newUserPlans = plans,
+        () => this.createUserError = 'Nie udalo sie pobrac planow.');
+  }
+
+  cancelCreateUser() {
+    if (this.creatingUser) { return; }
+    if (this.newUserPlansRequest) { this.newUserPlansRequest.unsubscribe(); }
+    this.newUserPassword = '';
+    this.createUserDialog.nativeElement.close();
+  }
+
+  confirmCreateUser() {
+    const email = this.newUserEmail.trim();
+    if (this.creatingUser || this.newUserPlansLoading || !email || this.newUserPassword.length < 12
+        || !this.newUserPlans.some(plan => plan.id === this.newUserPlanId)) { return; }
+    this.creatingUser = true;
+    this.createUserError = '';
+    const request = this.api.createAdminUser({ email, password: this.newUserPassword,
+      disablePlanPurchase: this.newUserDisablePlanPurchase, planDefinitionId: this.newUserPlanId })
+      .pipe(finalize(() => this.creatingUser = false)).subscribe(() => {
+        this.newUserPassword = '';
+        this.createUserDialog.nativeElement.close();
+        this.message = 'Uzytkownik zostal utworzony.';
+        this.tab = 'users';
+        this.loadUsers();
+      }, err => {
+        const errors = err.error && err.error.errors;
+        this.createUserError = err.error && err.error.message ? err.error.message
+          : errors ? Object.keys(errors).map(key => errors[key].join(' ')).join(' ')
+          : 'Nie udalo sie utworzyc uzytkownika.';
+      });
+    this.userActionRequests.add(request);
+  }
+  updatePlanPurchase(userId: number, disabled: boolean) {
+    const user = this.users.find(item => item.id === userId);
+    if (!user || this.busyUserIds.has(userId)) { return; }
+    const previous = !!user.disablePlanPurchase;
+    user.disablePlanPurchase = disabled;
+    this.busyUserIds.add(userId);
+    const request = this.api.updateUserPlanPurchase(userId, disabled)
+      .pipe(finalize(() => this.busyUserIds.delete(userId))).subscribe(result => {
+        user.disablePlanPurchase = result.disablePlanPurchase;
+      }, () => {
+        user.disablePlanPurchase = previous;
+        this.message = 'Nie udalo sie zapisac ustawienia zakupu planu.';
+      });
+    this.userActionRequests.add(request);
+  }
+  @ViewChild('changePlanDialog', { static: true }) changePlanDialog: ElementRef;
+  userToChangePlan: { id: number; googleEmail: string; planCode: string } | null = null;
+  planDefinitions: PlanDefinitionOption[] = [];
+  selectedPlanDefinitionId: number | null = null;
+  planDefinitionsLoading = false;
+  changingPlan = false;
+  changePlanError = '';
+  private planDefinitionsRequest: Subscription | null = null;
+
+  get selectedPlanDescriptionHtml(): string {
+    const plan = this.planDefinitions.find(item => item.id === this.selectedPlanDefinitionId);
+    return plan ? plan.descriptionHtml || '' : '';
+  }
+
+  requestChangePlan(row: { id: number; googleEmail: string; planCode: string }) {
+    if (!row.planCode || this.busyUserIds.has(row.id) || this.changingPlan) { return; }
+    if (this.planDefinitionsRequest) { this.planDefinitionsRequest.unsubscribe(); }
+    this.userToChangePlan = row;
+    this.planHint = null;
+    this.planDefinitions = [];
+    this.selectedPlanDefinitionId = null;
+    this.changePlanError = '';
+    this.planDefinitionsLoading = true;
+    this.changePlanDialog.nativeElement.showModal();
+    this.planDefinitionsRequest = this.api.adminPlanDefinitions()
+      .pipe(finalize(() => this.planDefinitionsLoading = false)).subscribe(plans => {
+        this.planDefinitions = plans;
+        const current = plans.find(plan => plan.code === row.planCode);
+        this.selectedPlanDefinitionId = current ? current.id : null;
+      }, () => this.changePlanError = 'Nie udalo sie pobrac planow.');
+  }
+
+  cancelChangePlan() {
+    if (this.changingPlan) { return; }
+    if (this.planDefinitionsRequest) { this.planDefinitionsRequest.unsubscribe(); }
+    this.changePlanDialog.nativeElement.close();
+    this.userToChangePlan = null;
+    this.selectedPlanDefinitionId = null;
+    this.changePlanError = '';
+  }
+
+  confirmChangePlan() {
+    if (!this.userToChangePlan || this.changingPlan || this.planDefinitionsLoading
+        || !this.planDefinitions.some(plan => plan.id === this.selectedPlanDefinitionId)) { return; }
+    const userId = this.userToChangePlan.id;
+    const planId = this.selectedPlanDefinitionId;
+    this.changingPlan = true;
+    this.busyUserIds.add(userId);
+    this.changePlanError = '';
+    const request = this.api.changeUserPlan(userId, planId)
+      .pipe(finalize(() => { this.changingPlan = false; this.busyUserIds.delete(userId); }))
+      .subscribe(() => {
+        this.changePlanDialog.nativeElement.close();
+        this.userToChangePlan = null;
+        this.message = 'Plan zostal zmieniony.';
+        this.loadUsers();
+      }, err => this.changePlanError = err.error && err.error.message
+        ? err.error.message : 'Nie udalo sie zmienic planu.');
+    this.userActionRequests.add(request);
+  }
   extendPlan(id: number) {
     if (this.busyUserIds.has(id)) { return; }
     this.busyUserIds.add(id);
@@ -140,6 +276,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }, () => this.filterError = 'Nie udalo sie rozpoznac kodow PKD.');
   }
   ngOnDestroy() {
+    this.newUserPassword = '';
+    if (this.newUserPlansRequest) { this.newUserPlansRequest.unsubscribe(); }
+    if (this.planDefinitionsRequest) { this.planDefinitionsRequest.unsubscribe(); }
     if (this.companyStatusesRequest) { this.companyStatusesRequest.unsubscribe(); }
     this.userActionRequests.forEach(request => request.unsubscribe());
     this.rodoRequests.forEach(request => request.unsubscribe());
@@ -157,7 +296,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   userColumns: SortableColumn[] = [
     { key: 'displayName', label: 'Imi\u0119 i nazwisko' }, { key: 'googleEmail', label: 'Email' },
     { key: 'planCode', label: 'Aktualny plan' }, { key: 'expiresAtUtc', label: 'Data wyga\u015bni\u0119cia' },
-    { key: 'createdAtUtc', label: 'Login utworzony' }
+    { key: 'createdAtUtc', label: 'Login utworzony' },
+    { key: 'disablePlanPurchase', label: 'Nie pozw\u00f3l na zakup planu' }
   ];
   private dateUtc(value: string) { return /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + 'Z'; }
   get userRows() {
@@ -167,6 +307,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       const plan = plans[0];
       const expiresAtUtc = plan ? this.dateUtc(plan.expiresAtUtc) : '';
       return { id: user.id, displayName: user.displayName || '', googleEmail: user.googleEmail,
+        disablePlanPurchase: !!user.disablePlanPurchase,
         createdAtUtc: user.createdAtUtc ? this.dateUtc(user.createdAtUtc) : '',
         planCode: plan ? plan.planCode : '', descriptionHtml: plan ? plan.descriptionHtml || '' : '', expiresAtUtc, expired: !!plan && new Date(expiresAtUtc).getTime() <= now };
     });
@@ -243,7 +384,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { key: 'name', label: 'Nazwa' }, { key: 'nip', label: 'NIP' },
     { key: 'fullAddress', label: 'Adres' }, { key: 'phone', label: 'Telefon' },
     { key: 'email', label: 'Email' }, { key: 'website', label: 'Witryna WWW' },
-    { key: 'startedAt', label: 'Data aktywno\u015bci' }
+    { key: 'startedAt', label: 'Dzia\u0142alno\u015b\u0107 od' },
+    { key: 'dataModifiedOn', label: 'Zmodyfikowano' }
   ];
 
   constructor(private api: ApiService) {}
