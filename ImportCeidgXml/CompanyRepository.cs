@@ -51,7 +51,10 @@ public sealed partial class CompanyRepository(string connectionString) : IAsyncD
     public async Task<bool> InsertIfMissingAsync(CeidgCompany company, CancellationToken token)
     {
         if (string.IsNullOrWhiteSpace(company.Nip))
-            company = company with { Nip = null };
+            return false;
+        var phone = PhoneValueNormalizer.Normalize(company.Phone);
+        var phoneRejected = company.PhoneWasRejected
+            || (!string.IsNullOrWhiteSpace(company.Phone) && phone == null);
         _ = ValidateStatusName(company.Status);
         transaction ??= (SqlTransaction)await connection.BeginTransactionAsync(token);
         var assignments = await ResolvePkdsAsync(company, token);
@@ -62,16 +65,43 @@ public sealed partial class CompanyRepository(string connectionString) : IAsyncD
         var commune = await ResolveAsync("Gminy", company.Commune, token);
         var city = await ResolveAsync("Miejscowosci", company.City, token);
         await using var insert = new SqlCommand("""
+            DECLARE @companyId int, @inserted bit=0;
+            SELECT @companyId=Id FROM ColdCall.Companies WITH (UPDLOCK,HOLDLOCK) WHERE Nip=@nip;
+            IF @companyId IS NULL
+            BEGIN
             INSERT ColdCall.Companies
             (Name,BusinessType,FirstName,LastName,Nip,Regon,Krs,WojewodztwoId,PowiatId,GminaId,MiejscowoscId,
              PostalCode,Street,BuildingNumber,ApartmentNumber,Phone,Email,GoogleEmail,Website,
              StartedAt,StatusDzialalnosciId,AddressIsMissing,ImportedOn,BatchImported,
              InstagramAccount,FacebookAccount,SuspendedOn,ResumedOn)
-            OUTPUT INSERTED.Id
             VALUES
             (@name,@type,@first,@last,@nip,@regon,@krs,@province,@county,@commune,@city,
              @postal,@street,@building,@apartment,@phone,@email,@googleEmail,@website,
              @started,@status,1,GETDATE(),1,@instagram,@facebook,@suspended,@resumed);
+                SET @companyId=CONVERT(int,SCOPE_IDENTITY());
+                SET @inserted=1;
+            END
+            ELSE
+            BEGIN
+                UPDATE ColdCall.Companies
+                SET Name=@name, FirstName=@first, LastName=@last, Regon=@regon, Krs=@krs,
+                    AddressIsMissing=CASE WHEN EXISTS (
+                        SELECT WojewodztwoId,PowiatId,GminaId,MiejscowoscId,PostalCode,Street,BuildingNumber,ApartmentNumber
+                        EXCEPT SELECT @province,@county,@commune,@city,@postal,@street,@building,@apartment
+                    ) THEN 1 ELSE AddressIsMissing END,
+                    WojewodztwoId=@province, PowiatId=@county, GminaId=@commune, MiejscowoscId=@city,
+                    PostalCode=@postal, Street=@street, BuildingNumber=@building, ApartmentNumber=@apartment,
+                    Phone=CASE WHEN @phoneRejected=1 THEN Phone ELSE @phone END,
+                    Email=@email, Website=@website,
+                    GoogleEmail=COALESCE(@googleEmail,GoogleEmail),
+                    InstagramAccount=COALESCE(@instagram,InstagramAccount),
+                    FacebookAccount=COALESCE(@facebook,FacebookAccount),
+                    StartedAt=COALESCE(@started,StartedAt), StatusDzialalnosciId=@status,
+                    SuspendedOn=@suspended, ResumedOn=COALESCE(@resumed,ResumedOn),
+                    ImportedOn=GETDATE(), BatchImported=1, DataModifiedOn=GETDATE()
+                WHERE Id=@companyId;
+            END;
+            SELECT @companyId,@inserted;
             """, connection, transaction);
         AddText(insert, "@name", company.Name, 1000);
         insert.Parameters.Add("@type", SqlDbType.Int).Value = businessTypeId;
@@ -88,7 +118,8 @@ public sealed partial class CompanyRepository(string connectionString) : IAsyncD
         AddText(insert, "@street", company.Street);
         AddText(insert, "@building", company.BuildingNumber);
         AddText(insert, "@apartment", company.ApartmentNumber);
-        AddText(insert, "@phone", company.Phone);
+        AddText(insert, "@phone", phone, 32);
+        insert.Parameters.Add("@phoneRejected", SqlDbType.Bit).Value = phoneRejected;
         AddText(insert, "@email", company.Email);
         AddText(insert, "@googleEmail", company.GoogleEmail);
         AddText(insert, "@website", company.Website);
@@ -99,9 +130,17 @@ public sealed partial class CompanyRepository(string connectionString) : IAsyncD
         insert.Parameters.Add("@resumed", SqlDbType.DateTime).Value = (object?)company.ResumedOn ?? DBNull.Value;
         insert.Parameters.Add("@started", SqlDbType.DateTime2).Value = (object?)company.StartedAt ?? DBNull.Value;
         insert.Parameters.Add("@status", SqlDbType.TinyInt).Value = statusId;
-        var companyId = Convert.ToInt32(await insert.ExecuteScalarAsync(token));
+        int companyId;
+        bool inserted;
+        await using (var result = await insert.ExecuteReaderAsync(token))
+        {
+            if (!await result.ReadAsync(token))
+                throw new InvalidOperationException("Company insert/update returned no result.");
+            companyId = result.GetInt32(0);
+            inserted = result.GetBoolean(1);
+        }
         await SavePkdsAsync(companyId, assignments, token);
-        return true;
+        return inserted;
     }
 
     public int FindProvinceId(string name)

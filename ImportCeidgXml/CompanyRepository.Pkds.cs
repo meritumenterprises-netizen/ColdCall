@@ -85,6 +85,25 @@ public sealed partial class CompanyRepository
     private async Task SavePkdsAsync(int companyId,
         IReadOnlyList<(int Id, bool Prevailing)> assignments, CancellationToken token)
     {
+        var desiredIds = assignments.Select(assignment => assignment.Id).ToHashSet();
+        var obsoleteIds = new List<int>();
+        await using (var existing = new SqlCommand(
+            "SELECT PkdCodeId FROM ColdCall.CompanyPkds WHERE CompanyId=@company;", connection, transaction))
+        {
+            existing.Parameters.Add("@company", SqlDbType.Int).Value = companyId;
+            await using var reader = await existing.ExecuteReaderAsync(token);
+            while (await reader.ReadAsync(token))
+                if (!desiredIds.Contains(reader.GetInt32(0))) obsoleteIds.Add(reader.GetInt32(0));
+        }
+        foreach (var pkdId in obsoleteIds)
+        {
+            await using var delete = new SqlCommand(
+                "DELETE FROM ColdCall.CompanyPkds WHERE CompanyId=@company AND PkdCodeId=@pkd;", connection, transaction);
+            delete.Parameters.Add("@company", SqlDbType.Int).Value = companyId;
+            delete.Parameters.Add("@pkd", SqlDbType.Int).Value = pkdId;
+            await delete.ExecuteNonQueryAsync(token);
+        }
+
         foreach (var assignment in assignments)
         {
             await using var command = new SqlCommand("""

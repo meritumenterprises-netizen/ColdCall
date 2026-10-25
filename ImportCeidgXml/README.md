@@ -13,6 +13,8 @@ dotnet run --project C:/projects/ColdCall/ImportCeidgXml -- "C:/folder/CEIDG_Mod
 
 Bez --apply: walidacja XML i odczyt z SQL, bez zapisu firm.
 --limit N ogranicza liczbe odczytanych rekordow (przydatne do testow).
+W --apply importer automatycznie wznawia od ostatniej zatwierdzonej pozycji.
+--restart ignoruje zapisany postep i przetwarza wszystkie XML-e od poczatku (nie usuwa danych z bazy).
 Polaczenie: zmienna CEIDG_XML_CONNECTION_STRING; domyslnie localhost, Firmy_temp,
 Windows Authentication, TrustServerCertificate=True. Nie przechowuj hasel w repozytorium.
 
@@ -24,12 +26,12 @@ Windows Authentication, TrustServerCertificate=True. Nie przechowuj hasel w repo
   jego StatusId do Companies.StatusDzialalnosciId. BusinessType pozostaje bez zmian.
   Pusty status lub nazwa dluzsza niz 100 znakow zatrzymuje import.
   Dry-run waliduje nazwe bez dodawania statusu.
-- Importuje rowniez firmy bez NIP, zapisujac Nip=NULL wraz z ich przypisaniami PKD.
-  Sprawdza istnienie Nip IS NULL + FirstName + LastName (bez wzgledu na wielkosc liter),
-  ale znalezienie takiego rekordu tylko loguje: firma nadal jest dodawana.
-  Pusty NIP nie jest kluczem dopasowania: takie firmy sa dodawane jako nowe przy kazdym uruchomieniu.
-  Duplikowane niepuste NIP-y rowniez sa dozwolone: InsertIfMissingAsync zawsze
-  dodaje nowa firme i jej PKD, bez wyszukiwania/aktualizowania istniejacej firmy po NIP.
+- Pomija firmy bez elementu Nip/NIP, z pustym NIP, samymi spacjami lub wartoscia "-".
+  Nie zapisuje dla nich firmy, przypisan PKD ani CompanyXml; nie waliduje ich PKD w dry-run.
+  Podsumowanie "bez NIP" zawiera liczbe pominietych rekordow.
+  Niepusty NIP jest kluczem: brak firmy powoduje INSERT, istniejaca firma jest aktualizowana
+  z zachowaniem Id, CreatedOn, BusinessType, BlockedByRODO i SkipAddressVerification.
+  Dopasowanie i zapis sa chronione blokadami UPDLOCK/HOLDLOCK w transakcji partii.
 - Name: NazwaPodmiotu; przy pustej nazwie lub "-" uzywa Imie + Nazwisko.
 - Dla kazdego pliku rozpoznaje wojewodztwo z nazwy i w trybie --apply wyszukuje
   istniejace Id w ColdCall.Wojewodztwa. Wynik przekazuje do modelu firmy
@@ -45,8 +47,17 @@ Windows Authentication, TrustServerCertificate=True. Nie przechowuj hasel w repo
   DataWznowieniaDzialalnosci (takze wariant DataWznowieniaDzialanosci) -> ResumedOn.
   Tylko dla Zawieszony: DataZawieszeniaDzialalnosci -> SuspendedOn; dla Aktywny NULL.
   Dla istniejacej firmy brak daty rozpoczecia/wznowienia nie kasuje daty zapisanej w SQL.
-- CreatedOn wedlug domyslnej wartosci SQL; ImportedOn=GETDATE(), BatchImported=1.
-  AddressIsMissing=1 (nie tworzy Adresy/CompanyAddress). DataModifiedOn pozostaje NULL.
+- Pole Telefon:
+  Pole Telefon dluzsze niz 32 znaki oczyszcza do pierwszego rozpoznanego polskiego numeru
+  (9 cyfr lub prefiks +48/0048/48). Nie zmienia wartosci mieszczacych sie w limicie.
+  Pelna wartosc pozostaje w CompanyXml i jest uwzgledniana w MD5; oczyszczenie loguje.
+  Jesli z za dlugiej wartosci nie mozna rozpoznac numeru, loguje ostrzezenie i kontynuuje import:
+  nowa firma dostaje Phone=NULL, a istniejaca zachowuje dotychczasowy telefon.
+- CreatedOn nowej firmy wedlug domyslnej wartosci SQL; ImportedOn=GETDATE(), BatchImported=1.
+  Aktualizacja istniejacej firmy ustawia DataModifiedOn=GETDATE().
+  Nowa firma lub zmieniony adres ustawia AddressIsMissing=1 (nie tworzy Adresy/CompanyAddress).
+- W --apply zapisuje XML Detail bez Lp. do ColdCall.CompanyXml wraz z MD5 bajtow UTF-8.
+  Snapshot jest dodawany/aktualizowany po NIP w tej samej transakcji co firma i PKD.
 - Dla kazdego niepustego NIP odczytuje existingCompany z Companies oraz CompanyPkds
   z kodami/opisami z PkdCodes i flaga Prevailing. Brak firmy daje NULL.
   PKDs zawiera liste kodow, PrevailingPKD pierwszy kod z Prevailing=true
@@ -59,11 +70,20 @@ Windows Authentication, TrustServerCertificate=True. Nie przechowuj hasel w repo
   z Name=N'' i NeedsClarification=1; CodeWithoutDots wylicza SQL.
   Standardowe piecioznakowe kody zapisuje z kropkami, np. 0111Z -> 01.11.Z.
   Niejednoznaczny kod zatrzymuje import. Dry-run nie dodaje brakujacych kodow.
-  Przypisania PKD sa unikalne w ramach nowo dodanej firmy; powtorzony import
-  tworzy kolejne firmy (rowniez z tym samym NIP) z ich wlasnymi przypisaniami PKD.
+  Przypisania PKD sa unikalne w ramach firmy; powtorzony import aktualizuje flagi Prevailing,
+  dodaje nowe kody i usuwa przypisania nieobecne w aktualnym XML.
   Firma i jej PKD zapisywane sa w tej samej transakcji partii.
 - Partie transakcyjne co 500 odczytanych rekordow. Blad lub Ctrl+C wycofuje
-  niezapisana partie; zatwierdzone partie pozostaja. Ponowny import moze je zduplikowac.
+  niezapisana partie; zatwierdzone partie pozostaja. Ponowny import dopasowuje firmy po NIP.
+- Checkpoint .ceidg-full-import-<klucz-bazy>.checkpoint.json zapisuje w folderze XML
+  sciezke pliku, liczbe zatwierdzonych elementow Detail i stan zakonczenia importu.
+  Zapisuje go atomowo po zatwierdzeniu kazdej partii i na koncu pliku.
+  Po restarcie pomija zakonczone pliki i zatwierdzone rekordy; dry-run nie korzysta z checkpointu.
+  Biezacy XML jest skanowany od poczatku do zapisanej pozycji bez ponownego mapowania/zapisu tych rekordow.
+  Zmiana listy plikow, rozmiaru lub czasu modyfikacji wymaga --restart.
+  Gdy caly zestaw zakonczono, kolejne uruchomienie go pomija; --restart wymusza ponowny import.
+  Awaria pomiedzy COMMIT SQL a zapisem checkpointu moze powtorzyc ostatnia partie,
+  ale nie pominie danych; zapis po NIP nie tworzy duplikatow.
 - Pliki z blednym XML/data lub za dlugimi wartosciami zatrzymuja import bez obcinania danych.
 - Jedna instancja importera na baze (SQL application lock).
 - Log i podsumowanie sa wyswietlane w konsoli i zapisywane w folderze logs przy aplikacji.
@@ -77,4 +97,3 @@ ALTER INDEX ALL ON ColdCall.Companies
 REBUILD;
 GO
 ```
-

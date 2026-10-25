@@ -7,24 +7,37 @@ namespace ImportCeidgXml;
 
 public sealed class CeidgXmlReader
 {
-    public async IAsyncEnumerable<CeidgCompany> ReadAsync(string file,
+    public IAsyncEnumerable<CeidgCompany> ReadAsync(string file, CancellationToken token = default) =>
+        ReadAsync(file, 0, token);
+
+    public async IAsyncEnumerable<CeidgCompany> ReadAsync(string file, long skipRecords,
         [EnumeratorCancellation] CancellationToken token = default)
     {
+        ArgumentOutOfRangeException.ThrowIfNegative(skipRecords);
         var settings = new XmlReaderSettings
         {
             Async = true, DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null
         };
         using var reader = XmlReader.Create(file, settings);
         var provinceFromFile = ProvinceFromFile(file);
+        long skipped = 0;
         while (await reader.ReadAsync())
         {
             token.ThrowIfCancellationRequested();
             if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "Detail") continue;
             // Subtree reading leaves the outer reader on the closing Detail, including adjacent records.
             using var subtree = reader.ReadSubtree();
+            if (skipped < skipRecords)
+            {
+                while (await subtree.ReadAsync()) token.ThrowIfCancellationRequested();
+                skipped++;
+                continue;
+            }
             var element = await XElement.LoadAsync(subtree, LoadOptions.None, token);
             yield return Parse(element, provinceFromFile);
         }
+        if (skipped < skipRecords)
+            throw new InvalidDataException("Checkpoint position exceeds the number of Detail records in the XML file.");
     }
 
     public static CeidgCompany Parse(XElement element, string? provinceFromFile)
@@ -65,14 +78,23 @@ public sealed class CeidgXmlReader
         if (new[] { province, county, commune, city }.Any(v => v?.Length > 250))
             throw new FormatException("Nazwa slownika adresowego dluzsza niz 250 znakow.");
         var status = Value("StatusDzialalnosci");
+        var originalPhone = Value("Telefon");
+        var phone = string.IsNullOrWhiteSpace(nip) ? originalPhone : PhoneValueNormalizer.Normalize(originalPhone);
+        var sourceDocument = new XmlDocument();
+        sourceDocument.LoadXml(element.ToString());
+        var rowNumber = sourceDocument.SelectSingleNode("Detail/Lp.");
+        rowNumber?.ParentNode?.RemoveChild(rowNumber);
         return new CeidgCompany
         {
+            SourceXml = sourceDocument.OuterXml,
             Name = name, Nip = nip, Regon = regon, Krs = krs,
             FirstName = FormatPersonName(Value("Imie")), LastName = FormatPersonName(Value("Nazwisko")),
             Province = province, County = county, Commune = commune, City = city,
             PostalCode = Value("KodPocztowy"), Street = Value("Ulica"),
             BuildingNumber = Value("NrBudynku"), ApartmentNumber = Value("NrLokalu"),
-            Phone = Value("Telefon"), Email = Value("Email"), GoogleEmail = Value("GoogleEmail"),
+            Phone = phone, PhoneWasNormalized = phone != null && originalPhone != phone,
+            PhoneWasRejected = originalPhone != null && phone == null,
+            Email = Value("Email"), GoogleEmail = Value("GoogleEmail"),
             Website = Value("AdresWWW"), InstagramAccount = Value("InstagramAccount"),
             FacebookAccount = Value("FacebookAccount"),
             StartedAt = Date("DataRozpoczeciaDzialalnosci"),
