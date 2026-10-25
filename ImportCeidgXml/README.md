@@ -7,8 +7,8 @@ model firmy, repozytorium SQL, serwis importu, logowanie.
 ## Uruchomienie
 
 ```powershell
-dotnet run --project C:/projects/ColdCall/ImportCeidgXml -- "C:/folder/CEIDG_Modified"
-dotnet run --project C:/projects/ColdCall/ImportCeidgXml -- "C:/folder/CEIDG_Modified" --apply
+dotnet run --project C:/projects/ColdCall/ImportCeidgXml -- "C:/folder/2026-10-19"
+dotnet run --project C:/projects/ColdCall/ImportCeidgXml -- "C:/folder/2026-10-19" --apply
 ```
 
 Bez --apply: walidacja XML i odczyt z SQL, bez zapisu firm.
@@ -21,6 +21,8 @@ Windows Authentication, TrustServerCertificate=True. Nie przechowuj hasel w repo
 ## Zasady
 
 - Czyta strumieniowo kazdy Detail z plikow *.xml w podanym folderze, bez podfolderow.
+- Nazwa katalogu XML musi byc data yyyy-MM-dd (np. 2026-10-19).
+  Ta data trafia do Companies.DataModifiedOn przy INSERT i UPDATE; ImportedOn pozostaje data importu.
 - StatusDzialalnosci dopasowuje do CompanyStatus.Nazwa bez wzgledu na wielkosc liter.
   Brakujacy status dodaje do CompanyStatus w transakcji zapisu firmy i przypisuje
   jego StatusId do Companies.StatusDzialalnosciId. BusinessType pozostaje bez zmian.
