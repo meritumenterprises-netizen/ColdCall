@@ -6,8 +6,12 @@ namespace GeoPortalAddressImporter;
 internal sealed class CompanyRepository(string connectionString)
 {
     private const string Eligibility = """
-        C.AddressIsMissing = 1 AND C.WojewodztwoId > 1 AND C.MiejscowoscId IS NOT NULL
+        C.AddressIsMissing = 1 AND C.WojewodztwoId > 1 AND C.MiejscowoscId > 0
         AND C.PowiatId > 0 AND C.GminaId > 0
+        AND EXISTS (SELECT 1 FROM ColdCall.Wojewodztwa W WHERE W.Id = C.WojewodztwoId)
+        AND EXISTS (SELECT 1 FROM ColdCall.Powiaty P WHERE P.Id = C.PowiatId)
+        AND EXISTS (SELECT 1 FROM ColdCall.Gminy G WHERE G.Id = C.GminaId)
+        AND EXISTS (SELECT 1 FROM ColdCall.Miejscowosci M WHERE M.Id = C.MiejscowoscId)
         AND C.BlockedByRODO = 0
         AND NOT EXISTS (SELECT 1 FROM ColdCall.CompanyAddress CA WHERE CA.CompanyId = C.Id)
         """;
@@ -31,8 +35,8 @@ internal sealed class CompanyRepository(string connectionString)
             FROM ColdCall.Companies C
             INNER JOIN ColdCall.Wojewodztwa W ON W.Id = C.WojewodztwoId
             INNER JOIN ColdCall.Miejscowosci M ON M.Id = C.MiejscowoscId
-            LEFT JOIN ColdCall.Powiaty P ON P.Id = C.PowiatId
-            LEFT JOIN ColdCall.Gminy G ON G.Id = C.GminaId
+            INNER JOIN ColdCall.Powiaty P ON P.Id = C.PowiatId
+            INNER JOIN ColdCall.Gminy G ON G.Id = C.GminaId
             WHERE {Eligibility} AND C.Id > @AfterId AND (@CompanyId IS NULL OR C.Id = @CompanyId)
             ORDER BY C.Id
             OPTION (RECOMPILE);

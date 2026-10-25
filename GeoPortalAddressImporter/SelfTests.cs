@@ -121,11 +121,19 @@ internal static class SelfTests
                 "Zastepczy numer powoduje wyszukiwanie miejscowosci");
             Assert((await missingClient.FindAsync(Company with { PostalCode = null }, CancellationToken.None)).Address?.IsCity == true && missingClient.CacheHits == 1,
                 "Brak kodu pocztowego uzywa GPS miejscowosci z cache");
-            var fallbackHandler = new FakeHandler("""{"type":"street","found objects":0,"results":null}""", Json(candidate), Json(list));
+            var fallbackHandler = new FakeHandler(Enumerable.Repeat(
+                """{"type":"address","found objects":0,"returned objects":0,"results":null}""", 6)
+                .Concat(new[] { Json(candidate), Json(list) }).ToArray());
             using var fallbackHttp = new HttpClient(fallbackHandler);
             var fallbackClient = new GeoportalClient(fallbackHttp, Path.Combine(temporary, "fallback-cache"), 0, 30, log);
-            Assert((await fallbackClient.FindAsync(Company with { Number = "40" }, CancellationToken.None)).Address == null, "Odpowiedz street pomijana");
-            Assert((await fallbackClient.FindAsync(Company, CancellationToken.None)).Address != null, "Kontynuacja po odpowiedzi street");
+            for (var i = 0; i < 6; i++)
+            {
+                var noPoint = await fallbackClient.FindAsync(Company with { Number = (40 + i).ToString() }, CancellationToken.None);
+                Assert(noPoint.Address == null && noPoint.Reason == "Brak punktu adresowego.",
+                    "Brak punktu adresowego jest wynikiem, nie wyjatkiem");
+            }
+            Assert((await fallbackClient.FindAsync(Company, CancellationToken.None)).Address != null && fallbackHandler.Calls == 8,
+                "Kontynuacja po szesciu kolejnych odpowiedziach bez punktu adresowego");
             var nullFoundHandler = new FakeHandler(nullFoundResponse, Json(candidate), Json(list));
             using var nullFoundHttp = new HttpClient(nullFoundHandler);
             var nullFoundClient = new GeoportalClient(nullFoundHttp, Path.Combine(temporary, "null-found-cache"), 0, 30, log);

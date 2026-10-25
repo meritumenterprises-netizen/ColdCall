@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "GeoPortalAddressImporter": {
+      "commandName": "Project",
+      "commandLineArgs": "run --apply --all"
+    }
+  }
+}

@@ -39,8 +39,11 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
         }
         var street = Text.Street(company.Street);
         var query = company.City + (street.Length == 0 ? " " : ", " + street + " ") + company.Number;
-        var candidate = Matching.Candidate(company, await GetAsync(
-            "?request=GetAddress&address=" + Uri.EscapeDataString(query) + "&accuracy=1&exact_number=1", token));
+        var response = await GetAsync(
+            "?request=GetAddress&address=" + Uri.EscapeDataString(query) + "&accuracy=1&exact_number=1", token);
+        if (response.Type != "address" || response.Points.Count == 0)
+            return new MatchResult(null, "Brak punktu adresowego.");
+        var candidate = Matching.Candidate(company, response);
         if (candidate.Address is not { } address) return candidate;
         if (string.IsNullOrWhiteSpace(address.Simc)) return new(null, "Brak SIMC.");
         var path = "?request=GetAddresses&simc=" + Uri.EscapeDataString(address.Simc);
