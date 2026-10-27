@@ -3,9 +3,9 @@ using Microsoft.Data.SqlClient;
 
 namespace GeoPortalAddressImporter;
 
-internal sealed class CompanyRepository(string connectionString)
+internal sealed partial class CompanyRepository(string connectionString)
 {
-    private const string Eligibility = """
+    internal const string Eligibility = """
         C.AddressIsMissing = 1 AND C.WojewodztwoId > 1 AND C.MiejscowoscId > 0
         AND C.PowiatId > 0 AND C.GminaId > 0
         AND EXISTS (SELECT 1 FROM ColdCall.Wojewodztwa W WHERE W.Id = C.WojewodztwoId)
@@ -63,33 +63,23 @@ internal sealed class CompanyRepository(string connectionString)
         var (latitude, longitude) = Coordinates.Convert(address.X, address.Y);
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(token);
-        await using var transaction = (SqlTransaction)await connection.BeginTransactionAsync(token);
-        using var guard = new SqlCommand($"""
-            SELECT C.Id FROM ColdCall.Companies C WITH (UPDLOCK, HOLDLOCK)
+        using var command = new SqlCommand($"""
+            SET NOCOUNT ON;
+            SET XACT_ABORT ON;
+            BEGIN TRY
+            BEGIN TRANSACTION;
+            IF NOT EXISTS (SELECT C.Id FROM ColdCall.Companies C WITH (UPDLOCK, HOLDLOCK)
             WHERE C.Id = @Id AND {Eligibility}
                 AND C.WojewodztwoId = @ProvinceId AND C.MiejscowoscId = @CityId
                 AND C.PowiatId = @CountyId AND C.GminaId = @MunicipalityId
-                AND COALESCE(C.Street, N'') COLLATE Latin1_General_100_BIN2 = COALESCE(@Street, N'')
-                AND COALESCE(C.BuildingNumber, N'') COLLATE Latin1_General_100_BIN2 = COALESCE(@Number, N'')
-                AND COALESCE(C.PostalCode, N'') COLLATE Latin1_General_100_BIN2 = COALESCE(@PostalCode, N'');
-            """, connection, transaction);
-        guard.Parameters.Add("@Id", SqlDbType.Int).Value = company.Id;
-        guard.Parameters.Add("@ProvinceId", SqlDbType.Int).Value = company.ProvinceId;
-        guard.Parameters.Add("@CityId", SqlDbType.Int).Value = company.CityId;
-        guard.Parameters.Add("@CountyId", SqlDbType.Int).Value = company.CountyId.Value;
-        guard.Parameters.Add("@MunicipalityId", SqlDbType.Int).Value = company.MunicipalityId.Value;
-        AddText(guard, "@Street", company.Street, -1);
-        AddText(guard, "@Number", company.Number, -1);
-        AddText(guard, "@PostalCode", company.PostalCode, -1);
-        if (await guard.ExecuteScalarAsync(token) == null)
-        {
-            await transaction.RollbackAsync(token);
-            return "Firma zmieniona, zablokowana lub ma juz adres; pominieto.";
-        }
-
-        // Administrative IDs belong to the company; UUG supplies the GPS point.
-        using var command = new SqlCommand("""
-            SET NOCOUNT ON;
+                AND COALESCE(C.Street, N'') COLLATE Latin1_General_100_BIN2 = COALESCE(@OriginalStreet, N'')
+                AND COALESCE(C.BuildingNumber, N'') COLLATE Latin1_General_100_BIN2 = COALESCE(@OriginalNumber, N'')
+                AND COALESCE(C.PostalCode, N'') COLLATE Latin1_General_100_BIN2 = COALESCE(@PostalCode, N''))
+            BEGIN
+                ROLLBACK TRANSACTION;
+                SELECT CAST(NULL AS int);
+                RETURN;
+            END;
             DECLARE @AddressId int;
             SELECT @AddressId = Id FROM ColdCall.Adresy WITH (UPDLOCK, HOLDLOCK)
             WHERE PrngId = @SourceKey;
@@ -113,8 +103,18 @@ internal sealed class CompanyRepository(string connectionString)
             END;
             INSERT ColdCall.CompanyAddress (CompanyId, AddressId) VALUES (@CompanyId, @AddressId);
             UPDATE ColdCall.Companies SET AddressIsMissing = @AddressIsMissing WHERE Id = @CompanyId;
+            COMMIT TRANSACTION;
             SELECT @AddressId;
-            """, connection, transaction);
+            END TRY
+            BEGIN CATCH
+                IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+                THROW;
+            END CATCH;
+            """, connection);
+        command.Parameters.Add("@Id", SqlDbType.Int).Value = company.Id;
+        AddText(command, "@OriginalStreet", company.Street, -1);
+        AddText(command, "@OriginalNumber", company.Number, -1);
+        AddText(command, "@PostalCode", company.PostalCode, -1);
         command.Parameters.Add("@ProvinceId", SqlDbType.Int).Value = company.ProvinceId;
         command.Parameters.Add("@CityId", SqlDbType.Int).Value = company.CityId;
         command.Parameters.Add("@CountyId", SqlDbType.Int).Value = company.CountyId.Value;
@@ -132,8 +132,10 @@ internal sealed class CompanyRepository(string connectionString)
             parameter.Scale = 6;
             parameter.Value = value;
         }
-        var addressId = (int)(await command.ExecuteScalarAsync(token))!;
-        await transaction.CommitAsync(token);
+        var savedId = await command.ExecuteScalarAsync(token);
+        if (savedId is null or DBNull)
+            return "Firma zmieniona, zablokowana lub ma juz adres; pominieto.";
+        var addressId = (int)savedId;
         return $"Zapisano AddressId={addressId}; rodzaj={(address.IsCity ? "miejscowosc" : "budynek")}; {company.LocationDescription}; GPS={latitude:F6},{longitude:F6}.";
     }
 

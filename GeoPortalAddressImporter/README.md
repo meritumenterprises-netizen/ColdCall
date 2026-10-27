@@ -149,6 +149,15 @@ tymczasowe nadal powoduja ponowienia z opoznieniem, z uwzglednieniem Retry-After
 Wyszukiwania dzialaja ciagle, bez bariery paczek: wolny request nie blokuje zapisu
 pozostalych wynikow ani startu kolejnego wyszukiwania w wolnym slocie.
 Gotowe wyniki trafiaja do ograniczonego kanalu i jednego konsumenta zapisu SQL.
+W trybie --apply konsument zbiera do 100 wynikow, czekajac maksymalnie sekunde.
+Adresy sa wysylane jako parametryzowany JSON do SQL (OPENJSON), bez instalowania
+typu tabelarycznego ani procedury w bazie. Jedna partia to jedno wywolanie SQL
+i jedna transakcja; zachowane sa kontrole aktualnosci firmy, RODO i konfliktow adresu.
+Blad SQL wycofuje cala partie; nastepnie dziala dotychczasowy zapis pojedynczy.
+Nieudana firma nadal zatrzymuje import bez przeskakiwania jej checkpointem.
+Checkpoint jest utrwalany co 100 przesuniec lub po sekundzie oraz na zakonczenie.
+Po twardym przerwaniu niewielki fragment moze zostac ponowiony; zapisane adresy
+nie sa dublowane. Tryb raportu nadal przetwarza gotowe wyniki pojedynczo.
 Logi SAVE/SKIP/DEFER moga miec ID w innej kolejnosci niz rosnaca.
 Checkpoint przesuwa sie tylko za ciag zapisanych lub obsluzonych rekordow,
 bez przeskakiwania wolniejszej firmy. PROGRESS podaje bezpieczny checkpoint Id.
