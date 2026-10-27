@@ -92,6 +92,20 @@ internal static class SelfTests
             using var log = new RunLog(Path.Combine(temporary, "logs"));
             await FileWriteTests.RunAsync(temporary);
             await PipelineTests.RunAsync();
+            using var serviceHttp = new HttpClient(new FakeHandler(Json(candidate), Json(list)));
+            using var service = new GeoportalAddressService(serviceHttp, Path.Combine(temporary, "service"));
+            var serviceResult = await service.FindAsync(new GeoportalAddressRequest
+            {
+                CompanyId = Company.Id, ProvinceId = 2, CountyId = 1, MunicipalityId = 1, CityId = 1,
+                Province = Company.Province, County = Address.County, Municipality = Address.Municipality,
+                City = Company.City, Street = Company.Street, BuildingNumber = Company.Number,
+                PostalCode = Company.PostalCode
+            });
+            Assert(serviceResult.Found && !serviceResult.IsCity && serviceResult.SourceKey?.Length == 50
+                && serviceResult.Street == Address.Street && serviceResult.BuildingNumber == Address.Number,
+                "Publiczna usluga GeoPortalu udostepnia zweryfikowany adres dla importera CEIDG");
+            Assert(!(await service.FindAsync(new GeoportalAddressRequest())).Found,
+                "Publiczna usluga pomija niepelny adres bez HTTP");
             using var parallelHandler = new ConcurrentHandler(cityJson);
             using var parallelHttp = new HttpClient(parallelHandler);
             var parallelClient = new GeoportalClient(parallelHttp, Path.Combine(temporary, "parallel-cache"), 0, 30, log);
@@ -314,6 +328,7 @@ internal static class SelfTests
             query.CommandText = "UPDATE ColdCall.Companies SET PowiatId=2 WHERE Id=" + changedId;
             await query.ExecuteNonQueryAsync(token);
             Assert(!(await repository.SaveAsync(changedCompany, Address, token)).StartsWith("Zapisano", StringComparison.Ordinal), "Zmiana identyfikatora podczas HTTP blokuje zapis nieaktualnego adresu");
+            await BatchWriteTests.RunAsync(builder.ConnectionString, Address, token);
             Console.WriteLine("PASS: izolowane testy SQL, FK, idempotencja, RODO, geography i rollback.");
         }
         finally

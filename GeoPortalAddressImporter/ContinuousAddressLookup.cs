@@ -9,7 +9,9 @@ internal static class ContinuousAddressLookup
         Func<Company, CancellationToken, Task<MatchResult>> lookup,
         Func<AddressLookupResult, CancellationToken, Task> save,
         Func<int, CancellationToken, Task> checkpoint, CancellationToken token,
-        int concurrency = ParallelAddressLookup.Concurrency)
+        int concurrency = ParallelAddressLookup.Concurrency,
+        Func<IReadOnlyList<AddressLookupResult>, CancellationToken, Task>? saveBatch = null,
+        TimeSpan? batchInterval = null)
     {
         using var stop = CancellationTokenSource.CreateLinkedTokenSource(token);
         // Bound both the result queue and the unfinished checkpoint window.
@@ -21,10 +23,28 @@ internal static class ContinuousAddressLookup
         var producer = ProduceAsync();
         try
         {
-            await foreach (var item in results.Reader.ReadAllAsync(stop.Token))
+            while (await results.Reader.WaitToReadAsync(stop.Token))
             {
-                await save(item.Result, stop.Token);
-                completed.Add(item.Sequence, item.Result.Company.Id);
+                var batch = new List<(long Sequence, AddressLookupResult Result)>();
+                var limit = saveBatch == null ? 1 : Math.Min(100, concurrency * 4);
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(stop.Token);
+                deadline.CancelAfter(batchInterval ?? TimeSpan.FromSeconds(1));
+                while (batch.Count < limit)
+                {
+                    while (batch.Count < limit && results.Reader.TryRead(out var item)) batch.Add(item);
+                    if (batch.Count == limit) break;
+                    try
+                    {
+                        if (!await results.Reader.WaitToReadAsync(deadline.Token)) break;
+                    }
+                    catch (OperationCanceledException) when (!stop.IsCancellationRequested) { break; }
+                }
+                if (batch.Count == 0) continue;
+                if (saveBatch != null)
+                    await saveBatch(batch.Select(x => x.Result).ToArray(), stop.Token);
+                else
+                    await save(batch[0].Result, stop.Token);
+                foreach (var item in batch) completed.Add(item.Sequence, item.Result.Company.Id);
                 var released = 0;
                 var lastId = 0;
                 while (completed.Remove(nextCheckpoint, out var id))

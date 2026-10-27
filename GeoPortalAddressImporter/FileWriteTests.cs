@@ -32,7 +32,35 @@ internal static class FileWriteTests
         await Files.AtomicAsync(path, new Progress(4), CancellationToken.None);
         Check((await ReadAsync(path)).LastCompanyId == 4, "Zastepowanie istniejacego checkpointu");
         Check(Directory.GetFiles(directory, "checkpoint-write-test.json.*.tmp").Length == 0, "Sprzatanie plikow tymczasowych");
+        await BatchedCheckpointAsync(directory);
         Console.WriteLine("PASS: atomowy zapis checkpointu, ponowienie blokady i anulowanie bez utraty pliku.");
+    }
+
+    private static async Task BatchedCheckpointAsync(string directory)
+    {
+        var path = Path.Combine(directory, "batched-checkpoint.json");
+        await using (var writer = new CheckpointWriter(path, 3, TimeSpan.FromMinutes(1)))
+        {
+            await writer.AdvanceAsync(10, CancellationToken.None);
+            await writer.AdvanceAsync(20, CancellationToken.None);
+            Check(!File.Exists(path), "Brak zapisu dyskowego dla kazdej firmy");
+            await writer.AdvanceAsync(30, CancellationToken.None);
+            Check((await ReadAsync(path)).LastCompanyId == 30, "Zapis po pelnej partii");
+            await writer.AdvanceAsync(40, CancellationToken.None);
+            Check((await ReadAsync(path)).LastCompanyId == 30, "Niepelna partia czeka");
+        }
+        Check((await ReadAsync(path)).LastCompanyId == 40, "Zamkniecie zapisuje niepelna partie");
+        await using (var writer = new CheckpointWriter(path, 100, TimeSpan.Zero))
+            await writer.AdvanceAsync(50, CancellationToken.None);
+        Check((await ReadAsync(path)).LastCompanyId == 50, "Uplyw interwalu wymusza zapis");
+        try
+        {
+            await using var writer = new CheckpointWriter(path, 100, TimeSpan.FromMinutes(1));
+            await writer.AdvanceAsync(60, CancellationToken.None);
+            throw new OperationCanceledException();
+        }
+        catch (OperationCanceledException) { }
+        Check((await ReadAsync(path)).LastCompanyId == 60, "Anulowanie zachowuje ostatni zakonczony prefiks");
     }
 
     private static async Task<Progress> ReadAsync(string path) =>

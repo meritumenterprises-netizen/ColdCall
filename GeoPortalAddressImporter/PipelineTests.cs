@@ -9,6 +9,9 @@ internal static class PipelineTests
         await ContinuousProgressAsync();
         await FailureAsync();
         await CancellationAsync();
+        await BatchesAsync();
+        await BatchFailureAsync();
+        await PartialBatchAsync();
         Console.WriteLine("PASS: ciagly pipeline, zapis bez czekania na paczke, checkpoint bez luk, blad i anulowanie.");
     }
 
@@ -99,5 +102,58 @@ internal static class PipelineTests
     private static void Check(bool condition, string message)
     {
         if (!condition) throw new InvalidOperationException("FAIL: " + message);
+    }
+
+    private static async Task BatchesAsync()
+    {
+        var sizes = new List<int>();
+        var saved = new HashSet<int>();
+        var checkpoint = 0;
+        await ContinuousAddressLookup.RunAsync(Source(250), (_, _) => Task.FromResult(new MatchResult(null, "test")),
+            (_, _) => throw new InvalidOperationException("Individual callback should not run"),
+            (id, _) =>
+            {
+                Check(saved.Contains(id), "Checkpoint dopiero po zapisie partii");
+                checkpoint = id;
+                return Task.CompletedTask;
+            }, CancellationToken.None, 32, (batch, _) =>
+            {
+                sizes.Add(batch.Count);
+                foreach (var item in batch) Check(saved.Add(item.Company.Id), "Kazda firma tylko raz w partii");
+                return Task.CompletedTask;
+            });
+        Check(sizes.SequenceEqual(new[] { 100, 100, 50 }), "Dwie pelne partie i koncowa niepelna");
+        Check(checkpoint == 2500 && saved.Count == 250, "Checkpoint obejmuje wszystkie zatwierdzone firmy");
+    }
+
+    private static async Task BatchFailureAsync()
+    {
+        var checkpoint = 0;
+        var failed = false;
+        try
+        {
+            await ContinuousAddressLookup.RunAsync(Source(200), (_, _) => Task.FromResult(new MatchResult(null, "test")),
+                (_, _) => Task.CompletedTask, (id, _) => { checkpoint = id; return Task.CompletedTask; },
+                CancellationToken.None, 32, (_, _) => throw new InvalidOperationException("batch failure"));
+        }
+        catch (InvalidOperationException ex) when (ex.Message == "batch failure") { failed = true; }
+        Check(failed && checkpoint == 0, "Blad partii nie przesuwa checkpointu");
+    }
+
+    private static async Task PartialBatchAsync()
+    {
+        using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var saved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var run = ContinuousAddressLookup.RunAsync(Source(2), async (company, token) =>
+        {
+            if (company.Id == 20) await saved.Task.WaitAsync(token);
+            return new MatchResult(null, "test");
+        }, (_, _) => Task.CompletedTask, (_, _) => Task.CompletedTask, stop.Token, 2, (batch, _) =>
+        {
+            Check(batch.Count == 1, "Wolny request nie zatrzymuje niepelnej partii");
+            saved.TrySetResult();
+            return Task.CompletedTask;
+        }, TimeSpan.FromMilliseconds(50));
+        await run;
     }
 }

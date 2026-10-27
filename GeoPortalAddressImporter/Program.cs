@@ -90,8 +90,30 @@ try
     var deferred = 0;
     var consecutiveQueryErrors = 0;
     var source = new CompanySource(repository, options, retryIds, afterId, log);
+    await using var checkpointWriter = new CheckpointWriter(checkpoint);
+    IReadOnlyDictionary<int, string>? batchMessages = null;
+    async Task ProcessBatchAsync(IReadOnlyList<AddressLookupResult> batch, CancellationToken token)
+    {
+        batchMessages = options.Apply ? await repository.SaveBatchAsync(batch, token) : null;
+        try
+        {
+            foreach (var lookup in batch) await ProcessResultAsync(lookup, token);
+        }
+        finally { batchMessages = null; }
+    }
     await ContinuousAddressLookup.RunAsync(source.ReadAsync(cancellation.Token), geoportal.FindAsync,
-        async (lookup, token) =>
+        ProcessResultAsync,
+        async (lastId, token) =>
+        {
+            if (!options.RetryErrors && options.CompanyId == null)
+                await checkpointWriter.AdvanceAsync(lastId, token);
+            afterId = lastId;
+        }, cancellation.Token, saveBatch: options.Apply ? ProcessBatchAsync : null);
+    foreach (var id in source.MissingRetryIds) await queue.RemoveAsync(id, cancellation.Token);
+    log.Write("SUMMARY", null, $"Sprawdzono={processed:N0}; dopasowano={matched:N0}; zapisano={saved:N0}; odlozono={deferred:N0}; lista do ponowienia={queue.Count:N0}; HTTP={geoportal.Requests:N0}; cache={geoportal.CacheHits:N0}; ostatnie Id={afterId}.");
+    return 0;
+
+    async Task ProcessResultAsync(AddressLookupResult lookup, CancellationToken token)
         {
             var company = lookup.Company;
             token.ThrowIfCancellationRequested();
@@ -117,7 +139,8 @@ try
                 var (latitude, longitude) = Coordinates.Convert(address.X, address.Y);
                 if (options.Apply)
                 {
-                    var message = await repository.SaveAsync(company, address, token);
+                    var message = batchMessages != null ? batchMessages[company.Id]
+                        : await repository.SaveAsync(company, address, token);
                     if (message.StartsWith("Zapisano", StringComparison.Ordinal)) saved++;
                     log.Write("SAVE", company.Id, message);
                 }
@@ -130,16 +153,7 @@ try
             processed++;
             if (processed % 100 == 0)
                 log.Write("PROGRESS", null, $"Sprawdzono={processed:N0}; dopasowano={matched:N0}; zapisano={saved:N0}; HTTP={geoportal.Requests:N0}; cache={geoportal.CacheHits:N0}; checkpoint Id={afterId}.");
-        },
-        async (lastId, token) =>
-        {
-            if (!options.RetryErrors && options.CompanyId == null)
-                await Files.AtomicAsync(checkpoint, new Progress(lastId), token);
-            afterId = lastId;
-        }, cancellation.Token);
-    foreach (var id in source.MissingRetryIds) await queue.RemoveAsync(id, cancellation.Token);
-    log.Write("SUMMARY", null, $"Sprawdzono={processed:N0}; dopasowano={matched:N0}; zapisano={saved:N0}; odlozono={deferred:N0}; lista do ponowienia={queue.Count:N0}; HTTP={geoportal.Requests:N0}; cache={geoportal.CacheHits:N0}; ostatnie Id={afterId}.");
-    return 0;
+        }
 }
 catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
 {
