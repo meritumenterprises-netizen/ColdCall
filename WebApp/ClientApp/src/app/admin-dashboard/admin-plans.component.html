@@ -1,0 +1,49 @@
+<section class="plans-list" [attr.aria-busy]="loading">
+  <label class="upgrade-filter"><input type="checkbox" [(ngModel)]="upgrade" (ngModelChange)="loadPlans()" [disabled]="saving || loading">Upgrade</label>
+  <div class="plans-table">
+    <table>
+      <thead><tr><th>Nazwa planu</th><th>Wyszukiwania</th><th>Eksporty CSV / wyszukiwanie</th><th>Rekordy</th><th>Dni</th><th>Cena</th><th>W ofercie</th></tr></thead>
+      <tbody>
+        <tr *ngIf="loading"><td colspan="7" role="status">Wczytywanie...</td></tr>
+        <ng-container *ngIf="!loading">
+          <tr *ngFor="let plan of plans" [class.selected]="draft && draft.id === plan.id" (click)="selectPlan(plan)">
+            <td><button type="button" class="plan-select" [disabled]="saving" (click)="$event.stopPropagation(); selectPlan(plan)" [attr.aria-pressed]="draft && draft.id === plan.id">{{ plan.code }}</button></td>
+            <td>{{ plan.maxNumberOfSearches }}</td><td>{{ plan.maxNumberOfCSVExportsPerSearch == null ? '—' : plan.maxNumberOfCSVExportsPerSearch }}</td>
+            <td>{{ plan.maxNumberOfExportedRecords == null ? '—' : plan.maxNumberOfExportedRecords }}</td>
+            <td>{{ plan.expiresAfterDays == null ? '—' : plan.expiresAfterDays }}</td><td>{{ plan.price | number:'1.2-2' }}</td>
+            <td><input type="checkbox" [checked]="plan.showInOffer" disabled aria-label="W ofercie"></td>
+          </tr>
+          <tr *ngIf="!plans.length"><td colspan="7">Brak plan&#243;w.</td></tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+</section>
+<p *ngIf="error" class="error" role="alert">{{ error }}</p>
+<form *ngIf="draft" #planForm="ngForm" class="plan-editor" (ngSubmit)="planForm.valid && save()">
+  <fieldset [disabled]="saving">
+    <div class="plan-fields">
+      <label>Nazwa planu<input name="code" [(ngModel)]="draft.code" required pattern=".*\S.*"></label>
+      <label>Maks. liczba wyszukiwa&#324;<input name="searches" type="number" [(ngModel)]="draft.maxNumberOfSearches" required min="0" max="2147483647" step="1" pattern="[0-9]+"></label>
+      <label>Maks. eksport&#243;w CSV na wyszukiwanie<input name="exports" type="number" [(ngModel)]="draft.maxNumberOfCSVExportsPerSearch" min="0" max="2147483647" step="1" pattern="[0-9]+"></label>
+      <label>Maks. liczba eksportowanych rekord&#243;w<input name="records" type="number" [(ngModel)]="draft.maxNumberOfExportedRecords" min="0" max="2147483647" step="1" pattern="[0-9]+"></label>
+      <label>Wygasa po dniach<input name="days" type="number" [(ngModel)]="draft.expiresAfterDays" min="1" max="2147483647" step="1" pattern="[0-9]+"></label>
+      <label>Cena<input name="price" type="number" [(ngModel)]="draft.price" required min="0" step="0.01"></label>
+      <label class="offer-field"><input name="offer" type="checkbox" [(ngModel)]="draft.showInOffer">W ofercie</label>
+      <label class="offer-field"><input name="enableCSVDeleting" type="checkbox" [(ngModel)]="draft.enableCSVDeleting">Pozw&#243;l na usuwanie plik&#243;w CSV</label>
+    </div>
+    <div class="description-tabs" role="tablist" aria-label="DescriptionHtml">
+      <button type="button" role="tab" id="plan-preview-tab" aria-controls="plan-preview" [attr.aria-selected]="descriptionTab === 'preview'" (click)="descriptionTab = 'preview'">Opis</button>
+      <button type="button" role="tab" id="plan-html-tab" aria-controls="plan-html" [attr.aria-selected]="descriptionTab === 'html'" (click)="descriptionTab = 'html'">HTML</button>
+    </div>
+    <div id="plan-preview" role="tabpanel" aria-labelledby="plan-preview-tab" [hidden]="descriptionTab !== 'preview'" class="description-preview" [innerHTML]="draft.descriptionHtml"></div>
+    <div id="plan-html" role="tabpanel" aria-labelledby="plan-html-tab" [hidden]="descriptionTab !== 'html'">
+      <textarea name="description" [(ngModel)]="draft.descriptionHtml" aria-label="DescriptionHtml" spellcheck="false"></textarea>
+    </div>
+    <div class="plan-actions">
+      <button class="primary-button" type="submit" [disabled]="saving || !dirty || planForm.invalid || !draft.code.trim()">Zapisz</button>
+      <button class="ghost-button" type="button" [disabled]="saving || !dirty" (click)="cancel()">Anuluj</button>
+      <span *ngIf="saved && !dirty" role="status">Zapisano.</span>
+    </div>
+  </fieldset>
+</form>

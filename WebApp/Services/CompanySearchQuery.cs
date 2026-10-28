@@ -75,7 +75,10 @@ public class CompanySearchQuery
         ? _db.Companies.AsNoTracking().Select(c => new CompanyShortDto
         {
             Id = c.Id, Name = c.Name, Nip = c.Nip, Phone = c.Phone, Email = c.Email,
-            Www = c.Website, DataAktywnosci = c.StartedAt, DataModifiedOn = c.DataModifiedOn,
+            Www = c.Website,
+            DataAktywnosci = c.ResumedOn.HasValue && (!c.StartedAt.HasValue || c.ResumedOn > c.StartedAt)
+                ? c.ResumedOn : c.StartedAt,
+            DataModifiedOn = c.DataModifiedOn,
             FullAddress = (c.Miejscowosc!.Name ?? "") + " " + (c.PostalCode ?? "") + " " + (c.Street ?? "") + " "
                 + (c.BuildingNumber ?? "") + (c.ApartmentNumber == null ? "" : "/" + c.ApartmentNumber)
         })
@@ -91,7 +94,8 @@ public class CompanySearchQuery
             Phone = row.Phone,
             Email = row.Email,
             Www = row.Www,
-            DataAktywnosci = row.DataAktywnosci,
+            DataAktywnosci = company.ResumedOn.HasValue && (!company.StartedAt.HasValue || company.ResumedOn > company.StartedAt)
+                ? company.ResumedOn : company.StartedAt,
             DataModifiedOn = company.DataModifiedOn,
             TypyDzialalnosci = row.TypDzialalnosci
         };
@@ -143,7 +147,7 @@ public class CompanySearchQuery
             && link.Address.Location != null && link.Address.Location.Distance(center) <= radiusMeters));
     }
 
-    private static IQueryable<CompanyShortDto> ApplyDetailFilters(
+    private IQueryable<CompanyShortDto> ApplyDetailFilters(
         IQueryable<CompanyShortDto> query, string? address, bool? hasPhone, bool? hasEmail,
         bool? hasWebsite, DateOnly? startedFrom, DateOnly? startedTo)
     {
@@ -161,13 +165,13 @@ public class CompanySearchQuery
         if (startedFrom.HasValue && startedTo.HasValue)
         {
             var from = startedFrom.Value.ToDateTime(TimeOnly.MinValue);
-            query = query.Where(x => x.DataAktywnosci >= from);
+            query = query.Where(x => _db.Companies.Any(c => c.Id == x.Id && c.StartedAt >= from));
             if (startedTo.Value == DateOnly.MaxValue)
-                query = query.Where(x => x.DataAktywnosci <= DateTime.MaxValue);
+                query = query.Where(x => _db.Companies.Any(c => c.Id == x.Id && c.StartedAt <= DateTime.MaxValue));
             else
             {
                 var until = startedTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue);
-                query = query.Where(x => x.DataAktywnosci < until);
+                query = query.Where(x => _db.Companies.Any(c => c.Id == x.Id && c.StartedAt < until));
             }
         }
         return query;

@@ -223,7 +223,9 @@ public static class QueryableExtensions
             "website" => desc ? query.OrderByDescending(x => x.Website) : query.OrderBy(x => x.Website),
             "instagramaccount" => desc ? query.OrderByDescending(x => x.InstagramAccount) : query.OrderBy(x => x.InstagramAccount),
             "facebookaccount" => desc ? query.OrderByDescending(x => x.FacebookAccount) : query.OrderBy(x => x.FacebookAccount),
-            "startedat" => desc ? query.OrderByDescending(x => x.StartedAt) : query.OrderBy(x => x.StartedAt),
+            "startedat" => desc
+                ? query.OrderByDescending(x => x.ResumedOn.HasValue && (!x.StartedAt.HasValue || x.ResumedOn > x.StartedAt) ? x.ResumedOn : x.StartedAt)
+                : query.OrderBy(x => x.ResumedOn.HasValue && (!x.StartedAt.HasValue || x.ResumedOn > x.StartedAt) ? x.ResumedOn : x.StartedAt),
             "datamodifiedon" => desc ? query.OrderByDescending(x => x.DataModifiedOn) : query.OrderBy(x => x.DataModifiedOn),
             _ => desc ? query.OrderByDescending(x => x.Name) : query.OrderBy(x => x.Name)
         };

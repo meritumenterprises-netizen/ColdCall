@@ -65,6 +65,7 @@ public class AuthController : ControllerBase
             .Include(x => x.PlanDefinition)
             .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
             .OrderByDescending(x => x.ExpiresAtUtc)
+            .ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync();
 
         var maxNumberOfExportedRecords = await PlanRecordLimits.ForUserAsync(_db, user.Id, isAdmin);
@@ -96,6 +97,7 @@ public class AuthController : ControllerBase
                 activePlan.PlanDefinition.IsTrial,
                 activePlan.PlanDefinition.DescriptionHtml,
                 activePlan.PlanDefinition.MaxNumberOfSearches,
+                activePlan.PlanDefinition.EnableCSVDeleting,
                 activePlan.ExpiresAtUtc
             }
         });
@@ -155,11 +157,12 @@ public class AuthController : ControllerBase
                 x.PlanDefinition.IsTrial,
                 x.PlanDefinition.DescriptionHtml,
                 x.PlanDefinition.MaxNumberOfSearches,
+                x.PlanDefinition.EnableCSVDeleting,
                 x.ExpiresAtUtc
             }).FirstOrDefaultAsync();
         var profilePlan = plan == null ? null : new
         {
-            plan.Code, plan.IsTrial, plan.DescriptionHtml, plan.MaxNumberOfSearches,
+            plan.Code, plan.IsTrial, plan.DescriptionHtml, plan.MaxNumberOfSearches, plan.EnableCSVDeleting,
             ExpiresAtUtc = DateTime.SpecifyKind(plan.ExpiresAtUtc, DateTimeKind.Utc),
             IsExpired = plan.ExpiresAtUtc <= DateTime.UtcNow
         };

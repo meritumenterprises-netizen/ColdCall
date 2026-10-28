@@ -2,7 +2,7 @@ import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnDestroy, O
 import { Subscription } from 'rxjs';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { finalize } from 'rxjs/operators';
-import { ApiService, Company, CompanyDetails } from '../services/api.service';
+import { ApiService, Company, CompanyDetails, CompanyAddressDetails } from '../services/api.service';
 import { isFutureActivityDate } from '../services/activity-date';
 
 @Component({
@@ -15,6 +15,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   @Input() companyId: number;
   @Input() companyName = '';
   @Input() showNotes = true;
+  @Input() showLinkedAddress = false;
   @Output() closed = new EventEmitter<void>();
   @Output() notesSaved = new EventEmitter<{ companyId: number; notes: string }>();
   @ViewChild('dialog', { static: true }) dialog: ElementRef;
@@ -27,7 +28,18 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   copying = false;
   copyError = '';
   copyConfirmationMessage = '';
-  @Input() activeTab: 'description' | 'notes' | 'map' = 'description';
+  @Input() activeTab: 'description' | 'notes' | 'map' | 'address' = 'description';
+  get hasLinkedAddress(): boolean {
+    return !!(this.details && this.details.addresses && this.details.addresses.length);
+  }
+  readonly linkedAddressFields: { key: keyof CompanyAddressDetails; label: string }[] = [
+    { key: 'wojewodztwo', label: 'Wojew\u00f3dztwo' }, { key: 'powiat', label: 'Powiat' },
+    { key: 'gmina', label: 'Gmina' }, { key: 'miejscowosc', label: 'Miejscowo\u015b\u0107' },
+    { key: 'addressId', label: 'ID adresu' }, { key: 'ulica', label: 'Ulica' },
+    { key: 'nrUlicy', label: 'Numer budynku' }, { key: 'rodzaj', label: 'Rodzaj' },
+    { key: 'latitude', label: 'Szeroko\u015b\u0107 geograficzna' },
+    { key: 'longitude', label: 'D\u0142ugo\u015b\u0107 geograficzna' },
+  ];
   mapUrl: SafeResourceUrl | null = null;
   notes = '';
   private savedNotes = '';
@@ -62,8 +74,9 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   navigateTabs(event: KeyboardEvent) {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) < 0) { return; }
     event.preventDefault();
-    const tabs: ('description' | 'notes' | 'map')[] = this.showNotes
-      ? ['description', 'map', 'notes'] : ['description', 'map'];
+    const tabs: ('description' | 'notes' | 'map' | 'address')[] = ['description', 'map'];
+    if (this.showLinkedAddress && this.hasLinkedAddress) { tabs.push('address'); }
+    if (this.showNotes) { tabs.push('notes'); }
     const index = tabs.indexOf(this.activeTab);
     this.activeTab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] :
       tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
@@ -108,15 +121,24 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
       .subscribe(details => {
         this.details = details;
         const company = details.company;
-        if ((company.city || '').trim() || (company.street || '').trim()) {
+        const geoAddress = (details.addresses || []).find(address =>
+          address.latitude != null && address.longitude != null &&
+          Number.isFinite(address.latitude) && Number.isFinite(address.longitude) &&
+          Math.abs(address.latitude) <= 90 && Math.abs(address.longitude) <= 180);
+        let mapQuery = '';
+        if (geoAddress) {
+          mapQuery = geoAddress.latitude + ',' + geoAddress.longitude;
+        } else if ((company.city || '').trim() || (company.street || '').trim()) {
           const streetAddress = [company.street, company.buildingNumber]
             .filter(part => part && part.trim()).map(part => part!.trim()).join(' ');
-          const address = [streetAddress, company.postalCode,
+          mapQuery = [streetAddress, company.postalCode,
             company.city, company.gmina, company.powiat, company.wojewodztwo, 'Polska']
             .filter(part => part && part.trim()).map(part => part!.trim()).join(', ');
-          // Only the fixed Google host is trusted; address data is URL-encoded.
+        }
+        if (mapQuery) {
+          // Only the fixed Google host is trusted; coordinates or address are URL-encoded.
           this.mapUrl = this.sanitizer.bypassSecurityTrustResourceUrl(
-            'https://www.google.com/maps?q=' + encodeURIComponent(address) + '&output=embed');
+            'https://www.google.com/maps?q=' + encodeURIComponent(mapQuery) + '&output=embed');
         }
         this.loadNotes();
       }, err => {

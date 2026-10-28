@@ -84,7 +84,7 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
         var account = await manager.FindByEmailAsync(email);
         if (account == null && await RequiresGoogle(email)) return GoogleRequired();
         var user = account == null ? null : await db.Users.SingleOrDefaultAsync(u => u.Id == account.Id);
-        if (account == null || user == null || !user.IsEnabled || await manager.IsLockedOutAsync(account))
+        if (account == null || user == null || await manager.IsLockedOutAsync(account))
         {
             manager.PasswordHasher.VerifyHashedPassword(DummyAccount, DummyHash, request.Password);
             return Unauthorized(new { message = "Niepoprawny email lub haslo albo konto jest zablokowane." });
@@ -94,6 +94,12 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
             await manager.AccessFailedAsync(account);
             return Unauthorized(new { message = "Niepoprawny email lub haslo albo konto jest zablokowane." });
         }
+        if (!user.IsEnabled)
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                code = "AccountDisabled",
+                message = "Administrator zablokowa\u0142 Twoje konto"
+            });
         if (!account.EmailConfirmed) return BadRequest(new { code = "EmailNotConfirmed", message = "Potwierdz adres email przed zalogowaniem." });
         await manager.ResetAccessFailedCountAsync(account);
         TrialOffer? offer = null;

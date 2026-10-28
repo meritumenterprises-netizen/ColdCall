@@ -387,8 +387,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         err => this.exportsError = err.status === 404 ? 'Nie znaleziono pliku CSV.' : 'Nie udało się pobrać pliku CSV.');
   }
 
+  get canDeleteCsvExports() {
+    const user = this.api.user();
+    return !!(user && user.hasActivePlan && user.plan && user.plan.enableCSVDeleting === true && !this.searchPlanExpired);
+  }
+
   deleteCsvExport(row: CsvExportRow) {
-    if (this.searchPlanExpired || !this.api.isAuthenticated() || this.exportsLoading
+    if (!this.canDeleteCsvExports || this.searchPlanExpired || !this.api.isAuthenticated() || this.exportsLoading
         || this.deletingExportId !== null || this.downloadingExportId !== null) { return; }
     this.pendingCsvDeletion = row;
     this.deleteCsvDialog.nativeElement.showModal();
@@ -406,7 +411,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   private performCsvDeletion(row: CsvExportRow) {
-    if (this.searchPlanExpired || !this.api.isAuthenticated() || this.exportsLoading
+    if (!this.canDeleteCsvExports || this.searchPlanExpired || !this.api.isAuthenticated() || this.exportsLoading
         || this.deletingExportId !== null || this.downloadingExportId !== null) { return; }
     const hasOtherExports = this.csvExports.some(exportRow => exportRow.id !== row.id);
     this.deletingExportId = row.id;

@@ -33,6 +33,8 @@ h2 { flex: 1; min-width: 0; margin: 0; font-size: 20px; line-height: 1.4; overfl
 .company-tabs button { border: 0; border-radius: 0; background: transparent; padding: 10px 4px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: #475569; font-size: 14px; cursor: pointer; }
 .company-tabs button[aria-selected="true"] { border-bottom-color: #087f5b; color: #065f46; font-weight: 600; }
 .company-tabs button:focus-visible { outline: 2px solid #087f5b; outline-offset: 2px; }
+.company-tabs button:disabled { color: #9ca3af; cursor: default; }
+.company-address-panel[hidden] { display: none !important; }
 .company-tab-panels { display: grid; grid-template-columns: minmax(0, 1fr); }
 .company-tab-panels > div { grid-area: 1 / 1; min-width: 0; }
 #company-description-panel[hidden] { display: block !important; visibility: hidden; }

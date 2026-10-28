@@ -180,6 +180,7 @@ public class PlanDefinition
     public int? UpgradeTo { get; set; }
     public PlanDefinition? UpgradeToPlan { get; set; }
     public bool ShowInOffer { get; set; } = true;
+    public bool EnableCSVDeleting { get; set; } = true;
     public bool IsActive { get; set; } = true;
     public string DescriptionHtml { get; set; } = "";
     public decimal Price { get; set; }

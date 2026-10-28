@@ -108,7 +108,9 @@ public partial class AdminController : ControllerBase
                 x.Id, x.Name, x.BusinessTypeId, x.BusinessType != null ? x.BusinessType.TypDzialalnosci : null, x.FirstName, x.LastName, x.Krs, x.Nip,
                 x.Wojewodztwo!.Name, x.Miejscowosc!.Name, x.Gmina!.Name, x.Powiat!.Name, x.PostalCode,
                 x.Street, x.BuildingNumber, x.ApartmentNumber, x.Phone, x.Email, x.GoogleEmail,
-                x.Website, x.InstagramAccount, x.FacebookAccount, x.StartedAt, x.CreatedOn,
+                x.Website, x.InstagramAccount, x.FacebookAccount,
+                x.ResumedOn.HasValue && (!x.StartedAt.HasValue || x.ResumedOn > x.StartedAt) ? x.ResumedOn : x.StartedAt,
+                x.CreatedOn,
                 x.Regon, x.StatusDzialalnosciId, x.StatusDzialalnosci!.Nazwa, x.AddressIsMissing, x.BlockedByRODO,
                 x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId, x.DataModifiedOn))
             .ToListAsync();
@@ -191,7 +193,7 @@ public partial class AdminController : ControllerBase
                 x.DisplayName,
                 x.Plans.OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
                     .Select(p => new UserPlanDto(p.PlanDefinition.Code, p.PurchasedAtUtc, p.ExpiresAtUtc, p.Source, p.PlanDefinition.DescriptionHtml))
-                    .ToList(), DateTime.SpecifyKind(x.CreatedAtUtc, DateTimeKind.Utc), x.DisablePlanPurchase))
+                    .ToList(), DateTime.SpecifyKind(x.CreatedAtUtc, DateTimeKind.Utc), x.DisablePlanPurchase, x.IsEnabled))
             .ToListAsync();
     }
 

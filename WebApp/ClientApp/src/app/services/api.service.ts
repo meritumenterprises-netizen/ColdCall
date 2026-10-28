@@ -9,6 +9,22 @@ export interface PagedResult<T> { items: T[]; total: number; page: number; pageS
 export interface Pkd { id: number; code: string; name: string; }
 export interface PkdClassification { status: string; text: string; pkdCodes: Pkd[]; }
 export interface AddressOption { id: number; name: string; }
+export interface AdminImport {
+  importId: number;
+  importDate: string;
+  prevDate: string;
+  importOriginRecords: number | null;
+  importTargetRecords: number | null;
+  startedAt: string;
+  finishedAt: string | null;
+  duration: string | null;
+}
+
+export interface AdminPlanDefinition {
+  id: number; code: string; maxNumberOfSearches: number; maxNumberOfCSVExportsPerSearch: number | null;
+  maxNumberOfExportedRecords: number | null; expiresAfterDays: number | null; showInOffer: boolean; enableCSVDeleting: boolean;
+  price: number; descriptionHtml: string; isUpgrade: boolean;
+}
 export type AddressLevel = 'wojewodztwa' | 'powiaty' | 'gminy' | 'miejscowosci';
 export interface Company {
   userNotes?: string | null;
@@ -57,7 +73,7 @@ export interface SearchCriteria {
 }
 export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; hasCsvExports?: boolean; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; order: number; canPurchase: boolean; }
-export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; expiresAtUtc: string; isExpired?: boolean; }
+export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; enableCSVDeleting: boolean; expiresAtUtc: string; isExpired?: boolean; }
 export interface UserProfile { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }
 export interface StripePurchase {
   planCode: string; maxNumberOfSearches: number; maxNumberOfCSVExportsPerSearch: number | null;
@@ -67,7 +83,7 @@ export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUt
 export interface Me { id: number; googleEmail: string; usesGmail?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string | null; descriptionHtml?: string; }
 export interface PlanDefinitionOption { id: number; code: string; descriptionHtml: string; }
-export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; }
+export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; isEnabled?: boolean; }
 export interface AuthConfig { googleClientId: string; }
 export interface CsvExportRow { id: number; userId: number; searchProfileId: number; csvFileName: string; createdOn: string; numberOfRecords: number | null; }
 
@@ -362,6 +378,25 @@ export class ApiService {
     return this.http.post<{ id: number; email: string }>(this.url('/api/admin/users'), request, this.headers());
   }
   extendUserPlan(id: number) { return this.http.post(this.url('/api/admin/users/' + id + '/extend-plan'), {}, this.headers()); }
+  adminImports(): Observable<AdminImport[]> {
+    return this.http.get<AdminImport[]>(this.url('/api/admin/imports'), this.headers());
+  }
+  deleteAdminImport(id: number): Observable<void> {
+    return this.http.delete<void>(this.url('/api/admin/imports/' + id), this.headers());
+  }
+  adminImportSummary(id: number): Observable<{ summary: string | null }> {
+    return this.http.get<{ summary: string | null }>(this.url('/api/admin/imports/' + id + '/summary'), this.headers());
+  }
+  adminPlans(upgrade: boolean): Observable<AdminPlanDefinition[]> {
+    return this.http.get<AdminPlanDefinition[]>(this.url('/api/admin/plans'), { ...this.headers(), params: { upgrade: String(upgrade) } });
+  }
+  saveAdminPlan(plan: AdminPlanDefinition): Observable<void> {
+    return this.http.put<void>(this.url('/api/admin/plans/' + plan.id), plan, this.headers());
+  }
+  updateUserEnabled(id: number, isEnabled: boolean): Observable<{ isEnabled: boolean }> {
+    return this.http.put<{ isEnabled: boolean }>(this.url('/api/admin/users/' + id + '/enabled'),
+      { isEnabled }, this.headers());
+  }
   updateUserPlanPurchase(id: number, disablePlanPurchase: boolean): Observable<{ disablePlanPurchase: boolean }> {
     return this.http.put<{ disablePlanPurchase: boolean }>(this.url('/api/admin/users/' + id + '/plan-purchase'),
       { disablePlanPurchase }, this.headers());

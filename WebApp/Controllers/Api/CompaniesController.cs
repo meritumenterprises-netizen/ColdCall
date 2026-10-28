@@ -237,6 +237,15 @@ public class CompaniesController : ControllerBase
         CancellationToken cancellationToken)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
+        if (!user.IsAdmin)
+        {
+            var now = DateTime.UtcNow;
+            var allowed = await _db.UserPlans.AsNoTracking()
+                .Where(p => p.AppUserId == user.Id && p.ExpiresAtUtc > now)
+                .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
+                .Select(p => p.PlanDefinition.EnableCSVDeleting).FirstOrDefaultAsync(cancellationToken);
+            if (!allowed) return StatusCode(403, new { message = "Aktualny plan nie pozwala na usuwanie plikow CSV." });
+        }
         try
         {
             return await cleanup.DeleteExportAsync(user.Id, id, cancellationToken) ? NoContent() : NotFound();
