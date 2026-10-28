@@ -26,7 +26,13 @@ public sealed class CeidgDeferredAddressImport(FirmyTempDbContext context, Firmy
                 .OrderBy(company => company.Id).ToListAsync();
             if (companies.Count != ids.Length)
                 throw new InvalidDataException("A queued company was removed before address import.");
-            var results = await updater.UpdateBatchAsync(companies, progress: progress);
+            foreach (var company in companies.Where(company => company.WojewodztwoId == 1))
+            {
+                Console.WriteLine($"GeoPortal: firma {company.Id}: WojewodztwoId=1; pominieto adres.");
+                progress.Complete(false);
+            }
+            var companiesWithProvince = companies.Where(company => company.WojewodztwoId != 1).ToArray();
+            var results = await updater.UpdateBatchAsync(companiesWithProvince, progress: progress);
             // Confirm staging rows only after the address batch commits (or is explicitly skipped).
             var targets = ids.SelectMany(id => pending[id]).Distinct().ToArray();
             foreach (var targetBatch in targets.Chunk(1000))

@@ -22,6 +22,7 @@ namespace ImportCEIDGByDate
         ImportNewFileToTable,
         FinishedImportingOldFiles,
         FinishedImportingNewFiles,
+        ContentXmlCleanup,
         UpdateImportTargetMetadata,
         UpdateCompanyXml,
         UpdateCompanyXmlFromImportOrigin,
@@ -30,6 +31,7 @@ namespace ImportCEIDGByDate
         ImportDeferredAddressesAsync,
         UpdateExistingCompaniesFromOrigin,
         UpdateExistingCompaniesFromTarget,
-        UpdateAdresyForChangedCompaniesFromTarget
+        UpdateAdresyForChangedCompaniesFromTarget,
+        RemoveNIPsFromImportOriginThatArePresentInOriginTarget
     }
 }

@@ -124,6 +124,11 @@ public sealed class CeidgCompanyAddressUpdater : IDisposable
 
     private async Task<PreparedCompanyAddress?> PrepareAsync(Company company, CancellationToken token, Action<string> reportSkipped)
     {
+        if (company.WojewodztwoId == 1)
+        {
+            reportSkipped("WojewodztwoId=1; pominieto adres.");
+            return null;
+        }
         if (company.BlockedByRodo || company.SkipAddressVerification)
         {
             reportSkipped("RODO lub wylaczona weryfikacja adresu; pominieto adres.");

@@ -6,4 +6,6 @@ public class CompanyXml
     public string? Nip { get; set; }
     public string XmlContent { get; set; } = null!;
     public string Md5 { get; set; } = null!;
+    public DateTime? DateModified { get; set; }
+    public int? WojewodztwoId { get; set; }
 }

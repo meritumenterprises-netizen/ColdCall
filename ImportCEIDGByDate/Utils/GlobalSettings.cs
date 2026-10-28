@@ -6,6 +6,7 @@ namespace ImportCEIDGByDate.Utils
 {
     public class GlobalSettings
     {
+        public int GlobalDegreeOfParallelism = 32;
         public bool TruncateImportOriginAtTheBeginning { get; set; } = true;
         public bool TruncateImportTargetAtTheBeginning { get; set; } = true;
         public bool TruncateImportOriginAtTheEnd { get; set; } = true;
@@ -31,5 +32,7 @@ namespace ImportCEIDGByDate.Utils
         public bool SkipAddNewCompaniesFromImportToTemp { get; set; } = false;
         public bool SkipUpdateExistingCompaniesFromImportToTemp { get; set; } = false;
         public bool SkipImportDeferredAddressesAsync { get; set; } = false;
+
+        public bool SkipProcessingAddresses { get; set; }
     }
 }

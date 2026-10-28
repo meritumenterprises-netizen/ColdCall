@@ -23,23 +23,13 @@ namespace ImportCEIDGByDate
                 }
                 StringBuilder sb = new StringBuilder();
                 sb.AppendLine($"Import statistics: {Description}");
-                sb.AppendLine($"Process started at: {ProcessStart}");
-                if (ProcessEnd.HasValue)
-                {
-                    sb.AppendLine($"Process ended at: {ProcessEnd.Value}");
-                }
-                else
-                {
-                    sb.AppendLine($"Process is still running.");
-                }
-                sb.AppendLine($"Duration: {Duration.AsString()}");
                 sb.AppendLine($"New date: {NewDate}");
-                sb.AppendLine($"Old date: {OldDate}");
-                sb.AppendLine($"Old files folder: {OldFilesFolder}");
-                foreach (var file in OldFiles)
-                {
-                    sb.AppendLine($"\t{Path.GetFileName(file)}");
-                }
+                //sb.AppendLine($"Old date: {OldDate}");
+                //sb.AppendLine($"Old files folder: {OldFilesFolder}");
+                //foreach (var file in OldFiles)
+                //{
+                //    sb.AppendLine($"\t{Path.GetFileName(file)}");
+                //}
                 sb.AppendLine($"New files folder: {NewFilesFolder}");
                 foreach (var file in NewFiles)
                 {
@@ -53,6 +43,15 @@ namespace ImportCEIDGByDate
                 sb.AppendLine();
                 sb.AppendLine($"==== SUMMARY ====");
                 this.ProcessEnd = DateTime.Now;
+                sb.AppendLine($"Process started at: {ProcessStart}");
+                if (ProcessEnd.HasValue)
+                {
+                    sb.AppendLine($"Process ended at: {ProcessEnd.Value}");
+                }
+                else
+                {
+                    sb.AppendLine($"Process is still running.");
+                }
                 sb.AppendLine($"Duration: {this.ProcessEnd.Value.Subtract(ProcessStart).AsString()}");
                 return sb.ToString();
             }
@@ -66,15 +65,6 @@ namespace ImportCEIDGByDate
         public Dictionary<string, List<CeidgReport>> OldReports { get; set; } = new Dictionary<string, List<CeidgReport>>();
         public Dictionary<string, List<CeidgReport>> NewReports { get; set; } = new Dictionary<string, List<CeidgReport>>();
 
-        public string OldFilesFolder { get; set; }
-        public List<string> OldFiles { get; set; } = new List<string>();
-        public int OldFilesCount
-        {
-            get
-            {
-                return this.OldReports.Values.Sum(reports => reports.Count);
-            }
-        }
         public string NewFilesFolder { get; set; }
 
         public int NewFilesCount
@@ -105,14 +95,12 @@ namespace ImportCEIDGByDate
             }
         }
 
-        public void Init(string description, DateTime newDate, DateTime oldDate, string oldFilesFolder, string newFilesFolder)
+        public void Init(string description, DateTime newDate, string newFilesFolder)
         {
             this.Description = description;
             this.ProcessStart = DateTime.Now;
             this.ProcessEnd = null;
             this.NewDate = newDate;
-            this.OldDate = oldDate;
-            this.OldFilesFolder = oldFilesFolder;
             this.NewFilesFolder = newFilesFolder;
             this.Phases.Clear();
             this.StartNewPhase(ImportPhasesEnum.Initialization, "Initialization of program data");
@@ -203,5 +191,8 @@ namespace ImportCEIDGByDate
             this.ProcessEnd = DateTime.Now;
             this.FinishMessage = comment;
         }
+
+        public int ImportOriginRecordCount { get; set; }
+        public int ImportTargetRecordCount { get; set; }
     }
 }

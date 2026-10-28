@@ -44,7 +44,6 @@ public partial class FirmyTempDbContext : DbContext
             entity.HasKey(e => e.ImportId).HasName("PK_ImportByDate");
             entity.Property(e => e.ImportId).ValueGeneratedOnAdd();
             entity.Property(e => e.ImportDate).HasColumnType("datetime");
-            entity.Property(e => e.PrevDate).HasColumnType("datetime");
             entity.Property(e => e.StartedAt).HasColumnType("datetime");
             entity.Property(e => e.FinishedAt).HasColumnType("datetime");
             entity.Property(e => e.Summary).HasColumnType("varchar(max)").IsRequired(false);
@@ -58,6 +57,9 @@ public partial class FirmyTempDbContext : DbContext
             entity.Property(e => e.CompanyXmlId).ValueGeneratedOnAdd();
             entity.Property(e => e.Nip).HasMaxLength(32);
             entity.HasIndex(e => e.Nip, "IX_CompanyXml_NIP");
+            entity.HasIndex(e => e.Nip, "UQ_CompanyXml_Nip").IsUnique().HasFilter(null);
+            entity.Property(e => e.DateModified).HasColumnType("datetime");
+            entity.Property(e => e.WojewodztwoId).HasColumnType("int").IsRequired(false);
             entity.Property(e => e.XmlContent).HasColumnName("CompanyXml")
                 .HasColumnType("nvarchar(max)").IsRequired();
             entity.Property(e => e.Md5).HasColumnName("MD5")
