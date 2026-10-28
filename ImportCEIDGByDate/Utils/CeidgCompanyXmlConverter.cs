@@ -53,6 +53,7 @@ namespace ImportCEIDGByDate
             company.Phone = xmlDoc.GetInnerTextOrEmpty("Telefon");
             company.Website = xmlDoc.GetInnerTextOrEmpty("AdresWWW");
             company.DataModifiedOn = Statistics.NewDate;
+            company.ImportedOn = Statistics.NewDate;
 
             #region Adresy
             company.Street = xmlDoc.GetInnerTextOrEmpty("Ulica");
@@ -83,19 +84,31 @@ namespace ImportCEIDGByDate
                 {
                     case "Aktywny":
                         {
-                            company.StartedAt = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci"));
+                            DateTime dataRozpoczecia = DateTime.MinValue;
+                            if (DateTime.TryParse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci"), out dataRozpoczecia))
+                            {
+                                company.StartedAt = dataRozpoczecia;
+                            }
                             try { company.ResumedOn = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataWznowieniaDzialalnosci")); } catch { }
                         }
                         break;
                     case "Zawieszony":
                         {
-                            company.SuspendedOn = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataZawieszeniaDzialalnosci"));
+                            DateTime dataZawieszenia = DateTime.MinValue;
+                            if (DateTime.TryParse(xmlDoc.GetInnerTextOrEmpty("DataZawieszeniaDzialalnosci"), out dataZawieszenia))
+                            {
+                                company.SuspendedOn = dataZawieszenia;
+                            }
                             try { company.StartedAt = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci")); } catch { }
                         }
                         break;
                     case "Działalność prowadzona wyłącznie w formie spółki cywilnej":
                         {
-                            company.StartedAt = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci"));
+                            DateTime dataRozpoczecia = DateTime.MinValue;
+                            if (DateTime.TryParse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci"), out dataRozpoczecia))
+                            {
+                                company.StartedAt = dataRozpoczecia;
+                            }
                         }
                         break;
                 }
@@ -173,6 +186,7 @@ namespace ImportCEIDGByDate
             company.Phone = xmlDoc.GetInnerTextOrEmpty("Telefon");
             company.Website = xmlDoc.GetInnerTextOrEmpty("AdresWWW");
             company.DataModifiedOn = Statistics.NewDate;
+            company.ImportedOn = Statistics.NewDate;
 
             #region Adresy
             company.Street = xmlDoc.GetInnerTextOrEmpty("Ulica");

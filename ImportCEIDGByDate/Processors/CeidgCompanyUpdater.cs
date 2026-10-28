@@ -12,7 +12,7 @@ using ImportCEIDGByDate.Utils;
 
 namespace ImportCEIDGByDate
 {
-    public class CeidgCompanyUpdater
+    public partial class CeidgCompanyUpdater
     {
         public FirmyTempRepository FirmyTempRepository { get; private set; }
         public FirmyImportRepository FirmyImportRepository { get; private set; }
@@ -65,37 +65,8 @@ namespace ImportCEIDGByDate
             this.GlobalSettings = settings;
         }
 
-        public async Task UpdateExistingCompaniesFromOrigin()
-        {
-            if (GlobalSettings.SkipUpdateExistingCompaniesFromOrigin == false)
-            {
-                Statistics.StartNewPhase(ImportPhasesEnum.UpdateExistingCompaniesFromOrigin, "");
-                var origins = FirmyImportRepository.ImportOrigins.AsNoTracking()
-                    .Where(row => row.Nip != null && row.Nip.Trim() != "")
-                    .Select(row => row.Nip!).Distinct();
-                Statistics.CurrentPhase.EntriesCount = origins.Count();
-                var nips = await origins.ToListAsync();
-                var companyTotal = 0;
-                foreach (var nipBatch in nips.Chunk(100))
-                    companyTotal += await FirmyTempDbContext.Companies.CountAsync(company => nipBatch.Contains(company.Nip!));
-                var progress = new AddressImportProgress("Adresy firm z ImportOrigin", companyTotal);
-                Statistics.CurrentPhase.EntriesCount = companyTotal;
-                using var updater = new CeidgCompanyAddressUpdater(FirmyTempDbContext, Statistics);
-                // Buffer Origin NIPs before querying the other database; never hold a SQL reader open.
-                foreach (var nipBatch in nips.Chunk(100))
-                {
-                    var companies = await FirmyTempDbContext.Companies
-                        .Where(company => nipBatch.Contains(company.Nip!))
-                        .OrderBy(company => company.Id).ToListAsync();
-                    var results = await updater.UpdateBatchAsync(companies, progress: progress);
-                    foreach (var result in results) progress.Complete(result);
-                    FirmyTempDbContext.ChangeTracker.Clear();
-                }
-                Statistics.FinishCurrentPhase("Finished", progress.Processed);
-            }
-        }
 
-        public async Task AddNewCompaniesFromImportToTemp()
+        public async Task AddNewCompaniesFromImportTargetToTemp()
         {
             if (GlobalSettings.SkipAddNewCompaniesFromImportToTemp == false)
             {
@@ -123,9 +94,7 @@ namespace ImportCEIDGByDate
                         if (alreadyExisting != null)
                         {
                             Console.WriteLine($"Company with NIP={nip} already exists, skipping");
-                            if (DeferAddressAssignment)
-                                pendingAddresses.Add(new PendingCompanyAddressImport { Company = alreadyExisting, Target = company });
-                            addressProgress.Complete(false);
+                            pendingAddresses.Add(new PendingCompanyAddressImport { Company = alreadyExisting, Target = company });
                             continue;
                         }
                         var newCompany = await CeidgConverter.ConvertXmlToNewCompany(company.WojewodztwoId, company.CompanyXml);
@@ -149,7 +118,7 @@ namespace ImportCEIDGByDate
             }
         }
 
-        public async Task UpdateExistingCompaniesFromImportToTemp()
+        public async Task UpdateExistingCompaniesFromImportTargetToTemp()
         {
             if (GlobalSettings.SkipUpdateExistingCompaniesFromImportToTemp == false)
             {
@@ -166,13 +135,19 @@ namespace ImportCEIDGByDate
                     var existingCompanies = await FirmyImportRepository.ReadPendingBatchAsync(false, afterId);
                     if (existingCompanies.Count == 0) break;
                     afterId = existingCompanies[^1].Id;
-                    await CeidgConverter.Lookups.PrepareBatchAsync(existingCompanies.Select(item => item.CompanyXml));
                     foreach (var company in existingCompanies)
                     {
                         var dbCompany = string.IsNullOrWhiteSpace(company.Nip)
                             ? null : await FirmyTempRepository.FindByNipAsync(company.Nip);
                         if (dbCompany == null)
                             throw new InvalidDataException($"Company with NIP={company.Nip} was not found.");
+
+                        //if (dbCompany.ImportedOn.HasValue && dbCompany.ImportedOn.Value > company.ImportDate)
+                        //{
+                        //    Console.WriteLine($"Skipping company with NIP={company.Nip}: ImportedOn is later than ImportTarget.ImportDate.");
+                        //    addressProgress.Complete(false);
+                        //    continue;
+                        //}
 
                         var existingCompany = await CeidgConverter.ConvertXmlToExistingCompany(company.WojewodztwoId, company.CompanyXml, dbCompany);
                         if (existingCompany == null)
@@ -193,8 +168,8 @@ namespace ImportCEIDGByDate
                     FirmyTempDbContext.ChangeTracker.Clear();
                 }
                 await FlushAddressesAsync(pendingAddresses, addressUpdater, addressProgress);
-                Console.WriteLine($"Updated existing companies: {companyTotal}");
-                Statistics.CurrentPhase.EntriesCount = companyTotal;
+                Console.WriteLine($"Updated existing companies: {companyCounter}");
+                Statistics.CurrentPhase.EntriesCount = companyCounter;
                 Statistics.FinishCurrentPhase("Finished");
             }
         }

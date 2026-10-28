@@ -26,6 +26,7 @@ namespace ImportCEIDGByDate
 
         public bool SkipImports { get; set; }
         public GlobalSettings GlobalSettings { get; set; }
+        private HashSet<string>? newSnapshotOriginNips;
 
         private HashSet<string> _md5;
         public HashSet<string> ContentXmlMd5s
@@ -55,190 +56,198 @@ namespace ImportCEIDGByDate
             this.Wojewodztwa = wojewodztwa;
         }
 
-        public async Task ImportOldFiles()
-        {
-            if (GlobalSettings.SkipImportOldFiles == false)
-            {
-                var swGlobal = Stopwatch.StartNew();
-                var globalRecordCounter = 0;
-                Console.WriteLine($"Importing old files {Statistics.OldDate:yyyy-MM-dd}...");
-                var globalMd5s = this.ContentXmlMd5s;
-                {
-                    Statistics.StartNewPhase(ImportPhasesEnum.ImportOldFilesToTable, "");
-                    if (SkipImports || GlobalSettings.SkipXmlImports)
-                    {
-                        const string message = "XML import disabled; retaining ImportOrigin records.";
-                        Console.WriteLine(message);
-                        Statistics.CurrentPhase.PhaseSkipped = true;
-                        Statistics.FinishCurrentPhase(message);
-                        return;
-                    }
-                    if (!GlobalSettings.TruncateImportOriginAtTheBeginning && await ImportRepository.ImportOrigins.AsNoTracking().AnyAsync())
-                    {
-                        const string message = "ImportOrigin already contains records; skipping XML import and retaining existing data.";
-                        Console.WriteLine(message);
-                        Statistics.CurrentPhase.PhaseSkipped = true;
-                        Statistics.FinishCurrentPhase(message);
-                        return;
-                    }
-                    Statistics.CurrentPhase.EntriesCount = Statistics.OldFilesCount;
+        //public async Task ImportOldFiles()
+        //{
+        //    if (GlobalSettings.SkipImportOldFiles == false)
+        //    {
+        //        var swGlobal = Stopwatch.StartNew();
+        //        var globalRecordCounter = 0;
+        //        Console.WriteLine($"Importing old files {Statistics.OldDate:yyyy-MM-dd}...");
+        //        // Staged Origin hashes must not be treated as persisted hashes by Target.
+        //        var globalMd5s = new HashSet<string>(this.ContentXmlMd5s, StringComparer.OrdinalIgnoreCase);
+        //        {
+        //            Statistics.StartNewPhase(ImportPhasesEnum.ImportOldFilesToTable, "");
+        //            if (SkipImports || GlobalSettings.SkipXmlImports)
+        //            {
+        //                const string message = "XML import disabled; retaining ImportOrigin records.";
+        //                Console.WriteLine(message);
+        //                Statistics.CurrentPhase.PhaseSkipped = true;
+        //                Statistics.FinishCurrentPhase(message);
+        //                return;
+        //            }
+        //            if (!GlobalSettings.TruncateImportOriginAtTheBeginning && await ImportRepository.ImportOrigins.AsNoTracking().AnyAsync())
+        //            {
+        //                const string message = "ImportOrigin already contains records; skipping XML import and retaining existing data.";
+        //                Console.WriteLine(message);
+        //                Statistics.CurrentPhase.PhaseSkipped = true;
+        //                Statistics.FinishCurrentPhase(message);
+        //                return;
+        //            }
+        //            Statistics.CurrentPhase.EntriesCount = Statistics.OldFilesCount;
 
 
-                    if (this.GlobalSettings.TruncateImportOriginAtTheBeginning)
-                    {
-                        var dbUtils = new CeidgDatabaseUtils(this.ImportDbContext);
-                        Console.Write($"Truncating table ImportOrigin... ");
-                        await dbUtils.TruncateImportOriginAsync();
-                        Console.WriteLine("Done.");
-                        if (Statistics.OldFilesCount == 0)
-                        {
-                            Statistics.StartNewPhase(ImportPhasesEnum.ImportOldFilesToTable, "No previous-day reports.");
-                            Statistics.CurrentPhase.PhaseSkipped = true;
-                            Statistics.FinishCurrentPhase("Skipped; ImportOrigin cleared to avoid stale previous-day data.");
-                            return;
-                        }
-                    }
-                    // disable transactions for inserts
-                    //this.ImportDbContext.Database.AutoTransactionBehavior = Microsoft.EntityFrameworkCore.AutoTransactionBehavior.Never;
+        //            if (this.GlobalSettings.TruncateImportOriginAtTheBeginning)
+        //            {
+        //                var dbUtils = new CeidgDatabaseUtils(this.ImportDbContext);
+        //                Console.Write($"Truncating table ImportOrigin... ");
+        //                await dbUtils.TruncateImportOriginAsync();
+        //                Console.WriteLine("Done.");
+        //                if (Statistics.OldFilesCount == 0)
+        //                {
+        //                    Statistics.StartNewPhase(ImportPhasesEnum.ImportOldFilesToTable, "No previous-day reports.");
+        //                    Statistics.CurrentPhase.PhaseSkipped = true;
+        //                    Statistics.FinishCurrentPhase("Skipped; ImportOrigin cleared to avoid stale previous-day data.");
+        //                    return;
+        //                }
+        //            }
+        //            // disable transactions for inserts
+        //            //this.ImportDbContext.Database.AutoTransactionBehavior = Microsoft.EntityFrameworkCore.AutoTransactionBehavior.Never;
 
-                    var culture = CultureInfo.GetCultureInfo("pl-PL");
-                    var xmlDocument = new XmlDocument();
-                    var flushTableEveryRecordCount = 10000;
+        //            var culture = CultureInfo.GetCultureInfo("pl-PL");
+        //            var xmlDocument = new XmlDocument();
+        //            var flushTableEveryRecordCount = 10000;
 
-                    var pendingMd5s = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        //            //var pendingMd5s = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                    int fileCounter = 1;
-                    int fileCount = Statistics.OldReports.Sum((r) => r.Value.Count);
+        //            int fileCounter = 1;
+        //            int fileCount = Statistics.OldReports.Sum((r) => r.Value.Count);
 
-                    foreach (var key in Statistics.OldReports.Keys)
-                    {
-                        foreach (var report in Statistics.OldReports[key])
-                        {
-                            Statistics.StartNewChildPhase(ImportPhasesEnum.ImportOldFileToTable, $"Importing file {report.FileName} to table ImportOrigin");
+        //            foreach (var key in Statistics.OldReports.Keys)
+        //            {
+        //                foreach (var report in Statistics.OldReports[key])
+        //                {
+        //                    Statistics.StartNewChildPhase(ImportPhasesEnum.ImportOldFileToTable, $"Importing file {report.FileName} to table ImportOrigin");
 
-                            double progress = fileCount > 0 ? (double)fileCounter / fileCount * 100.0 : 0;
-                            var recordCounter = 0;
-                            var skippedRecordCounter = 0;
-                            var parsedRecordCounter = 0;
-                            var skippedKnownMd5Counter = 0;
-                            var skippedDuplicateCounter = 0;
-                            var skippedBlankNips = 0;
+        //                    double progress = fileCount > 0 ? (double)fileCounter / fileCount * 100.0 : 0;
+        //                    var recordCounter = 0;
+        //                    var skippedRecordCounter = 0;
+        //                    var parsedRecordCounter = 0;
+        //                    var skippedKnownMd5Counter = 0;
+        //                    var skippedDuplicateCounter = 0;
+        //                    var skippedBlankNips = 0;
 
-                            Console.WriteLine($"Importing {progress:F2}% {fileCounter}/{fileCount} - {Path.GetFileName(report.FileName)} to table ImportOrigin");
+        //                    Console.WriteLine($"Importing {progress:F2}% {fileCounter}/{fileCount} - {Path.GetFileName(report.FileName)} to table ImportOrigin");
 
-                            var match = Regex.Match(report.FileName, @"województwo (?<nazwa>[^_]+)_");
-                            string? wojewodztwo = match.Success ? match.Groups["nazwa"].Value : null;
+        //                    var match = Regex.Match(report.FileName, @"województwo (?<nazwa>[^_]+)_");
+        //                    string? wojewodztwo = match.Success ? match.Groups["nazwa"].Value : null;
 
-                            if (!match.Success && Regex.IsMatch(report.FileName, @"brak województwa", RegexOptions.IgnoreCase))
-                            {
-                                wojewodztwo = "Brak województwa";
-                            }
+        //                    if (!match.Success && Regex.IsMatch(report.FileName, @"brak województwa", RegexOptions.IgnoreCase))
+        //                    {
+        //                        wojewodztwo = "Brak województwa";
+        //                    }
 
-                            wojewodztwo = culture.TextInfo.ToTitleCase(wojewodztwo.Replace("-", " ")).Trim();
-                            var wojewodztwoId = this.Wojewodztwa.Where((w) => w.Name.Equals(wojewodztwo, StringComparison.OrdinalIgnoreCase)).FirstOrDefault()?.Id; ;
-                            if (!wojewodztwoId.HasValue)
-                                throw new InvalidDataException($"Unknown wojewodztwo: {wojewodztwo}");
+        //                    wojewodztwo = culture.TextInfo.ToTitleCase(wojewodztwo.Replace("-", " ")).Trim();
+        //                    var wojewodztwoId = this.Wojewodztwa.Where((w) => w.Name.Equals(wojewodztwo, StringComparison.OrdinalIgnoreCase)).FirstOrDefault()?.Id; ;
+        //                    if (!wojewodztwoId.HasValue)
+        //                        throw new InvalidDataException($"Unknown wojewodztwo: {wojewodztwo}");
 
-                            var settings = new XmlReaderSettings
-                            {
-                                DtdProcessing = DtdProcessing.Prohibit,
-                                XmlResolver = null,
-                                IgnoreWhitespace = true,
-                            };
+        //                    var settings = new XmlReaderSettings
+        //                    {
+        //                        DtdProcessing = DtdProcessing.Prohibit,
+        //                        XmlResolver = null,
+        //                        IgnoreWhitespace = true,
+        //                    };
 
-                            using var reader = XmlReader.Create(Path.Combine(Statistics.OldFilesFolder, report.FileName), settings);
+        //                    using var reader = XmlReader.Create(Path.Combine(Statistics.OldFilesFolder, report.FileName), settings);
 
-                            var sw = Stopwatch.StartNew();
+        //                    var sw = Stopwatch.StartNew();
 
-                            while (reader.Read())
-                            {
-                                if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "Detail")
-                                    continue;
+        //                    while (reader.Read())
+        //                    {
+        //                        if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "Detail")
+        //                            continue;
 
-                                parsedRecordCounter++;
-                                using var subtree = reader.ReadSubtree();
-                                var detail = XElement.Load(subtree);
+        //                        parsedRecordCounter++;
+        //                        using var subtree = reader.ReadSubtree();
+        //                        var detail = XElement.Load(subtree);
 
-                                string? GetValue(string name) => detail.Elements()
-                                        .FirstOrDefault(element => element.Name.LocalName == name)
-                                        ?.Value.Trim();
+        //                        string? GetValue(string name) => detail.Elements()
+        //                                .FirstOrDefault(element => element.Name.LocalName == name)
+        //                                ?.Value.Trim();
 
-                                xmlDocument.LoadXml(detail.ToString());
-                                var nip = xmlDocument.SelectSingleNode("Detail/Nip")?.InnerText ?? "";
+        //                        xmlDocument.LoadXml(detail.ToString());
+        //                        var nip = xmlDocument.SelectSingleNode("Detail/Nip")?.InnerText ?? "";
 
-                                var xmlText = Regex.Replace(detail.ToString(SaveOptions.DisableFormatting), @"<Lp\.>\d+</Lp\.>\r?\n?", "");
-                                var md5 = MD5Utils.CalculateMD5(xmlText);
+        //                        var xmlText = Regex.Replace(detail.ToString(SaveOptions.DisableFormatting), @"<Lp\.>\d+</Lp\.>\r?\n?", "");
+        //                        var md5 = MD5Utils.CalculateMD5(xmlText);
 
-                                if (globalMd5s.Contains(md5))
-                                {
-                                    skippedRecordCounter++;
-                                    skippedKnownMd5Counter++;
-                                    continue;
-                                }
+        //                        if (globalMd5s.Contains(md5))
+        //                        {
+        //                            skippedRecordCounter++;
+        //                            skippedKnownMd5Counter++;
+        //                            continue;
+        //                        }
 
-                                if (pendingMd5s.Contains(md5))
-                                {
-                                    skippedRecordCounter++;
-                                    skippedDuplicateCounter++;
-                                    continue;
-                                }
+        //                        //if (pendingMd5s.Contains(md5))
+        //                        //{
+        //                        //    skippedRecordCounter++;
+        //                        //    skippedDuplicateCounter++;
+        //                        //    continue;
+        //                        //}
 
-                                if (string.IsNullOrEmpty(nip))
-                                {
-                                    skippedBlankNips++;
-                                    continue;
-                                }
+        //                        if (string.IsNullOrEmpty(nip))
+        //                        {
+        //                            skippedBlankNips++;
+        //                            continue;
+        //                        }
 
-                                pendingMd5s.Add(md5);
+        //                        //pendingMd5s.Add(md5);
 
 
-                                ImportRepository.ImportOrigins.Add(new ImportOrigin
-                                {
-                                    WojewodztwoId = wojewodztwoId.Value,
-                                    CompanyXml = xmlText,
-                                    Md5 = md5,
-                                    Nip = nip,
-                                    ImportDate = Statistics.OldDate
-                                });
-                                pendingMd5s.Add(md5);
-                                globalMd5s.Add(md5);
-                                recordCounter++;
-                                if (recordCounter % flushTableEveryRecordCount == 0)
-                                {
-                                    Console.WriteLine($"Writing {flushTableEveryRecordCount} records of {recordCounter} records to database, skipped {skippedRecordCounter} records...");
-                                    await ImportRepository.SaveAndClearAsync();
+        //                        ImportRepository.ImportOrigins.Add(new ImportOrigin
+        //                        {
+        //                            WojewodztwoId = wojewodztwoId.Value,
+        //                            CompanyXml = xmlText,
+        //                            Md5 = md5,
+        //                            Nip = nip,
+        //                            ImportDate = Statistics.OldDate
+        //                        });
+        //                        //pendingMd5s.Add(md5);
+        //                        globalMd5s.Add(md5);
+        //                        recordCounter++;
+        //                        if (recordCounter % flushTableEveryRecordCount == 0)
+        //                        {
+        //                            Console.WriteLine($"Writing {flushTableEveryRecordCount} records of {recordCounter} records to database, skipped {skippedRecordCounter} records...");
+        //                            await ImportRepository.SaveAndClearAsync();
 
-                                }
-                            }
-                            await ImportRepository.SaveAndClearAsync();
+        //                        }
+        //                    }
+        //                    await ImportRepository.SaveAndClearAsync();
 
-                            sw.Stop();
-                            globalRecordCounter += recordCounter;
-                            Console.WriteLine($"Done importing. Read {parsedRecordCounter} XML records; imported {recordCounter}; skipped {skippedRecordCounter} (known MD5: {skippedKnownMd5Counter}, duplicate MD5: {skippedDuplicateCounter}); blank NIPs: {skippedBlankNips}. Elapsed time: {sw.ElapsedTime()}");
-                            fileCounter++;
-                            Statistics.CurrentPhase.EntriesCount = recordCounter;
-                            Statistics.FinishChildPhase("");
-                        }
-                    }
-                    pendingMd5s.Clear();
+        //                    sw.Stop();
+        //                    globalRecordCounter += recordCounter;
+        //                    Console.WriteLine($"Done importing. Read {parsedRecordCounter} XML records; imported {recordCounter}; skipped {skippedRecordCounter} (known MD5: {skippedKnownMd5Counter}, duplicate MD5: {skippedDuplicateCounter}); blank NIPs: {skippedBlankNips}. Elapsed time: {sw.ElapsedTime()}");
+        //                    fileCounter++;
+        //                    Statistics.CurrentPhase.EntriesCount = recordCounter;
+        //                    Statistics.FinishChildPhase("");
+        //                }
+        //            }
+        //            //pendingMd5s.Clear();
 
-                    await ImportRepository.SaveAndClearAsync();
-                }
-                swGlobal.Stop();
-                Console.WriteLine($"Done importing. Total records: {globalRecordCounter}. Total elapsed time: {swGlobal.ElapsedTime()}");
+        //            await ImportRepository.SaveAndClearAsync(); 
+        //        }
+        //        swGlobal.Stop();
+        //        Console.WriteLine($"Done importing. Total records: {globalRecordCounter}. Total elapsed time: {swGlobal.ElapsedTime()}");
 
-                Statistics.FinishCurrentPhase("", globalRecordCounter);
-            }
-        }
+        //        Statistics.ImportOriginRecordCount = this.ImportDbContext.ImportOrigins.Count();
+
+        //        Statistics.FinishCurrentPhase("", globalRecordCounter);
+        //    }
+        //}
+
+        
 
         public async Task ImportNewFiles()
         {
+            newSnapshotOriginNips = null;
             if (GlobalSettings.SkipImportNewFiles == false)
             {
                 Console.WriteLine($"Importing new files {Statistics.NewDate:yyyy-MM-dd}...");
                 var swGlobal = Stopwatch.StartNew();
                 var globalRecordCounter = 0;
-                var globalMd5s = this.ContentXmlMd5s;
+                var globalMd5s = new HashSet<string>(this.ContentXmlMd5s, StringComparer.OrdinalIgnoreCase);
+                var globalNips = this.FirmyTempDbContext.Companies.Select((c) => c.Nip).Distinct().ToHashSet<string>();
+                var newNips = new List<string>();
 
                 {
                     Statistics.StartNewPhase(ImportPhasesEnum.ImportNewFilesToTable, "");
@@ -260,6 +269,7 @@ namespace ImportCEIDGByDate
                         return;
                     }
                     Statistics.CurrentPhase.EntriesCount = Statistics.NewFilesCount;
+                    var matchedOriginNips = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     var dbUtils = new CeidgDatabaseUtils(this.ImportDbContext);
 
                     if (this.GlobalSettings.TruncateImportTargetAtTheBeginning)
@@ -274,14 +284,6 @@ namespace ImportCEIDGByDate
                     var xmlDocument = new XmlDocument();
                     var flushTableEveryRecordCount = 10000;
 
-                    Console.Write($"Reading MD5 hashes from table ImportOrigin...");
-                    Stopwatch swPendingMd5s = Stopwatch.StartNew();
-                    var pendingMd5s = await ImportRepository.ImportOrigins
-                        .AsNoTracking()
-                        .Select(origin => origin.Md5)
-                        .ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
-                    swPendingMd5s.Stop();
-                    Console.WriteLine($"Finished in {swPendingMd5s.Elapsed.TotalSeconds:F2} second(s)");
                     Console.WriteLine($"Processing XML files");
 
                     int fileCounter = 1;
@@ -291,6 +293,7 @@ namespace ImportCEIDGByDate
                     {
                         foreach (var report in Statistics.NewReports[key])
                         {
+                            var localNewNips = new List<string>();
                             Statistics.StartNewChildPhase(ImportPhasesEnum.ImportNewFileToTable, $"Importing file {report.FileName} to table ImportTarget");
                             var recordCounter = 0;
                             var skippedRecordCounter = 0;
@@ -340,24 +343,21 @@ namespace ImportCEIDGByDate
                                         ?.Value.Trim();
 
                                 xmlDocument.LoadXml(detail.ToString());
-                                var elemLp = xmlDocument.SelectSingleNode("Detail/Lp.");
-                                elemLp.ParentNode.RemoveChild(elemLp);
-                                var nip = xmlDocument.SelectSingleNode("Detail/Nip")?.InnerText ?? "";
+                                var nip = xmlDocument.SelectSingleNode("Detail/Nip")?.InnerText.Trim() ?? "";
+
+                                if (!string.IsNullOrEmpty(nip) && !globalNips.Contains(nip))
+                                {
+                                    localNewNips.Add(nip);
+                                    Console.WriteLine($"{localNewNips.Count}# New NIP={nip}");
+                                }
 
                                 var xmlText = Regex.Replace(detail.ToString(SaveOptions.DisableFormatting), @"<Lp\.>\d+</Lp\.>\r?\n?", "");
                                 var md5 = MD5Utils.CalculateMD5(xmlText);
 
-                                if (globalMd5s.Contains(md5))
+                                if (globalMd5s.Contains(md5) && globalNips.Contains(nip))
                                 {
                                     skippedRecordCounter++;
                                     skippedKnownMd5Counter++;
-                                    continue;
-                                }
-
-                                if (pendingMd5s.Contains(md5))
-                                {
-                                    skippedRecordCounter++;
-                                    skippedDuplicateCounter++;
                                     continue;
                                 }
 
@@ -367,44 +367,66 @@ namespace ImportCEIDGByDate
                                     continue;
                                 }
 
-                                ImportRepository.ImportTargets.Add(new ImportTarget
+                                var importTarget = this.ImportDbContext.ImportTargets.Where((t) => t.Nip == nip).FirstOrDefault();
+                                if (importTarget != null)
                                 {
-                                    WojewodztwoId = wojewodztwoId.Value,
-                                    CompanyXml = xmlText,
-                                    Md5 = md5,
-                                    Nip = nip,
-                                    ImportDate = Statistics.NewDate,
-                                    IsNew = false,
-                                    IsUpdated = false,
-                                    Imported = false
-                                });
-                                pendingMd5s.Add(md5);
-                                globalMd5s.Add(md5);
+                                    importTarget.ImportDate = Statistics.NewDate;
+                                    importTarget.CompanyXml = xmlText;
+                                    importTarget.WojewodztwoId = wojewodztwoId.Value;
+                                    importTarget.Md5 = md5;
+                                    importTarget.Nip = nip;
+                                    importTarget.IsNew = localNewNips.Contains(nip);
+                                    importTarget.IsUpdated = false;
+
+                                    await this.ImportDbContext.SaveChangesAsync();
+                                }
+                                else
+                                {
+                                    ImportTarget target = new ImportTarget();
+                                    target.ImportDate = Statistics.NewDate;
+                                    target.CompanyXml = xmlText;
+                                    target.WojewodztwoId = wojewodztwoId.Value;
+                                    target.Md5 = md5;
+                                    target.Nip = nip;
+                                    target.IsNew = localNewNips.Contains(nip);
+                                    target.Imported = false;
+                                    target.IsUpdated = false;
+
+                                    this.ImportDbContext.ImportTargets.Add(target);
+                                    await this.ImportDbContext.SaveChangesAsync();
+                                }
+
                                 recordCounter++;
                                 if (recordCounter % flushTableEveryRecordCount == 0)
                                 {
                                     Console.WriteLine($"Writing {flushTableEveryRecordCount} records of {recordCounter} records to database, skipped {skippedRecordCounter} records...");
                                     await ImportRepository.SaveAndClearAsync();
                                 }
+                                
                             }
                             await ImportRepository.SaveAndClearAsync();
 
                             sw.Stop();
                             Statistics.CurrentPhase.EntriesCount = recordCounter;
-                            Console.WriteLine($"Done importing. Read {parsedRecordCounter} XML records; imported {recordCounter}; skipped {skippedRecordCounter} (known MD5: {skippedKnownMd5Counter}, duplicate MD5: {skippedDuplicateCounter}); blank NIPs: {skippedBlankNips}. Elapsed time: {sw.ElapsedTime()}");
-                            globalRecordCounter += recordCounter;
+                            Console.WriteLine($"Done importing. Read {parsedRecordCounter} XML records; imported {recordCounter}; skipped {skippedRecordCounter} (known MD5: {skippedKnownMd5Counter}, duplicate MD5: {skippedDuplicateCounter}); blank NIPs: {skippedBlankNips}, new NIPs: {localNewNips.Count}. Elapsed time: {sw.ElapsedTime()}");
+                            globalRecordCounter = await ImportDbContext.ImportTargets.CountAsync();
                             fileCounter++;
                             Statistics.CurrentPhase.EntriesCount = recordCounter;
                             Statistics.FinishChildPhase("");
+
+                            newNips.AddRange(localNewNips);
+                            newNips = newNips.Distinct().ToList();
                         }
                     }
-                    pendingMd5s.Clear();
 
                     Statistics.FinishCurrentPhase("", globalRecordCounter);
                     await ImportRepository.SaveAndClearAsync();
+                    newSnapshotOriginNips = matchedOriginNips;
                 }
                 swGlobal.Stop();
-                Console.WriteLine($"Done importing. Total records: {globalRecordCounter}. Total elapsed time: {swGlobal.ElapsedTime()}");
+                globalRecordCounter = ImportDbContext.ImportTargets.Count();
+                Console.WriteLine($"Done importing. Total records: {globalRecordCounter}. Total new NIPs: {newNips.Count}. Total elapsed time: {swGlobal.ElapsedTime()}");
+                Statistics.ImportTargetRecordCount = globalRecordCounter;
             }
         }
 
@@ -412,7 +434,7 @@ namespace ImportCEIDGByDate
         {
             if (GlobalSettings.SkipUpdateImportTargetMetadata == false)
             {
-                Statistics.StartNewPhase(ImportPhasesEnum.UpdateImportTargetMetadata, "Updating metadata in table ImportTarget");
+                 Statistics.StartNewPhase(ImportPhasesEnum.UpdateImportTargetMetadata, "Updating metadata in table ImportTarget");
                 Console.WriteLine($"Updating metadata in table ImportTarget...");
                 var dbUtils = new CeidgDatabaseUtils(this.ImportDbContext);
 
@@ -460,6 +482,55 @@ namespace ImportCEIDGByDate
                 Console.WriteLine($"Finished updating metadata in table ImportTarget.");
                 Statistics.FinishCurrentPhase("Finished");
             }
+        }
+
+        public async Task RemoveNIPsPresentInImportTargetFromImportSource()
+        {
+            Statistics.StartNewPhase(ImportPhasesEnum.RemoveNIPsFromImportOriginThatArePresentInOriginTarget, "");
+            var snapshotNips = newSnapshotOriginNips ?? await FindOriginNipsInNewSnapshotAsync();
+            var deleted = await ImportRepository.ImportOrigins
+                .Where(origin => origin.Nip != null &&
+                    ImportRepository.ImportTargets.Any(target => target.Nip == origin.Nip))
+                .ExecuteDeleteAsync();
+            foreach (var nips in snapshotNips.Chunk(1000))
+                deleted += await ImportRepository.ImportOrigins
+                    .Where(origin => nips.Contains(origin.Nip!)).ExecuteDeleteAsync();
+            // Bulk deletes bypass tracking; detach only the Origin rows that no longer exist.
+            var trackedOrigins = ImportDbContext.ChangeTracker.Entries<ImportOrigin>().ToArray();
+            if (trackedOrigins.Length > 0)
+            {
+                var trackedIds = trackedOrigins.Select(entry => entry.Entity.Id).ToArray();
+                var survivingIds = await ImportRepository.ImportOrigins.AsNoTracking()
+                    .Where(row => trackedIds.Contains(row.Id)).Select(row => row.Id).ToHashSetAsync();
+                foreach (var entry in trackedOrigins)
+                    if (entry.State != EntityState.Added && !survivingIds.Contains(entry.Entity.Id))
+                        entry.State = EntityState.Detached;
+            }
+            Console.WriteLine($"Removed {deleted} ImportOrigin records with NIPs present in ImportTarget or the new-date XML snapshot.");
+            Statistics.FinishCurrentPhase("Finished", deleted);
+        }
+
+        private async Task<HashSet<string>> FindOriginNipsInNewSnapshotAsync()
+        {
+            var remaining = await ImportRepository.ImportOrigins.AsNoTracking()
+                .Where(row => row.Nip != null).Select(row => row.Nip!)
+                .ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
+            var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (remaining.Count == 0) return found;
+            // Resume/skip paths have not parsed XML in this instance, so read only NIPs.
+            foreach (var report in Statistics.NewReports.Values.SelectMany(reports => reports))
+            {
+                using var reader = XmlReader.Create(Path.Combine(Statistics.NewFilesFolder, report.FileName),
+                    new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, IgnoreWhitespace = true });
+                while (reader.Read())
+                {
+                    if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "Nip") continue;
+                    var nip = reader.ReadElementContentAsString();
+                    if (remaining.Remove(nip)) found.Add(nip);
+                }
+                if (remaining.Count == 0) break;
+            }
+            return found;
         }
     }
 

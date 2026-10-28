@@ -30,19 +30,6 @@ if (args.Count() < 1)
 }
 
 var newDate = Convert.ToDateTime(args[0]);
-var oldDate = newDate.AddDays(-1);
-
-var oldFilesFolder = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), oldDate.ToString("yyyy-MM-dd")));
-
-if (!Directory.Exists(oldFilesFolder))
-{
-    Console.WriteLine($"Old files folder '{oldFilesFolder}' does not exist. Creating it.");
-    Directory.CreateDirectory(oldFilesFolder);
-}
-else
-{
-    Console.WriteLine($"Old files folder '{oldFilesFolder} exists.");
-}
 
 var newFilesFolder = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), newDate.ToString("yyyy-MM-dd")));
 if (!Directory.Exists(newFilesFolder))
@@ -57,7 +44,7 @@ else
 
 var statistics = new Statistics();
 
-statistics.Init($"Import CEIDG by date {newDate:yyyy-MM-dd}, diffed from date {oldDate:yyyy-MM-dd}\r\nOld files folder: {oldFilesFolder}\\r\\nNew files folder: {newFilesFolder}", newDate, oldDate, oldFilesFolder, newFilesFolder);
+statistics.Init($"Import CEIDG by date {newDate:yyyy-MM-dd}, New files folder: {newFilesFolder}",newDate, newFilesFolder);
 
 var configuration = new ConfigurationBuilder()
     .AddUserSecrets<Statistics>(optional: true)
@@ -74,17 +61,17 @@ var firmyTempDbContext = scope.ServiceProvider.GetRequiredService<FirmyTempDbCon
 
 var wojewodztwa = await firmyTempRepository.Wojewodztwa.AsNoTracking().ToListAsync();
 
-var importByDate = new ImportByDate();
-importByDate.ImportDate = statistics.NewDate;
-importByDate.PrevDate = statistics.OldDate;
-importByDate.StartedAt = statistics.ProcessStart;
-firmyTempDbContext.ImportByDates.Add(importByDate);
-firmyTempDbContext.SaveChanges();
-
-
+var import = new ImportByDate
+{
+    ImportDate = statistics.NewDate,
+    StartedAt = statistics.ProcessStart
+};
+firmyTempDbContext.ImportByDates.Add(import);
+await firmyTempDbContext.SaveChangesAsync();
 
 globalSettings.TruncateImportOriginAtTheEnd = false;
 globalSettings.TruncateImportTargetAtTheEnd = false;
+globalSettings.SkipProcessingAddresses = true;
 
 statistics.FinishCurrentPhase("Initialization complete.");
 
@@ -103,14 +90,8 @@ if (!parseReport)
     exitCode = 1;
     goto summary;
 }
-LocalCeidgReports.AddExisting(statistics.OldReports, statistics.OldFilesFolder, oldDate);
-LocalCeidgReports.SortReports(statistics.OldReports);
 LocalCeidgReports.AddExisting(statistics.NewReports, statistics.NewFilesFolder, newDate);
 LocalCeidgReports.SortReports(statistics.NewReports);
-if (statistics.OldReports.Values.Sum(reports => reports.Count) == 0)
-{
-    Console.WriteLine($"No reports for previous date {oldDate:yyyy-MM-dd}; skipping previous-day files.");
-}
 
 if (statistics.NewReports.Values.Sum(reports => reports.Count) == 0)
 {
@@ -137,26 +118,27 @@ globalSettings.TruncateImportTargetAtTheEnd = false;
 //globalSettings.SkipUpdateExistingCompaniesFromImportToTemp = true;
 //globalSettings.SkipImportDeferredAddressesAsync = true;
 
-await ceidgDownloader.DownloadOldFiles();
+var contentXmlCleaner = new CeidgContentXmlCleaner(statistics, firmyTempRepository, firmyImportRepository, firmyImportDbContext, firmyTempDbContext, globalSettings);
+await contentXmlCleaner.PerformContentXmlCleanup();
+
+
 await ceidgDownloader.DownloadNewFiles();
 
-ceidgDownloader.UnpackOldReports();
 ceidgDownloader.UnpackNewReports();
 
 var ceidgImporter = new CeidgFileImporter(statistics, wojewodztwa, firmyImportRepository, firmyImportDbContext, firmyTempDbContext, globalSettings);
-//ceidgImporter.SkipImports = true;
-await ceidgImporter.ImportOldFiles();
+
 await ceidgImporter.ImportNewFiles();
+//await ceidgImporter.RemoveNIPsPresentInImportTargetFromImportSource();
 await ceidgImporter.UpdateImportTargetMetadata();
 
 var ceidgUpdater = new CeidgCompanyUpdater(statistics, firmyTempRepository, firmyImportRepository, firmyImportDbContext, firmyTempDbContext, globalSettings)
 {
-    DeferAddressAssignment = true
+    DeferAddressAssignment = false
 };
-await ceidgUpdater.UpdateExistingCompaniesFromOrigin();
-await ceidgUpdater.AddNewCompaniesFromImportToTemp();
-await ceidgUpdater.UpdateExistingCompaniesFromImportToTemp();
-await ceidgUpdater.ImportDeferredAddressesAsync();
+
+await ceidgUpdater.AddNewCompaniesFromImportTargetToTemp();
+await ceidgUpdater.UpdateExistingCompaniesFromImportTargetToTemp();
 
 var ceidgCompanyXmlUpdater = new CeidgCompanyXmlUpdater(statistics, firmyTempRepository, firmyImportRepository, firmyImportDbContext, firmyTempDbContext, globalSettings);
 await ceidgCompanyXmlUpdater.UpdateCompaniesXml();
@@ -165,18 +147,20 @@ await ceidgCompanyXmlUpdater.UpdateCompaniesXml();
 
 summary:
 
-statistics.Finish("Finished");
+statistics.Finish(exitCode == 0 ? "Finished" : "Failed");
+var summaryText = statistics.Summary;
 
 Console.WriteLine();
 Console.WriteLine("===== SUMMARY =====");
-Console.WriteLine(statistics.Summary);
+Console.WriteLine(summaryText);
 
-importByDate.ImportOriginRecords = firmyImportDbContext.ImportOrigins.Count();
-importByDate.ImportTargetRecords = firmyImportDbContext.ImportTargets.Count();
-importByDate.FinishedAt = statistics.ProcessEnd.Value;
-importByDate.Summary = statistics.Summary;
-importByDate.Duration = importByDate.FinishedAt.Value.Subtract(importByDate.StartedAt).AsString();
+import.FinishedAt = statistics.ProcessEnd.Value;
+import.ImportTargetRecords = statistics.ImportTargetRecordCount;
+import.Summary = summaryText;
+import.Duration = import.FinishedAt.Value.Subtract(import.StartedAt).AsString();
+// Batch processing may have detached the startup record.
+firmyTempDbContext.ImportByDates.Update(import);
+await firmyTempDbContext.SaveChangesAsync();
 
-firmyTempDbContext.SaveChanges();
 
 return exitCode;
