@@ -1,7 +1,8 @@
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { HttpClientModule } from '@angular/common/http';
+import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
+import { BlockedAccountInterceptor } from './services/blocked-account.interceptor';
 import { RouterModule } from '@angular/router';
 
 import { AppComponent } from './app.component';
@@ -10,6 +11,8 @@ import { LoginComponent } from './login/login.component';
 import { UserDashboardComponent } from './user-dashboard/user-dashboard.component';
 import { AddressListboxComponent } from './user-dashboard/address-listbox.component';
 import { AdminDashboardComponent } from './admin-dashboard/admin-dashboard.component';
+import { AdminPlansComponent } from './admin-dashboard/admin-plans.component';
+import { AdminImportsComponent } from './admin-dashboard/admin-imports.component';
 import { PlansComponent } from './plans/plans.component';
 import { PaymentSuccessComponent } from './plans/payment-success.component';
 import { ProfileComponent } from './profile/profile.component';
@@ -26,6 +29,8 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
     UserDashboardComponent,
     AddressListboxComponent,
     AdminDashboardComponent,
+    AdminPlansComponent,
+    AdminImportsComponent,
     PlansComponent,
     PaymentSuccessComponent,
     ProfileComponent,
@@ -48,7 +53,7 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
       { path: 'profile/purchases', component: ProfileComponent, canActivate: [AuthGuard], data: { section: 'purchases' } },
     ])
   ],
-  providers: [],
+  providers: [{ provide: HTTP_INTERCEPTORS, useClass: BlockedAccountInterceptor, multi: true }],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

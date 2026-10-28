@@ -204,6 +204,7 @@ app.UseRouting();
 app.UseCors("LocalAngular");
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<AccountEnabledMiddleware>();
 app.UseAuthorization();
 app.Use(async (context, next) =>
 {

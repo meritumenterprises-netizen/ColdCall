@@ -11,6 +11,7 @@ public partial class ColdCallDbContext : DbContext
 
     public DbSet<AppUser> Users => Set<AppUser>();
     public DbSet<AdminEmail> AdminEmails => Set<AdminEmail>();
+    public DbSet<ImportByDate> ImportByDates => Set<ImportByDate>();
     public DbSet<BusinessType> BusinessTypes => Set<BusinessType>();
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<CompanyStatus> CompanyStatuses => Set<CompanyStatus>();
@@ -31,6 +32,18 @@ public partial class ColdCallDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("ColdCall");
+        modelBuilder.Entity<ImportByDate>(entity =>
+        {
+            entity.ToTable("ImportByDate", "ColdCall");
+            entity.HasKey(row => row.ImportId).HasName("PK_ImportByDate");
+            entity.Property(row => row.ImportId).ValueGeneratedOnAdd();
+            entity.Property(row => row.ImportDate).HasColumnType("datetime");
+            entity.Property(row => row.PrevDate).HasColumnType("datetime");
+            entity.Property(row => row.StartedAt).HasColumnType("datetime");
+            entity.Property(row => row.FinishedAt).HasColumnType("datetime");
+            entity.Property(row => row.Summary).HasColumnType("varchar(max)").IsRequired(false);
+            entity.Property(row => row.Duration).HasMaxLength(50).IsUnicode(false).IsRequired(false);
+        });
         modelBuilder.Entity<Wojewodztwo>().HasIndex(x => x.Name)
             .HasDatabaseName("UX_Wojewodztwa_Name").IsUnique();
         modelBuilder.Entity<Powiat>().HasIndex(x => x.Name)
@@ -138,6 +151,8 @@ public partial class ColdCallDbContext : DbContext
                 .HasConstraintName("FK_SearchProfileCriteria_Miejscowosci").OnDelete(DeleteBehavior.NoAction);
         });
         modelBuilder.Entity<PlanDefinition>().Property(x => x.DescriptionHtml).HasDefaultValue("");
+        modelBuilder.Entity<PlanDefinition>().Property(x => x.EnableCSVDeleting).HasColumnType("bit").IsRequired()
+            .HasDefaultValue(true).HasSentinel(true);
         modelBuilder.Entity<PlanDefinition>().Property(x => x.Order).HasColumnType("int").IsRequired().HasDefaultValue(0);
         modelBuilder.Entity<PlanDefinition>().Property(x => x.Price).HasColumnType("decimal(18,2)");
         modelBuilder.Entity<PlanDefinition>().Property(x => x.IsTrial).HasDefaultValue(false);

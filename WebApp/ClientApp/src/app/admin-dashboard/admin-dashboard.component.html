@@ -3,18 +3,22 @@
     <div class="sidebar-title">Administrator</div>
     <button class="search-item" [class.active]="tab === 'companies'" (click)="tab = 'companies'">Firmy</button>
     <button class="search-item" [class.active]="tab === 'users'" (click)="tab = 'users'">U&#380;ytkownicy</button>
+    <button class="search-item" [class.active]="tab === 'plans'" (click)="tab = 'plans'">Plany</button>
+    <button class="search-item" [class.active]="tab === 'imports'" (click)="tab = 'imports'">Importy</button>
   </aside>
 
   <main class="workspace">
-    <header class="workspace-head">
+    <header class="workspace-head" *ngIf="tab !== 'users'">
       <div>
-        <span class="eyebrow">Tryb administratora</span>
         <h1 *ngIf="tab === 'companies'">Wyszukiwanie firm</h1>
+        <h1 *ngIf="tab === 'plans'">Plany</h1>
+        <h1 *ngIf="tab === 'imports'">Importy</h1>
       </div>
-      <button type="button" class="primary-button" [disabled]="creatingUser" (click)="requestCreateUser()">Utw&#243;rz u&#380;ytkownika</button>
     </header>
 
     <div class="message" *ngIf="message">{{ message }}</div>
+    <app-admin-plans *ngIf="tab === 'plans'"></app-admin-plans>
+    <app-admin-imports *ngIf="tab === 'imports'"></app-admin-imports>
 
     <section *ngIf="tab === 'companies'">
       <div class="admin-filters">
@@ -154,9 +158,12 @@
         <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
         <button (click)="next()" [disabled]="loading || page >= totalPages()">Nast&#281;pna</button>
       </footer>
-      <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name" [showNotes]="false" (notesSaved)="updateCompanyNotes($event)" (closed)="detailsCompany = null"></app-company-details>
+      <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name" [showNotes]="false" [showLinkedAddress]="true" (notesSaved)="updateCompanyNotes($event)" (closed)="detailsCompany = null"></app-company-details>
     </section>
 
+      <div class="workspace-head" *ngIf="tab === 'users'">
+        <button type="button" class="primary-button" [disabled]="creatingUser" (click)="requestCreateUser()">Utw&#243;rz u&#380;ytkownika</button>
+      </div>
       <div class="admin-user-email-filter" *ngIf="tab === 'users'">
         <label for="admin-user-email">Email</label>
         <input id="admin-user-email" type="text" [(ngModel)]="userEmailFilter" autocomplete="off">
@@ -188,6 +195,12 @@
                        [disabled]="busyUserIds.has(row.id)"
                        [attr.aria-label]="'Nie pozwól na zakup planu: ' + row.googleEmail"
                        (change)="updatePlanPurchase(row.id, $event.target.checked)">
+              </td>
+              <td class="admin-plan-purchase-cell">
+                <input type="checkbox" [checked]="row.isEnabled"
+                       [disabled]="busyUserIds.has(row.id)"
+                       [attr.aria-label]="'Aktywny: ' + row.googleEmail"
+                       (change)="updateUserEnabled(row.id, $event.target.checked)">
               </td>
               <td class="admin-user-actions">
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="requestChangePlan(row)">Zmie&#324; plan</button>

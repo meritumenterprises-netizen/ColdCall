@@ -185,6 +185,7 @@ public partial class ColdCallDbContext
             entity.Property(x => x.NrUlicy).HasMaxLength(50);
             entity.Property(x => x.Rodzaj).HasMaxLength(200);
             entity.Property(x => x.PrngId).HasMaxLength(50).IsUnicode(false);
+            entity.HasIndex(x => x.PrngId).HasDatabaseName("IX_Adresy_PrngId");
             entity.Property(x => x.Latitude).HasPrecision(9, 6);
             entity.Property(x => x.Longitude).HasPrecision(9, 6);
             entity.Property(x => x.Location).HasColumnType("geography").IsRequired(false);

@@ -50,6 +50,10 @@
         <button type="button" role="tab" id="company-map-tab" aria-controls="company-map-panel"
                 [attr.aria-selected]="activeTab === 'map'" [attr.tabindex]="activeTab === 'map' ? 0 : -1"
                 (click)="activeTab = 'map'" (keydown)="navigateTabs($event)">Mapa</button>
+        <button *ngIf="showLinkedAddress" type="button" role="tab" id="company-address-tab" aria-controls="company-address-panel"
+                [disabled]="!hasLinkedAddress" [attr.aria-disabled]="!hasLinkedAddress"
+                [attr.aria-selected]="activeTab === 'address'" [attr.tabindex]="activeTab === 'address' ? 0 : -1"
+                (click)="activeTab = 'address'" (keydown)="navigateTabs($event)">Geo Adres</button>
         <button *ngIf="showNotes" type="button" role="tab" id="company-notes-tab" aria-controls="company-notes-panel"
                 [attr.aria-selected]="activeTab === 'notes'" [attr.tabindex]="activeTab === 'notes' ? 0 : -1"
                 (click)="openNotesTab()" (keydown)="navigateTabs($event)">Notatki</button>
@@ -74,6 +78,18 @@
           </div>
         </dl>
       </section>
+      </div>
+      <div *ngIf="showLinkedAddress" id="company-address-panel" class="company-address-panel" role="tabpanel"
+           aria-labelledby="company-address-tab" [hidden]="activeTab !== 'address'" [attr.inert]="activeTab !== 'address' ? '' : null">
+        <section *ngFor="let address of details.addresses; let i = index" class="company-section">
+          <h3>Adres<span *ngIf="details.addresses.length > 1"> {{ i + 1 }}</span></h3>
+          <dl class="company-fields">
+            <div *ngFor="let field of linkedAddressFields">
+              <dt>{{ field.label }}</dt>
+              <dd>{{ address[field.key] == null || address[field.key] === '' ? '—' : address[field.key] }}</dd>
+            </div>
+          </dl>
+        </section>
       </div>
       <div *ngIf="showNotes" id="company-notes-panel" class="company-notes-panel" role="tabpanel" aria-labelledby="company-notes-tab" [hidden]="activeTab !== 'notes'" [attr.inert]="activeTab !== 'notes' ? '' : null">
         <div *ngIf="notesError" class="error-state" role="alert">{{ notesError }}

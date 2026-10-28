@@ -1,5 +1,11 @@
 <app-nav-menu></app-nav-menu>
 <router-outlet></router-outlet>
+<dialog #blockedAccountDialog class="trial-dialog" aria-labelledby="blocked-account-message"
+        (cancel)="$event.preventDefault()">
+  <p id="blocked-account-message">Administrator zablokowa&#322; Twoje konto</p>
+  <div class="trial-actions"><button type="button" class="primary-button" [disabled]="loggingOutBlockedAccount"
+    (click)="acknowledgeBlockedAccount()">OK</button></div>
+</dialog>
 <dialog #expiredTrialDialog class="trial-dialog" aria-labelledby="expired-trial-title" aria-describedby="expired-trial-description" (cancel)="$event.preventDefault()">
   <p id="expired-trial-title">Ważność twojego planu zakończyła się</p>
   <p id="expired-trial-description">Zakup jeden z podanych planów, żeby kontynuować</p>

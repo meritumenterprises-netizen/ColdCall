@@ -80,6 +80,21 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       });
     this.userActionRequests.add(request);
   }
+  updateUserEnabled(userId: number, enabled: boolean) {
+    const user = this.users.find(item => item.id === userId);
+    if (!user || this.busyUserIds.has(userId)) { return; }
+    const previous = !!user.isEnabled;
+    user.isEnabled = enabled;
+    this.busyUserIds.add(userId);
+    const request = this.api.updateUserEnabled(userId, enabled)
+      .pipe(finalize(() => this.busyUserIds.delete(userId))).subscribe(result => {
+        user.isEnabled = result.isEnabled;
+      }, () => {
+        user.isEnabled = previous;
+        this.message = 'Nie udalo sie zapisac statusu uzytkownika.';
+      });
+    this.userActionRequests.add(request);
+  }
   updatePlanPurchase(userId: number, disabled: boolean) {
     const user = this.users.find(item => item.id === userId);
     if (!user || this.busyUserIds.has(userId)) { return; }
@@ -287,7 +302,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     if (this.classificationRequest) { this.classificationRequest.unsubscribe(); }
     this.addressFields.forEach(field => { if (field.request) { field.request.unsubscribe(); } });
   }
-  tab: 'companies' | 'users' = 'companies';
+  tab: 'companies' | 'users' | 'plans' | 'imports' = 'companies';
   companies: Company[] = [];
   users: AppUser[] = [];
   usersLoading = false;
@@ -297,7 +312,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { key: 'displayName', label: 'Imi\u0119 i nazwisko' }, { key: 'googleEmail', label: 'Email' },
     { key: 'planCode', label: 'Aktualny plan' }, { key: 'expiresAtUtc', label: 'Data wyga\u015bni\u0119cia' },
     { key: 'createdAtUtc', label: 'Login utworzony' },
-    { key: 'disablePlanPurchase', label: 'Nie pozw\u00f3l na zakup planu' }
+    { key: 'disablePlanPurchase', label: 'Nie pozw\u00f3l na zakup planu' },
+    { key: 'isEnabled', label: 'Aktywny' }
   ];
   private dateUtc(value: string) { return /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + 'Z'; }
   get userRows() {
@@ -308,6 +324,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       const expiresAtUtc = plan ? this.dateUtc(plan.expiresAtUtc) : '';
       return { id: user.id, displayName: user.displayName || '', googleEmail: user.googleEmail,
         disablePlanPurchase: !!user.disablePlanPurchase,
+        isEnabled: !!user.isEnabled,
         createdAtUtc: user.createdAtUtc ? this.dateUtc(user.createdAtUtc) : '',
         planCode: plan ? plan.planCode : '', descriptionHtml: plan ? plan.descriptionHtml || '' : '', expiresAtUtc, expired: !!plan && new Date(expiresAtUtc).getTime() <= now };
     });

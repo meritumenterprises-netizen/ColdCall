@@ -245,18 +245,21 @@
 
     <div class="error" *ngIf="error">{{ error }}</div>
 
-    <div class="filter-tabs result-tabs" role="tablist" aria-label="Wyniki wyszukiwania">
-      <button *ngFor="let tab of visibleResultTabs" type="button" role="tab" [id]="'results-tab-' + tab.key"
-              [attr.aria-controls]="'results-panel-' + tab.key" [attr.aria-selected]="activeResultTab === tab"
-              [attr.tabindex]="activeResultTab === tab ? 0 : -1"
-              (click)="selectResultTab(tab)" (keydown)="navigateResultTabs($event)">{{ tab.label }}</button>
-    </div>
     <section *ngFor="let tab of visibleResultTabs" role="tabpanel" [id]="'results-panel-' + tab.key"
              [attr.aria-labelledby]="'results-tab-' + tab.key" [hidden]="activeResultTab !== tab">
       <ng-container *ngIf="activeResultTab === tab">
         <ng-container *ngTemplateOutlet="resultsGrid"></ng-container>
       </ng-container>
     </section>
+
+    <div class="filter-tabs result-tabs" role="tablist" aria-label="Wyniki wyszukiwania">
+      <button *ngFor="let tab of visibleResultTabs" type="button" role="tab" [id]="'results-tab-' + tab.key"
+              [attr.aria-controls]="'results-panel-' + tab.key" [attr.aria-selected]="activeResultTab === tab"
+              [attr.tabindex]="activeResultTab === tab ? 0 : -1"
+              (click)="selectResultTab(tab)" (keydown)="navigateResultTabs($event)">{{ tab.label }}</button>
+    </div>
+
+    <ng-container *ngTemplateOutlet="resultsPager"></ng-container>
 
     <ng-template #resultsGrid>
     <section class="companies-grid-panel" [attr.aria-busy]="loading">
@@ -319,6 +322,9 @@
       </div>
     </section>
 
+    </ng-template>
+
+    <ng-template #resultsPager>
     <footer class="pager">
       <button type="button" class="export-csv" [disabled]="loading || total <= 0 || exportingCsv || csvQuotaLoading || csvExportsRemaining === 0" (click)="exportCsv()">Eksport do CSV</button>
       <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
@@ -366,7 +372,7 @@
             <td>{{ row.createdOn | date:'dd.MM.yyyy HH:mm:ss' }}</td>
             <td class="export-count">{{ row.numberOfRecords == null ? '-' : formatNumber(row.numberOfRecords) }}</td>
             <td class="export-delete">
-              <button type="button" class="csv-delete-button" title="Usu&#324; plik CSV"
+              <button *ngIf="canDeleteCsvExports" type="button" class="csv-delete-button" title="Usu&#324; plik CSV"
                       [attr.aria-label]="'Usu&#324; plik CSV: ' + row.csvFileName"
                       [disabled]="deletingExportId !== null || downloadingExportId !== null"
                       [attr.aria-busy]="deletingExportId === row.id" (click)="deleteCsvExport(row)">
