@@ -18,6 +18,7 @@ public partial class FirmyTempDbContext : DbContext
 
     public virtual DbSet<Company> Companies { get; set; }
     public virtual DbSet<CompanyXml> CompanyXml { get; set; }
+    public virtual DbSet<ImportByDate> ImportByDates { get; set; }
     public virtual DbSet<CompanyPkd> CompanyPkds { get; set; }
 
     public virtual DbSet<CompanyAddress> CompanyAddresses { get; set; }
@@ -37,6 +38,19 @@ public partial class FirmyTempDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<ImportByDate>(entity =>
+        {
+            entity.ToTable("ImportByDate", "ColdCall");
+            entity.HasKey(e => e.ImportId).HasName("PK_ImportByDate");
+            entity.Property(e => e.ImportId).ValueGeneratedOnAdd();
+            entity.Property(e => e.ImportDate).HasColumnType("datetime");
+            entity.Property(e => e.PrevDate).HasColumnType("datetime");
+            entity.Property(e => e.StartedAt).HasColumnType("datetime");
+            entity.Property(e => e.FinishedAt).HasColumnType("datetime");
+            entity.Property(e => e.Summary).HasColumnType("varchar(max)").IsRequired(false);
+            entity.Property(e => e.Duration).HasMaxLength(50).IsUnicode(false).IsRequired(false);
+        });
+
         modelBuilder.Entity<CompanyXml>(entity =>
         {
             entity.ToTable("CompanyXml", "ColdCall");

@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
+using ImportCEIDGByDate.Utils;
 
 namespace ImportCEIDGByDate
 {
@@ -17,16 +18,20 @@ namespace ImportCEIDGByDate
         private string Report { get; set; } = "";
         private Dictionary<string, List<CeidgReport>> AllReports { get; set; } = new Dictionary<string, List<CeidgReport>>();
 
-        protected ImportStatistics Statistics { get; set; }
+        protected Statistics Statistics { get; set; }
         protected List<Wojewodztwa> Wojewodztwa { get; set; }
 
-        public CeidgReportDownloader(ImportStatistics statistics, List<Wojewodztwa> wojewodztwa)
+        private GlobalSettings GlobalSettings { get; set; }
+
+        public CeidgReportDownloader(Statistics statistics, List<Wojewodztwa> wojewodztwa, GlobalSettings settings)
         {
             this.Statistics = statistics;
             this.Wojewodztwa = wojewodztwa;
+            this.GlobalSettings = settings;
         }
         public async Task<bool> ParseReport(CancellationToken token = default)
         {
+            this.Statistics.StartNewPhase(ImportPhasesEnum.DownloadAndParseReport, "");
             this.Report = "";
             var configuration = new ConfigurationBuilder()
                 .AddUserSecrets<CeidgReportDownloader>(optional: true)
@@ -39,6 +44,7 @@ namespace ImportCEIDGByDate
                 return false;
             }
 
+            Console.WriteLine($"Download raportu CEIDG...");
             using var handler = new HttpClientHandler { AllowAutoRedirect = false };
             using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(120) };
             http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken.Trim());
@@ -101,6 +107,8 @@ namespace ImportCEIDGByDate
                 });
 
                 return true;
+
+                Console.WriteLine();
             }
             catch (HttpRequestException ex)
             {
@@ -116,6 +124,11 @@ namespace ImportCEIDGByDate
             {
                 Console.Error.WriteLine("CEIDG reports request timed out.");
                 return false;
+            }
+            finally
+            {
+                Console.WriteLine("Report downloaded");
+                Statistics.FinishCurrentPhase("");
             }
         }
 
@@ -175,129 +188,88 @@ namespace ImportCEIDGByDate
 
         public async Task DownloadOldFiles()
         {
-            PartialDownloadCleanup.ForFolder(this.Statistics.OldFilesFolder);
-            Statistics.StartNewPhase(ImportPhasesEnum.DownloadOldFiles, $"Downloading old files for date {Statistics.OldDate:yyyy-MM-ss}");
-            Statistics.CurrentPhase.EntriesCount = this.Statistics.OldReports.Values.Sum(reports => reports.Count);
-            Console.WriteLine($"Downloading {this.Statistics.OldReports.Values.Sum(reports => reports.Count)} files for {this.Statistics.OldDate.ToString("yy-MM-dd")}");
-
-            var skippedReportCount = 0;
-
-            foreach (var wojewodztwoPlik in this.Statistics.OldReports.Keys)
+            if (GlobalSettings.SkipDownloadOldFiles == false)
             {
-                Console.WriteLine($"Downloading {wojewodztwoPlik} {this.Statistics.OldReports[wojewodztwoPlik].Count} file(s).");
-                foreach (var ceidgReport in this.Statistics.OldReports[wojewodztwoPlik])
+                PartialDownloadCleanup.ForFolder(this.Statistics.OldFilesFolder);
+                Statistics.StartNewPhase(ImportPhasesEnum.DownloadOldFiles, $"Downloading old files for date {Statistics.OldDate:yyyy-MM-ss}");
+                Statistics.CurrentPhase.EntriesCount = this.Statistics.OldFilesCount;
+                Console.WriteLine($"Downloading {this.Statistics.OldFilesCount} files for {this.Statistics.OldDate.ToString("yy-MM-dd")}");
+
+                var skippedReportCount = 0;
+
+                foreach (var wojewodztwoPlik in this.Statistics.OldReports.Keys)
                 {
-                    PartialDownloadCleanup.ForReport(ceidgReport, this.Statistics.OldFilesFolder);
-                    var fullFile = Path.Combine(this.Statistics.OldFilesFolder, ceidgReport.FileNameZip);
-                    if (File.Exists(fullFile))
+                    Console.WriteLine($"Downloading {wojewodztwoPlik} {this.Statistics.OldReports[wojewodztwoPlik].Count} file(s).");
+                    foreach (var ceidgReport in this.Statistics.OldReports[wojewodztwoPlik])
                     {
-                        Console.WriteLine($"\tFile exists, skipping");
-                        skippedReportCount++;
-                        continue;
+                        Statistics.StartNewChildPhase(ImportPhasesEnum.DownloadOldFile, "");
+                        Statistics.CurrentPhase.EntriesCount = 1;
+                        PartialDownloadCleanup.ForReport(ceidgReport, this.Statistics.OldFilesFolder);
+                        var fullFile = Path.Combine(this.Statistics.OldFilesFolder, ceidgReport.FileNameZip);
+                        if (File.Exists(fullFile) || File.Exists(Path.Combine(this.Statistics.OldFilesFolder, ceidgReport.FileName)))
+                        {
+                            Console.WriteLine($"\tFile {ceidgReport.FileName} exists, skipping");
+                            skippedReportCount++;
+                            continue;
+                        }
+                        Stopwatch sw = Stopwatch.StartNew();
+                        Console.Write($"\tDownloading {ceidgReport.Report}... ");
+                        await DownloadIndividualFile(ceidgReport, this.Statistics.OldFilesFolder, ceidgReport.FileNameZip);
+                        sw.Stop();
+                        Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s).");
+                        Statistics.FinishCurrentPhase("");
                     }
-                    Stopwatch sw = Stopwatch.StartNew();
-                    Console.Write($"\tDownloading {ceidgReport.Report}... ");
-                    await DownloadIndividualFile(ceidgReport, this.Statistics.OldFilesFolder, ceidgReport.FileNameZip);
-                    sw.Stop();
-                    Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s).");
                 }
-            }
 
-            if (Statistics.CurrentPhase.EntriesCount == skippedReportCount)
-            {
-                Statistics.CurrentPhase.PhaseSkipped = true;
-            }
-            Statistics.FinishCurrentPhase("Finished");
-        }
-
-        public async Task DeduplicateOldFiles()
-        {
-            Statistics.StartNewPhase(ImportPhasesEnum.DeduplicateOldFiles, "Deduplication of old files");
-            Console.WriteLine("Deduplication of old files");
-
-            foreach (var key in Statistics.OldReports.Keys)
-            {
-                foreach (var report in Statistics.OldReports[key])
+                if (Statistics.CurrentPhase.EntriesCount == skippedReportCount)
                 {
-                    Stopwatch sw = Stopwatch.StartNew();
-                    Console.Write($"Calculating MD5 of {report.FileNameZip}... ");
-                    report.MD5 = MD5Utils.CalculateFileMD5(Path.Combine(this.Statistics.OldFilesFolder, report.FileNameZip));
-                    sw.Stop();
-                    Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s)");
+                    Statistics.CurrentPhase.PhaseSkipped = true;
                 }
+                Statistics.CurrentPhase.EntriesCount = this.Statistics.OldReports.Sum((r) => r.Value.Count);
+                Statistics.FinishCurrentPhase("Finished");
             }
-
-            foreach (var key in Statistics.OldReports.Keys.ToList())
-            {
-                Statistics.OldReports[key] = Statistics.OldReports[key]
-                    .DistinctBy(report => report.MD5, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-            }
-            Console.WriteLine($"Old files count after deduplication: {Statistics.OldReports.Sum((r) => r.Value.Count)}");
-            Statistics.FinishCurrentPhase("Finished");
-        }
-        
-
-        public async Task DeduplicateNewFiles()
-        {
-            Statistics.StartNewPhase(ImportPhasesEnum.DeduplicateNewFiles, "Deduplication of new files");
-            Console.WriteLine("Deduplication of new files");
-
-            foreach (var key in Statistics.NewReports.Keys)
-            {
-                foreach (var report in Statistics.NewReports[key])
-                {
-                    Stopwatch sw = Stopwatch.StartNew();
-                    Console.Write($"Calculating MD5 of {report.FileNameZip}... ");
-                    report.MD5 = MD5Utils.CalculateFileMD5(Path.Combine(this.Statistics.NewFilesFolder, report.FileNameZip));
-                    sw.Stop();
-                    Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s)");
-                }
-            }
-            foreach (var key in Statistics.NewReports.Keys.ToList())
-            {
-                Statistics.NewReports[key] = Statistics.NewReports[key]
-                    .DistinctBy(report => report.MD5, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-            }
-            Console.WriteLine($"New files count after deduplication: {Statistics.NewReports.Sum((r) => r.Value.Count)}");
-            Statistics.FinishCurrentPhase("Finished");
         }
 
         public async Task DownloadNewFiles()
         {
-            PartialDownloadCleanup.ForFolder(this.Statistics.NewFilesFolder);
-            Statistics.StartNewPhase(ImportPhasesEnum.DownloadNewFiles, $"Downloading new files for date {Statistics.NewDate:yyyy-MM-ss}");
-            Statistics.CurrentPhase.EntriesCount = this.Statistics.NewReports.Values.Sum(reports => reports.Count);
-            Console.WriteLine($"Downloading {this.Statistics.NewReports.Values.Sum(reports => reports.Count)} files for {this.Statistics.NewDate.ToString("yy-MM-dd")}");
-
-            var skippedReportCount = 0;
-
-            foreach (var wojewodztwoPlik in this.Statistics.NewReports.Keys)
+            if (GlobalSettings.SkipDownloadNewFiles == false)
             {
-                Console.WriteLine($"Downloading {wojewodztwoPlik} {this.Statistics.NewReports[wojewodztwoPlik].Count} file(s).");
-                foreach (var ceidgReport in this.Statistics.NewReports[wojewodztwoPlik])
+                PartialDownloadCleanup.ForFolder(this.Statistics.NewFilesFolder);
+                Statistics.StartNewPhase(ImportPhasesEnum.DownloadNewFiles, $"Downloading new files for date {Statistics.NewDate:yyyy-MM-ss}");
+                Statistics.CurrentPhase.EntriesCount = this.Statistics.NewFilesCount;
+                Console.WriteLine($"Downloading {this.Statistics.NewFilesCount} files for {this.Statistics.NewDate.ToString("yy-MM-dd")}");
+
+                var skippedReportCount = 0;
+
+                foreach (var wojewodztwoPlik in this.Statistics.NewReports.Keys)
                 {
-                    PartialDownloadCleanup.ForReport(ceidgReport, this.Statistics.NewFilesFolder);
-                    var fullFile = Path.Combine(this.Statistics.NewFilesFolder, ceidgReport.FileNameZip);
-                    if (File.Exists(fullFile))
+                    Console.WriteLine($"Downloading {wojewodztwoPlik} {this.Statistics.NewReports[wojewodztwoPlik].Count} file(s).");
+                    foreach (var ceidgReport in this.Statistics.NewReports[wojewodztwoPlik])
                     {
-                        Console.WriteLine($"\tFile exists, skipping");
-                        skippedReportCount++;
-                        continue;
+                        Statistics.StartNewChildPhase(ImportPhasesEnum.DownloadNewFile, "");
+                        Statistics.CurrentPhase.EntriesCount = 1;
+                        PartialDownloadCleanup.ForReport(ceidgReport, this.Statistics.NewFilesFolder);
+                        var fullFile = Path.Combine(this.Statistics.NewFilesFolder, ceidgReport.FileNameZip);
+                        if (File.Exists(fullFile) || File.Exists(Path.Combine(this.Statistics.NewFilesFolder, ceidgReport.FileName)))
+                        {
+                            Console.WriteLine($"\tFile {ceidgReport.FileName} exists, skipping");
+                            skippedReportCount++;
+                            continue;
+                        }
+                        Stopwatch sw = Stopwatch.StartNew();
+                        Console.Write($"\tDownloading {ceidgReport.Report}... ");
+                        await DownloadIndividualFile(ceidgReport, this.Statistics.NewFilesFolder, ceidgReport.FileNameZip);
+                        sw.Stop();
+                        Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s).");
+                        Statistics.FinishCurrentPhase("");
                     }
-                    Stopwatch sw = Stopwatch.StartNew();
-                    Console.Write($"\tDownloading {ceidgReport.Report}... ");
-                    await DownloadIndividualFile(ceidgReport, this.Statistics.NewFilesFolder, ceidgReport.FileNameZip);
-                    sw.Stop();
-                    Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s).");
                 }
+                if (Statistics.CurrentPhase.EntriesCount == skippedReportCount)
+                {
+                    Statistics.CurrentPhase.PhaseSkipped = true;
+                }
+                Statistics.FinishCurrentPhase("Finished");
             }
-            if (Statistics.CurrentPhase.EntriesCount == skippedReportCount)
-            {
-                Statistics.CurrentPhase.PhaseSkipped = true;
-            }
-            Statistics.FinishCurrentPhase("Finished");
         }
 
         public static string UnpackIndividualFile(string zipFilePath, string fileName)
@@ -335,64 +307,71 @@ namespace ImportCEIDGByDate
 
         public void UnpackOldReports()
         {
-            Statistics.StartNewPhase(ImportPhasesEnum.UnpackOldFiles, $"Unpacking old files");
-            Statistics.CurrentPhase.EntriesCount = Statistics.OldReports.Sum((r) => r.Value.Count);
-            var skippedFiles = 0;
-            foreach (var key in Statistics.OldReports.Keys)
+            if (GlobalSettings.SkipUnpackOldFiles)
             {
-                foreach (var report in Statistics.OldReports[key])
+                Statistics.StartNewPhase(ImportPhasesEnum.UnpackOldFiles, $"Unpacking old files");
+                Statistics.CurrentPhase.EntriesCount = Statistics.OldReports.Sum((r) => r.Value.Count);
+                var skippedFiles = 0;
+                foreach (var key in Statistics.OldReports.Keys)
                 {
-                    if (File.Exists(Path.Combine(Statistics.OldFilesFolder, report.FileName)))
+                    foreach (var report in Statistics.OldReports[key])
                     {
-                        skippedFiles++;
-                        Console.WriteLine($"File {report.FileName} exists, skipped.");
-                        continue;
-                    }
+                        if (File.Exists(Path.Combine(Statistics.OldFilesFolder, report.FileName)))
+                        {
+                            skippedFiles++;
+                            Console.WriteLine($"File {report.FileName} exists, skipped.");
+                            continue;
+                        }
 
-                    Console.Write($"Unpacking {report.FileName}... ");
-                    Console.Write($"Processing... ");
-                    Stopwatch sw = Stopwatch.StartNew();
-                    UnpackIndividualFile(Path.Combine(Statistics.OldFilesFolder, report.FileNameZip), report.FileName);
-                    sw.Stop();
-                    Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s)");
+                        Console.Write($"Unpacking {report.FileName}... ");
+                        Console.Write($"Processing... ");
+                        Stopwatch sw = Stopwatch.StartNew();
+                        UnpackIndividualFile(Path.Combine(Statistics.OldFilesFolder, report.FileNameZip), report.FileName);
+                        sw.Stop();
+                        Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s)");
+                    }
                 }
+                if (skippedFiles == Statistics.CurrentPhase.EntriesCount)
+                {
+                    Statistics.CurrentPhase.PhaseSkipped = true;
+                }
+                Statistics.FinishCurrentPhase("Finished");
             }
-            if (skippedFiles == Statistics.CurrentPhase.EntriesCount)
-            {
-                Statistics.CurrentPhase.PhaseSkipped = true;
-            }
-            Statistics.FinishCurrentPhase("Finished");
         }
 
         public void UnpackNewReports()
         {
-            Statistics.StartNewPhase(ImportPhasesEnum.UnpackNewFiles, $"Unpacking New files");
-            Statistics.CurrentPhase.EntriesCount = Statistics.NewReports.Sum((r) => r.Value.Count);
-            var skippedFiles = 0;
-            foreach (var key in Statistics.NewReports.Keys)
+            if (GlobalSettings.SkipUnpackNewFiles == false)
             {
-                foreach (var report in Statistics.NewReports[key])
+                Statistics.StartNewPhase(ImportPhasesEnum.UnpackNewFiles, $"Unpacking New files");
+                Statistics.CurrentPhase.EntriesCount = Statistics.NewReports.Sum((r) => r.Value.Count);
+                var skippedFiles = 0;
+                foreach (var key in Statistics.NewReports.Keys)
                 {
-                    if (File.Exists(Path.Combine(Statistics.NewFilesFolder, report.FileName)))
+                    foreach (var report in Statistics.NewReports[key])
                     {
-                        skippedFiles++;
-                        Console.WriteLine($"File {report.FileName} exists, skipped.");
-                        continue;
-                    }
+                        if (File.Exists(Path.Combine(Statistics.NewFilesFolder, report.FileName)))
+                        {
+                            skippedFiles++;
+                            Console.WriteLine($"File {report.FileName} exists, skipped.");
+                            continue;
+                        }
 
-                    Console.Write($"Unpacking {report.FileName}... ");
-                    Console.Write($"Processing... ");
-                    Stopwatch sw = Stopwatch.StartNew();
-                    UnpackIndividualFile(Path.Combine(Statistics.NewFilesFolder, report.FileNameZip), report.FileName);
-                    sw.Stop();
-                    Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s)");
+                        Console.Write($"Unpacking {report.FileName}... ");
+                        Console.Write($"Processing... ");
+                        Stopwatch sw = Stopwatch.StartNew();
+                        UnpackIndividualFile(Path.Combine(Statistics.NewFilesFolder, report.FileNameZip), report.FileName);
+                        sw.Stop();
+                        Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s)");
+                    }
                 }
+                if (skippedFiles == Statistics.CurrentPhase.EntriesCount)
+                {
+                    Statistics.CurrentPhase.PhaseSkipped = true;
+                }
+                Statistics.FinishCurrentPhase("Finished");
             }
-            if (skippedFiles == Statistics.CurrentPhase.EntriesCount)
-            {
-                Statistics.CurrentPhase.PhaseSkipped = true;
-            }
-            Statistics.FinishCurrentPhase("Finished");
         }
     }
 }
+

@@ -1,11 +1,12 @@
-﻿using System;
+﻿using ImportCEIDGByDate.Utils;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace ImportCEIDGByDate
 {
 
-    public class ImportStatistics
+    public class Statistics
     {
         public DateTime ProcessStart { get; set; }
         public DateTime? ProcessEnd { get; set; }
@@ -16,6 +17,10 @@ namespace ImportCEIDGByDate
         {
             get
             {
+                if (ProcessEnd.HasValue == false)
+                {
+                    ProcessEnd = DateTime.Now;
+                }
                 StringBuilder sb = new StringBuilder();
                 sb.AppendLine($"Import statistics: {Description}");
                 sb.AppendLine($"Process started at: {ProcessStart}");
@@ -27,19 +32,28 @@ namespace ImportCEIDGByDate
                 {
                     sb.AppendLine($"Process is still running.");
                 }
-                sb.AppendLine($"Duration: {Duration:hh\\:mm\\:ss}");
+                sb.AppendLine($"Duration: {Duration.AsString()}");
                 sb.AppendLine($"New date: {NewDate}");
                 sb.AppendLine($"Old date: {OldDate}");
                 sb.AppendLine($"Old files folder: {OldFilesFolder}");
+                foreach (var file in OldFiles)
+                {
+                    sb.AppendLine($"\t{Path.GetFileName(file)}");
+                }
                 sb.AppendLine($"New files folder: {NewFilesFolder}");
+                foreach (var file in NewFiles)
+                {
+                    sb.AppendLine($"\t{Path.GetFileName(file)}");
+                }
                 sb.AppendLine("Phases:");
                 foreach (var phase in Phases)
                 {
-                    sb.AppendLine($"\tPhase: {phase.PhaseName}, Start: {phase.Start}, End: {(phase.End.HasValue ? phase.End.Value.ToString() : "Still running")}, Duration: {(phase.End.Value - phase.Start).ToString("mm:ss.fff")}, Entries count: {phase.EntriesCount}, Finish result: {phase.FinishResult}");
+                    sb.AppendLine(phase.Summary());
                 }
                 sb.AppendLine();
                 sb.AppendLine($"==== SUMMARY ====");
-                sb.AppendLine($"Duration: {this.ProcessEnd.Value.Subtract(ProcessStart).ToString("hh:mm:ss")}");
+                this.ProcessEnd = DateTime.Now;
+                sb.AppendLine($"Duration: {this.ProcessEnd.Value.Subtract(ProcessStart).AsString()}");
                 return sb.ToString();
             }
         }
@@ -53,22 +67,41 @@ namespace ImportCEIDGByDate
         public Dictionary<string, List<CeidgReport>> NewReports { get; set; } = new Dictionary<string, List<CeidgReport>>();
 
         public string OldFilesFolder { get; set; }
-        public List<string> OldFiles { get; set; } = new List<string>(); 
-        public string NewFilesFolder { get; set; }
-        public string ReportFolder { get; set; }
-        public List<string> NewFiles { get; set; } = new List<string>();
-
-        public List<ImportStatisticsPhase> Phases { get; set; } = new List<ImportStatisticsPhase>();
-
-        public ImportStatisticsPhase CurrentPhase
+        public List<string> OldFiles { get; set; } = new List<string>();
+        public int OldFilesCount
         {
             get
             {
-                if (Phases.Any())
+                return this.OldReports.Values.Sum(reports => reports.Count);
+            }
+        }
+        public string NewFilesFolder { get; set; }
+
+        public int NewFilesCount
+        {
+            get
+            {
+                return this.NewReports.Values.Sum(reports => reports.Count);
+            }
+        }
+
+
+        public string ReportFolder { get; set; }
+        
+        public List<string> NewFiles { get; set; } = new List<string>();
+
+        public List<StatisticsPhase> Phases { get; set; } = new List<StatisticsPhase>();
+
+        public StatisticsPhase CurrentPhase
+        {
+            get
+            {
+                var parent = Phases.LastOrDefault();
+                if (parent?.Children.Count > 0)
                 {
-                    return Phases.SingleOrDefault((p) => p.IsCurrentPhase);
+                    return parent.Children.LastOrDefault();
                 }
-                return null;
+                return parent;
             }
         }
 
@@ -100,24 +133,18 @@ namespace ImportCEIDGByDate
             }
         }
 
-        public ImportStatisticsPhase StartNewPhase ( ImportPhasesEnum phase, string description)
+        public StatisticsPhase StartNewPhase(ImportPhasesEnum phase, string description)
         {
-            //if (this.Phases.FirstOrDefault((p) => p.Phase == phase) != null)
-            //{
-            //    throw new InvalidOperationException($"Phase {phase} already exists.");
-            //}
-
             if (CurrentPhase != null)
             {
-                CurrentPhase.End = DateTime.Now;
-                CurrentPhase.IsCurrentPhase = false;
+                var parent = Phases.Last();
+                FinishCurrentPhase(parent.FinishResult, parent.EntriesCount);
             }
-            var newPhase = new ImportStatisticsPhase()
+            var newPhase = new StatisticsPhase()
             {
                 PhaseName = phase.ToString(),
                 Description = description,
                 Phase = phase,
-                IsCurrentPhase = true,
                 Start = DateTime.Now,
                 End = null,
                 FinishResult = "",
@@ -127,21 +154,51 @@ namespace ImportCEIDGByDate
             return newPhase;
         }
 
+        public StatisticsPhase StartNewChildPhase(ImportPhasesEnum phase, string description)
+        {
+            var parent = Phases.LastOrDefault();
+            var child = new StatisticsPhase
+            {
+                Level = parent.Level + 1,
+                PhaseName = phase.ToString(),
+                Description = description,
+                Phase = phase,
+                Start = DateTime.Now,
+                FinishResult = "",
+                EntriesCount = 0
+            };
+            parent.Children.Add(child);
+            return child;
+        }
+
+        public void FinishChildPhase(string comment, int? entriesCount = null)
+        {
+            var parent = Phases.LastOrDefault();
+            var child = parent.Children.LastOrDefault();
+            child.FinishResult = comment;
+            child.End = DateTime.Now;
+            child.EntriesCount = entriesCount ?? child.EntriesCount;
+        }
+
         public void FinishCurrentPhase(string comment, int? entriesCount = null)
         {
             if (CurrentPhase == null)
             {
                 throw new InvalidOperationException("No current phase to finish.");
             }
-            var currentPhase = CurrentPhase;
+            var currentPhase = Phases.Last();
+            var currentChild = currentPhase.Children.LastOrDefault();
+            if (currentChild != null)
+                FinishChildPhase(currentChild.FinishResult, currentChild.EntriesCount);
             currentPhase.End = DateTime.Now;
-            currentPhase.IsCurrentPhase = false;
             currentPhase.FinishResult = comment;
-            currentPhase.EntriesCount = entriesCount.HasValue ? entriesCount.Value: 0;
+            currentPhase.EntriesCount = entriesCount.HasValue ? entriesCount.Value : 0;
         }
 
         public void Finish(string comment)
         {
+            if (CurrentPhase != null)
+                FinishCurrentPhase(comment, Phases.Last().EntriesCount);
             this.Phases.Last().End = DateTime.Now;
             this.ProcessEnd = DateTime.Now;
             this.FinishMessage = comment;
