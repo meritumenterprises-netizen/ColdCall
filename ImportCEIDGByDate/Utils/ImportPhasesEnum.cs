@@ -8,11 +8,12 @@ namespace ImportCEIDGByDate
     {
         Unknown = 0,
         Initialization,
+        DownloadFolderCleanup,
         DownloadAndParseReport,
         DownloadOldFiles,
+        DownloadOldFile,
         DownloadNewFiles,
-        DeduplicateOldFiles,
-        DeduplicateNewFiles,
+        DownloadNewFile,
         UnpackOldFiles,
         UnpackNewFiles,
         ImportOldFilesToTable,
@@ -23,8 +24,12 @@ namespace ImportCEIDGByDate
         FinishedImportingNewFiles,
         UpdateImportTargetMetadata,
         UpdateCompanyXml,
+        UpdateCompanyXmlFromImportOrigin,
+        UpdateCompanyXmlFromImportTarget,
         ImportNewCompanies,
-        UpdateExistingCompanies,
-        UpdateAdresyForChangedCompanies
+        ImportDeferredAddressesAsync,
+        UpdateExistingCompaniesFromOrigin,
+        UpdateExistingCompaniesFromTarget,
+        UpdateAdresyForChangedCompaniesFromTarget
     }
 }

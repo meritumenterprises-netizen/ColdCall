@@ -18,9 +18,10 @@ namespace ImportCEIDGByDate
         public FirmyImportDbContext FirmyImportDbContext { get; private set; }
         public FirmyTempDbContext FirmyTempDbContext { get; private set; }
 
-        private ImportStatistics Statistics { get; set; }
+        private Statistics Statistics { get; set; }
+        public CeidgLookupCache Lookups { get; }
         public CeidgCompanyXmlConverter(
-            ImportStatistics statistics, 
+            Statistics statistics, 
             FirmyTempRepository firmyTempRepository, 
             FirmyImportRepository firmyImportRepository, 
             FirmyImportDbContext firmyImportDbContext, 
@@ -32,15 +33,18 @@ namespace ImportCEIDGByDate
 
             this.FirmyImportDbContext = firmyImportDbContext;
             this.FirmyTempDbContext = firmyTempDbContext;
+            Lookups = new CeidgLookupCache(firmyTempDbContext);
         }
 
         public async Task<Company> ConvertXmlToNewCompany (int wojewodztwoId, string xml)
         {
+            await Lookups.PrepareBatchAsync(new[] { xml });
             var company = new Company();
             var xmlDoc = new XmlDocument();
             xmlDoc.LoadXml(xml);
             company.BusinessType = 1; // Jednoosobowa dzialalność gospodarcza
             company.WojewodztwoId = wojewodztwoId;
+            
             company.Name = xmlDoc.GetInnerTextOrEmpty("NazwaPodmiotu");
             company.FirstName = xmlDoc.GetInnerTextOrEmpty("Imie");
             company.LastName = xmlDoc.GetInnerTextOrEmpty("Nazwisko");
@@ -57,41 +61,23 @@ namespace ImportCEIDGByDate
             company.PostalCode = xmlDoc.GetInnerTextOrEmpty("KodPocztowy");
             if (xmlDoc.HasElement("Powiat"))
             {
-                var existingPowiat = this.FirmyTempDbContext.Powiaties.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Powiat")).FirstOrDefault();
-                if (existingPowiat == null)
-                {
-                    this.FirmyTempDbContext.Powiaties.Add(new Powiaty() { Name = xmlDoc.GetInnerTextOrEmpty("Powiat") });
-                    await this.FirmyTempDbContext.SaveChangesAsync();
-                }
-                company.PowiatId = this.FirmyTempDbContext.Powiaties.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Powiat")).FirstOrDefault().Id;
+                company.PowiatId = Lookups.CountyId(xmlDoc.GetInnerTextOrEmpty("Powiat"));
             }
             if (xmlDoc.HasElement("Gmina"))
             {
-                var existingGmina = this.FirmyTempDbContext.Gminies.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Gmina")).FirstOrDefault();
-                if (existingGmina == null)
-                {
-                    this.FirmyTempDbContext.Gminies.Add(new Gminy() { Name = xmlDoc.GetInnerTextOrEmpty("Gmina") });
-                    await this.FirmyTempDbContext.SaveChangesAsync();
-                }
-                company.GminaId= this.FirmyTempDbContext.Gminies.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Gmina")).FirstOrDefault().Id;
+                company.GminaId = Lookups.MunicipalityId(xmlDoc.GetInnerTextOrEmpty("Gmina"));
             }
 
             if (xmlDoc.HasElement("Miejscowosc"))
             {
-                var existingMiejscowosc = this.FirmyTempDbContext.Miejscowoscis.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Miejscowosc")).FirstOrDefault();
-                if (existingMiejscowosc == null)
-                {
-                    this.FirmyTempDbContext.Miejscowoscis.Add(new Miejscowosci() { Name = xmlDoc.GetInnerTextOrEmpty("Miejscowosc") });
-                    await this.FirmyTempDbContext.SaveChangesAsync();
-                }
-                company.MiejscowoscId = this.FirmyTempDbContext.Miejscowoscis.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Miejscowosc")).FirstOrDefault().Id;
+                company.MiejscowoscId = Lookups.CityId(xmlDoc.GetInnerTextOrEmpty("Miejscowosc"));
             }
             #endregion
 
             #region Statusy działalności
             if (xmlDoc.HasElement("StatusDzialalnosci"))
             {
-                company.StatusDzialalnosciId = this.FirmyTempDbContext.CompanyStatuses.Where((s) => s.Nazwa == xmlDoc.GetInnerTextOrEmpty("StatusDzialalnosci")).First().StatusId;
+                company.StatusDzialalnosciId = Lookups.StatusId(xmlDoc.GetInnerTextOrEmpty("StatusDzialalnosci"));
                 var statusDzialanosci = xmlDoc.GetInnerTextOrEmpty("StatusDzialalnosci");
                 switch (statusDzialanosci)
                 {
@@ -130,23 +116,21 @@ namespace ImportCEIDGByDate
             if (kodyPkd.Count > 0)
             {
                 company.CompanyPkds = new List<CompanyPkd>();
-                foreach (var kodPkdNoDots in kodyPkd.Distinct())
+                foreach (var kodPkdNoDots in kodyPkd.Select(CeidgLookupCache.NormalizePkd).Distinct())
                 {
-                    if (kodPkdNoDots == "N/A")
+                    if (string.IsNullOrWhiteSpace(kodPkdNoDots) || kodPkdNoDots == "N/A")
                     {
                         continue;
                     }
-                    var pkdCodeEntity = this.FirmyTempDbContext.PkdCodes.Where((pkd) => pkd.CodeWithoutDots == kodPkdNoDots).Single();
                     var compPkd = new CompanyPkd();
-                    compPkd.PkdCodeId = pkdCodeEntity.Id;
-                    compPkd.PkdCode = pkdCodeEntity;
+                    compPkd.PkdCodeId = Lookups.PkdId(kodPkdNoDots);
                     compPkd.Prevailing = false;
                     company.CompanyPkds.Add(compPkd);
                 }
-                if (xmlDoc.HasElement("GlownyKodPkd"))
+                if (!string.IsNullOrWhiteSpace(xmlDoc.GetInnerTextOrEmpty("GlownyKodPkd")) && xmlDoc.GetInnerTextOrEmpty("GlownyKodPkd") != "N/A")
                 {
                     var pkdGlowny = company.CompanyPkds.FirstOrDefault(pkd =>
-                        pkd.PkdCode.CodeWithoutDots == xmlDoc.GetInnerTextOrEmpty("GlownyKodPkd"));
+                        pkd.PkdCodeId == Lookups.PkdId(xmlDoc.GetInnerTextOrEmpty("GlownyKodPkd")));
                     if (pkdGlowny != null)
                     {
                         pkdGlowny.Prevailing = true;
@@ -158,8 +142,9 @@ namespace ImportCEIDGByDate
             return company;
         }
 
-        public async Task<Company?> ConvertXmlToExistingCompany(int wojewodztwoId, string xml)
+        public async Task<Company?> ConvertXmlToExistingCompany(int wojewodztwoId, string xml, Company? existingCompany = null)
         {
+            await Lookups.PrepareBatchAsync(new[] { xml });
             var xmlDoc = new XmlDocument();
             xmlDoc.LoadXml(xml);
 
@@ -169,14 +154,14 @@ namespace ImportCEIDGByDate
                 return null;
             }
 
-            var company = await this.FirmyTempDbContext.Companies
-                .Include(comp => comp.CompanyPkds).ThenInclude(pkd => pkd.PkdCode)
-                .FirstOrDefaultAsync(comp => comp.Nip == nip);
+            var company = existingCompany ?? await FirmyTempRepository.FindByNipAsync(nip);
 
             if (company == null)
             {
                 return null;
             }
+            if (!string.Equals(company.Nip, nip, StringComparison.Ordinal))
+                throw new InvalidDataException($"Loaded company NIP={company.Nip} does not match XML NIP={nip}.");
 
             company.BusinessType = 1; // Jednoosobowa dzialalność gospodarcza
             company.WojewodztwoId = wojewodztwoId;
@@ -196,41 +181,23 @@ namespace ImportCEIDGByDate
             company.PostalCode = xmlDoc.GetInnerTextOrEmpty("KodPocztowy");
             if (xmlDoc.HasElement("Powiat"))
             {
-                var existingPowiat = this.FirmyTempDbContext.Powiaties.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Powiat")).FirstOrDefault();
-                if (existingPowiat == null)
-                {
-                    this.FirmyTempDbContext.Powiaties.Add(new Powiaty() { Name = xmlDoc.GetInnerTextOrEmpty("Powiat") });
-                    await this.FirmyTempDbContext.SaveChangesAsync();
-                }
-                company.PowiatId = this.FirmyTempDbContext.Powiaties.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Powiat")).FirstOrDefault().Id;
+                company.PowiatId = Lookups.CountyId(xmlDoc.GetInnerTextOrEmpty("Powiat"));
             }
             if (xmlDoc.HasElement("Gmina"))
             {
-                var existingGmina = this.FirmyTempDbContext.Gminies.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Gmina")).FirstOrDefault();
-                if (existingGmina == null)
-                {
-                    this.FirmyTempDbContext.Gminies.Add(new Gminy() { Name = xmlDoc.GetInnerTextOrEmpty("Gmina") });
-                    await this.FirmyTempDbContext.SaveChangesAsync();
-                }
-                company.GminaId = this.FirmyTempDbContext.Gminies.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Gmina")).FirstOrDefault().Id;
+                company.GminaId = Lookups.MunicipalityId(xmlDoc.GetInnerTextOrEmpty("Gmina"));
             }
 
             if (xmlDoc.HasElement("Miejscowosc"))
             {
-                var existingMiejscowosc = this.FirmyTempDbContext.Miejscowoscis.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Miejscowosc")).FirstOrDefault();
-                if (existingMiejscowosc == null)
-                {
-                    this.FirmyTempDbContext.Miejscowoscis.Add(new Miejscowosci() { Name = xmlDoc.GetInnerTextOrEmpty("Miejscowosc") });
-                    await this.FirmyTempDbContext.SaveChangesAsync();
-                }
-                company.MiejscowoscId = this.FirmyTempDbContext.Miejscowoscis.Where((p) => p.Name == xmlDoc.GetInnerTextOrEmpty("Miejscowosc")).FirstOrDefault().Id;
+                company.MiejscowoscId = Lookups.CityId(xmlDoc.GetInnerTextOrEmpty("Miejscowosc"));
             }
             #endregion
 
             #region Statusy działalności
             if (xmlDoc.HasElement("StatusDzialalnosci"))
             {
-                company.StatusDzialalnosciId = this.FirmyTempDbContext.CompanyStatuses.Where((s) => s.Nazwa == xmlDoc.GetInnerTextOrEmpty("StatusDzialalnosci")).First().StatusId;
+                company.StatusDzialalnosciId = Lookups.StatusId(xmlDoc.GetInnerTextOrEmpty("StatusDzialalnosci"));
                 var statusDzialanosci = xmlDoc.GetInnerTextOrEmpty("StatusDzialalnosci");
                 switch (statusDzialanosci)
                 {
@@ -262,8 +229,7 @@ namespace ImportCEIDGByDate
                 .Append(prevailingCode)
                 .Where(code => !string.IsNullOrWhiteSpace(code) && code != "N/A")
                 .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-            var desiredPkds = await FirmyTempDbContext.PkdCodes
-                .Where(pkd => codes.Contains(pkd.CodeWithoutDots!)).ToListAsync();
+            var desiredPkds = codes.Select(code => new { Id = Lookups.PkdId(code), CodeWithoutDots = code }).DistinctBy(pkd => pkd.Id).ToList();
             var missingCodes = codes.Except(desiredPkds.Select(pkd => pkd.CodeWithoutDots!),
                 StringComparer.OrdinalIgnoreCase).ToList();
             if (missingCodes.Count > 0)
@@ -280,7 +246,7 @@ namespace ImportCEIDGByDate
                 var link = company.CompanyPkds.FirstOrDefault(link => link.PkdCodeId == pkd.Id);
                 if (link == null)
                 {
-                    link = new CompanyPkd { Company = company, PkdCodeId = pkd.Id, PkdCode = pkd };
+                    link = new CompanyPkd { Company = company, PkdCodeId = pkd.Id };
                     company.CompanyPkds.Add(link);
                 }
                 link.Prevailing = string.Equals(pkd.CodeWithoutDots, prevailingCode, StringComparison.OrdinalIgnoreCase);
@@ -291,57 +257,6 @@ namespace ImportCEIDGByDate
         }
 
 
-        public async Task AddNewCompaniesFromImportToTemp()
-        {
-            Statistics.StartNewPhase(ImportPhasesEnum.ImportNewCompanies, "Importing new companies");
-            var newCompanies = this.FirmyImportRepository.GetNewImportCompanies();
-            Statistics.CurrentPhase.EntriesCount = newCompanies.Count;
-            var companyCounter = 0;
-            var companyTotal = newCompanies.Count;
-            foreach (var company in newCompanies)
-            {
-                XmlDocument xmlDoc = new XmlDocument();
-                xmlDoc.LoadXml(company.CompanyXml);
-                var nip = xmlDoc.GetInnerTextOrEmpty("Nip");
-                if (this.FirmyTempDbContext.Companies.Where((comp) => comp.Nip == nip).FirstOrDefault() != null)
-                {
-                    Console.WriteLine($"Company with NIP={nip} already exists, skipping");
-                    continue;
-                }
-                var newCompany = await ConvertXmlToNewCompany(company.WojewodztwoId, company.CompanyXml);
-                Console.WriteLine($"Adding a new company {companyCounter+1}/{companyTotal} with NIP={newCompany.Nip}");
-                FirmyTempDbContext.Companies.Add(newCompany);
-                await FirmyTempDbContext.SaveChangesAsync();
-                company.ImportDate = DateTime.Now;
-                company.Imported = true;
-                await FirmyImportDbContext.SaveChangesAsync();
-                companyCounter++;
-            }
-            Statistics.FinishCurrentPhase("Finished");
-        }
-
-        public async Task UpdateExistingCompaniesFromImportToTemp()
-        {
-            Statistics.StartNewPhase(ImportPhasesEnum.UpdateExistingCompanies, "Updating existing companies");
-            var existingCompanies = this.FirmyImportRepository.GetUpdateImportCompanies();
-            Statistics.CurrentPhase.EntriesCount = existingCompanies.Count;
-            Statistics.CurrentPhase.EntriesCount = existingCompanies.Count;
-            var companyCounter = 0;
-            var companyTotal = existingCompanies.Count;
-            foreach (var company in existingCompanies)
-            {
-                var existingCompany = await ConvertXmlToExistingCompany(company.WojewodztwoId, company.CompanyXml);
-                if (existingCompany == null)
-                    throw new InvalidDataException($"Company with NIP={company.Nip} was not found.");
-                Console.WriteLine($"Updating existing company {companyCounter + 1}/{companyTotal} with NIP={existingCompany.Nip}");
-                await FirmyTempDbContext.SaveChangesAsync();
-                company.ImportDate = DateTime.Now;
-                company.Imported = true;
-                await FirmyImportDbContext.SaveChangesAsync();
-                companyCounter++;
-            }
-            Statistics.FinishCurrentPhase("Finished");
-        }
 
     }
 }

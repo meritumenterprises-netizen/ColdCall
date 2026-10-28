@@ -7,6 +7,10 @@
     <UserSecretsId>ColdCall-ImportCEIDGByDate</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Utils\CeidgReportsDeserializer.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GeoPortalAddressImporter\GeoPortalAddressImporter.csproj" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer.NetTopologySuite" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0">
       <PrivateAssets>all</PrivateAssets>
