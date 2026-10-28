@@ -29,9 +29,21 @@ public sealed class GeoportalAddressService : IDisposable
             request.County, request.Municipality);
         MatchResult match;
         try { match = await client.FindAsync(company, token); }
-        catch (GeoportalQueryException ex)
+        catch (Exception ex) when (ex is GeoportalQueryException or HttpRequestException or IOException or
+            System.Text.Json.JsonException or InvalidDataException ||
+            ex is OperationCanceledException && !token.IsCancellationRequested)
         {
-            return new GeoportalAddressResult { Reason = ex.Message };
+            return new GeoportalAddressResult
+            {
+                ErrorCode = ex switch
+                {
+                    OperationCanceledException => GeoportalAddressErrorCode.Timeout,
+                    HttpRequestException => GeoportalAddressErrorCode.RequestFailed,
+                    GeoportalQueryException or System.Text.Json.JsonException or InvalidDataException => GeoportalAddressErrorCode.InvalidResponse,
+                    _ => GeoportalAddressErrorCode.IoError
+                },
+                Reason = ex.Message
+            };
         }
         if (match.Address is not { } address)
             return new GeoportalAddressResult { Reason = match.Reason };

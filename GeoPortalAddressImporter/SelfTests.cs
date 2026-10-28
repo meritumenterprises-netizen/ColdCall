@@ -90,7 +90,56 @@ internal static class SelfTests
         try
         {
             using var log = new RunLog(Path.Combine(temporary, "logs"));
+            var postalCompany = new Company(8124235, 16, 4144, "Śląskie", "Międzybrodzie Bialskie", "ul. Astrów", "4", "34-312",
+                47, 2178, "żywiecki", "Czernichów");
+            var postalAddress = new Address("śląskie", "żywiecki", "Czernichów", "Międzybrodzie Bialskie", "Astrów", "4", "34-311",
+                "241702", "0051090", "00476", 514143.4, 213453.16);
+            var postalCases = new[]
+            {
+                ("postal-only", postalAddress, 1d, true),
+                ("wrong-street", postalAddress with { Street = "Inna" }, 1d, false),
+                ("wrong-building", postalAddress with { Number = "4A" }, 1d, false),
+                ("wrong-city", postalAddress with { City = "Inne miasto" }, 1d, false),
+                ("wrong-county", postalAddress with { County = "Inny powiat" }, 1d, false),
+                ("wrong-municipality", postalAddress with { Municipality = "Inna gmina" }, 1d, false),
+                ("wrong-province", postalAddress with { Province = "mazowieckie" }, 1d, false),
+                ("approximate", postalAddress, 0.8d, false)
+            };
+            foreach (var (name, returnedAddress, accuracy, accepted) in postalCases)
+            {
+                var postalResponse = new ApiResult("address", 15, 1,
+                    new[] { new ApiPoint(returnedAddress, "POINT(514143.4 213453.16)", accuracy, 1, 1) });
+                using var postalHandler = new FakeHandler(Json(postalResponse));
+                using var postalHttp = new HttpClient(postalHandler);
+                var postalClient = new GeoportalClient(postalHttp, Path.Combine(temporary, name), 0, 0, log);
+                var postalResult = await postalClient.FindAsync(postalCompany, CancellationToken.None);
+                Assert((postalResult.Address != null) == accepted && postalHandler.Calls == 1,
+                    $"Roznica kodu pocztowego wymaga dokladnego pozostalego adresu: {name}");
+            }
+            using var diagnosticHandler = new FakeHandler(Json(multiple with { Points = multiple.Points.Reverse().ToArray() }));
+            using var diagnosticHttp = new HttpClient(diagnosticHandler);
+            var diagnosticClient = new GeoportalClient(diagnosticHttp, Path.Combine(temporary, "candidate-diagnostics"), 0, 0, log);
+            var previousOutput = Console.Out;
+            using var diagnosticOutput = new StringWriter();
+            MatchResult diagnosticMatch;
+            try
+            {
+                Console.SetOut(diagnosticOutput);
+                diagnosticMatch = await diagnosticClient.FindAsync(Company, CancellationToken.None);
+            }
+            finally { Console.SetOut(previousOutput); }
+            var diagnosticLines = diagnosticOutput.ToString().Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+            Assert(diagnosticMatch.Address == null && diagnosticMatch.Reason.StartsWith("Adres przyblizony", StringComparison.Ordinal),
+                "Diagnostyka nie akceptuje dalszego kandydata zamiast pierwszego");
+            Assert(diagnosticHandler.Calls == 1, "Diagnostyka nie wykonuje dodatkowych HTTP");
+            Assert(diagnosticLines.Length == 4 && diagnosticLines[2].Contains("punkt 1/2:")
+                && diagnosticLines[2].Contains("numer budynku=40") && diagnosticLines[3].Contains("punkt 2/2:")
+                && diagnosticLines[3].Contains("numer budynku=39"), "Wypisanie wszystkich kandydatow w kolejnosci odpowiedzi");
+            Assert(diagnosticLines[1].Contains("dane firmy:") && diagnosticLines[1].Contains("numer budynku=39")
+                && diagnosticLines[3].Contains("kod pocztowy=58-301") && diagnosticLines[3].Contains("accuracy=1"),
+                "Diagnostyka zawiera dane firmy, kod pocztowy i dokladnosc punktow");
             await FileWriteTests.RunAsync(temporary);
+            await GeoportalAddressServiceTests.RunAsync(temporary);
             await PipelineTests.RunAsync();
             using var serviceHttp = new HttpClient(new FakeHandler(Json(candidate), Json(list)));
             using var service = new GeoportalAddressService(serviceHttp, Path.Combine(temporary, "service"));
@@ -106,6 +155,23 @@ internal static class SelfTests
                 "Publiczna usluga GeoPortalu udostepnia zweryfikowany adres dla importera CEIDG");
             Assert(!(await service.FindAsync(new GeoportalAddressRequest())).Found,
                 "Publiczna usluga pomija niepelny adres bez HTTP");
+            var selectedPointAddress = Address with { Street = "Wybrana ulica", Number = "40" };
+            var selectedPointResponse = new ApiResult("address", 2, 2,
+                new[] { Point(Address with { City = "Inne miasto" }), Point(selectedPointAddress) });
+            using var selectedPointHandler = new FakeHandler(Json(selectedPointResponse));
+            using var selectedPointHttp = new HttpClient(selectedPointHandler);
+            using var selectedPointService = new GeoportalAddressService(selectedPointHttp, Path.Combine(temporary, "selected-point-service"));
+            var selectedPointResult = await selectedPointService.FindAsync(new GeoportalAddressRequest
+            {
+                CompanyId = Company.Id, ProvinceId = 2, CountyId = 1, MunicipalityId = 1, CityId = 1,
+                Province = Company.Province, County = Address.County, Municipality = Address.Municipality,
+                City = Company.City, Street = Company.Street, BuildingNumber = Company.Number, PostalCode = Company.PostalCode
+            });
+            Assert(selectedPointResult.Found && selectedPointResult.ErrorCode == GeoportalAddressErrorCode.None
+                && selectedPointResult.Street == selectedPointAddress.Street && selectedPointResult.BuildingNumber == "40"
+                && selectedPointResult.SourceKey?.Length == 50 && selectedPointResult.Latitude > 0 && selectedPointResult.Longitude > 0,
+                "Wybrany dalszy punkt jest zwracany do CEIDG jako poprawny adres z GPS i kluczem zrodla");
+            Assert(selectedPointHandler.Calls == 1, "Wybrany punkt nie jest ponownie odrzucany dodatkowa weryfikacja");
             using var parallelHandler = new ConcurrentHandler(cityJson);
             using var parallelHttp = new HttpClient(parallelHandler);
             var parallelClient = new GeoportalClient(parallelHttp, Path.Combine(temporary, "parallel-cache"), 0, 30, log);

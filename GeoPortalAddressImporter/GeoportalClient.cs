@@ -44,7 +44,34 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
         if (response.Type != "address" || response.Points.Count == 0)
             return new MatchResult(null, "Brak punktu adresowego.");
         var candidate = Matching.Candidate(company, response);
-        if (candidate.Address is not { } address) return candidate;
+        if (candidate.Address is not { } address)
+        {
+            if (candidate.Reason.StartsWith("Adres przyblizony", StringComparison.Ordinal))
+                GeoportalCandidateDiagnostics.Write(company, response);
+            for (int i = 0; i < response.Points.Count(); i++)
+            {
+                var point = response.Points[i];
+                var postalCodeMatches = string.Equals(company.PostalCode?.Trim(), point.Address.PostalCode.Trim(), StringComparison.OrdinalIgnoreCase);
+                var exactStreetAndBuilding = Text.Street(company.Street) == Text.Street(point.Address.Street)
+                    && Text.Number(company.Number) == Text.Number(point.Address.Number)
+                    && point.Accuracy == 1 && point.CityAccuracy == 1
+                    && (string.IsNullOrWhiteSpace(company.Street) || point.StreetAccuracy == 1);
+                if (string.Compare(company.Province.Trim(), response.Points[i].Address.Province.Trim(), StringComparison.OrdinalIgnoreCase) == 0 &&
+                    string.Compare(company.Municipality, response.Points[i].Address.Municipality.Trim(), StringComparison.OrdinalIgnoreCase) == 0 &&
+                    string.Compare(company.County, response.Points[i].Address.County.Trim(), StringComparison.OrdinalIgnoreCase) == 0 &&
+                    (postalCodeMatches || exactStreetAndBuilding) &&
+                    string.Compare(company.City, response.Points[i].Address.City.Trim(), StringComparison.OrdinalIgnoreCase) == 0)
+                {
+                    if (!postalCodeMatches) Matching.ValidatePoint(point);
+                    return new MatchResult(
+                        response.Points[i].Address,
+                        postalCodeMatches
+                            ? "Adres wybrany na podstawie zgodnosci podzialu administracyjnego."
+                            : $"Dokladny adres mimo roznicy kodu pocztowego: firma={company.PostalCode}, GeoPortal={point.Address.PostalCode}.");
+                }
+            }
+            return candidate;
+        }
         if (string.IsNullOrWhiteSpace(address.Simc)) return new(null, "Brak SIMC.");
         var path = "?request=GetAddresses&simc=" + Uri.EscapeDataString(address.Simc);
         if (!string.IsNullOrWhiteSpace(address.Street))
