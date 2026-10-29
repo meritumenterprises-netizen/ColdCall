@@ -16,6 +16,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   @Input() companyName = '';
   @Input() showNotes = true;
   @Input() showLinkedAddress = false;
+  @Input() hideMissingLinkedAddress = false;
   @Output() closed = new EventEmitter<void>();
   @Output() notesSaved = new EventEmitter<{ companyId: number; notes: string }>();
   @ViewChild('dialog', { static: true }) dialog: ElementRef;
