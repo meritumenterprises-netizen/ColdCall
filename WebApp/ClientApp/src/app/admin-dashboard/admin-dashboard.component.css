@@ -27,7 +27,7 @@
   .admin-company-grid td, .admin-company-grid th { padding-left: 2px; padding-right: 2px; }
   .admin-company-grid td:last-child button { width: 20px; height: 20px; }
 }
-.admin-company-grid td, .admin-company-grid th { padding: 6px 8px; border-bottom: 1px solid #cbd5e1; }
+.admin-company-grid td, .admin-company-grid th { padding: 3px 8px; border-bottom: 1px solid #cbd5e1; }
 .admin-company-grid th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .admin-company-grid tbody tr { cursor: pointer; }
 .admin-company-grid tbody tr.selected { background: #d1fae5; }
@@ -35,7 +35,7 @@
 .admin-users-grid { overflow-x: auto; }
 .admin-users-grid table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 12px; }
 .admin-users-grid th, .admin-users-grid button { font-size: inherit; }
-.admin-users-grid td, .admin-users-grid th { padding: 10px 12px; border-bottom: 1px solid #cbd5e1; text-align: left; }
+.admin-users-grid td, .admin-users-grid th { padding: 5px 12px; border-bottom: 1px solid #cbd5e1; text-align: left; }
 .admin-users-grid th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .admin-users-grid .expired { color: #b91c1c; }
 .admin-users-grid .admin-plan-purchase-cell { text-align: center; }
@@ -79,12 +79,14 @@
 .admin-address-fields select { margin: 8px 0; }
 .admin-address-fields label { display: block; }
 .admin-pkd-search { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
-.admin-pkd-search label { flex: 1; min-width: 150px; }
+.admin-pkd-search label { flex: 1; min-width: 150px; margin-bottom: 0; }
 .admin-pkd-transfer { display: grid; grid-template-columns: minmax(0, 1fr) 70px minmax(0, 1fr); gap: 10px; margin-top: 12px; }
 .admin-pkd-transfer select { font-size: 12px; margin-top: 6px; height: 150px; }
 .admin-pkd-search input { font-size: 12px; }
 .admin-pkd-actions { display: flex; flex-direction: column; justify-content: center; gap: 8px; }
 .admin-pkd-actions button { padding: 6px; }
+.admin-pkd-actions .admin-pkd-clear { font-size: 12px; }
+.admin-pkd-search > button { font-size: 12px; }
 @media (max-width: 1000px) { .admin-filters { width: 100%; } }
 @media (max-width: 700px) { .admin-address-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 480px) { .admin-address-fields { grid-template-columns: 1fr; } }
@@ -109,5 +111,8 @@
 .change-plan-description { max-height: 260px; overflow: auto; overflow-wrap: anywhere; padding: 12px; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; line-height: 1.5; }
 .admin-user-email-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 .admin-user-email-filter input { width: 400px; max-width: calc(100% - 60px); }
+.admin-users-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.admin-users-toolbar .admin-user-email-filter { margin-bottom: 0; min-width: 0; max-width: 100%; }
+.admin-users-toolbar > button { flex-shrink: 0; margin-left: auto; }
 .admin-plan-label { cursor: default; }
 .admin-plan-tooltip { position: fixed; z-index: 1100; width: 420px; max-width: calc(100vw - 24px); max-height: min(320px, calc(100vh - 24px)); overflow: auto; padding: 14px 18px; background: #fff; color: #111827; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 16px #0003; box-sizing: border-box; pointer-events: none; font-size: 12px; line-height: 1.4; }

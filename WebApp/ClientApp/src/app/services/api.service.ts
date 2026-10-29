@@ -12,8 +12,6 @@ export interface AddressOption { id: number; name: string; }
 export interface AdminImport {
   importId: number;
   importDate: string;
-  prevDate: string;
-  importOriginRecords: number | null;
   importTargetRecords: number | null;
   startedAt: string;
   finishedAt: string | null;
@@ -23,7 +21,7 @@ export interface AdminImport {
 export interface AdminPlanDefinition {
   id: number; code: string; maxNumberOfSearches: number; maxNumberOfCSVExportsPerSearch: number | null;
   maxNumberOfExportedRecords: number | null; expiresAfterDays: number | null; showInOffer: boolean; enableCSVDeleting: boolean;
-  price: number; descriptionHtml: string; isUpgrade: boolean;
+  price: number; descriptionHtml: string; isUpgrade: boolean; isTrial: boolean;
 }
 export type AddressLevel = 'wojewodztwa' | 'powiaty' | 'gminy' | 'miejscowosci';
 export interface Company {

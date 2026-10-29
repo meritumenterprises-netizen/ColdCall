@@ -21,4 +21,5 @@ public class AdminPlanDefinitionDto
     public decimal Price { get; set; }
     public string DescriptionHtml { get; set; } = "";
     public bool IsUpgrade { get; set; }
+    public bool IsTrial { get; set; }
 }

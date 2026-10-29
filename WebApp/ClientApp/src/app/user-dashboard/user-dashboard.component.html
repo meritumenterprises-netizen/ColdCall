@@ -40,14 +40,14 @@
             [disabled]="savingSearch || restoringSearch || classifyingPkd || exportingCsv">
       <img src="assets/icons/trash-2.svg" width="16" height="16" alt="">
     </button>
-    </div>
-    <div *ngIf="search.id > 0 && search.hasCsvExports" class="search-export-container">
-    <button type="button" class="search-export-link"
+    <div *ngIf="search.id > 0 && search.hasCsvExports" class="search-csv-action">
+    <button type="button" class="search-csv-button" title="Pliki CSV" aria-label="Pliki CSV"
             [class.active]="currentSearchId === search.id && activeDashboardTab === 'export'"
             [attr.aria-current]="currentSearchId === search.id && activeDashboardTab === 'export' ? 'page' : null"
             [disabled]="searchPlanExpired || savingSearch || restoringSearch || classifyingPkd || exportingCsv"
-            (click)="openSearchExports(search)">Pliki CSV</button>
+            (click)="openSearchExports(search)"><img src="assets/icons/file-spreadsheet.svg" width="16" height="16" alt=""></button>
     <div *ngIf="csvFileHintSearchId === search.id" class="csv-file-hint" role="status" aria-live="polite">Tutaj jest tw&#243;j plik CSV</div>
+    </div>
     </div>
     </div>
   </aside>

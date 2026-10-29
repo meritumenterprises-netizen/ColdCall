@@ -100,7 +100,7 @@
             <div class="admin-pkd-actions">
               <button type="button" class="ghost-button" [disabled]="loading || !foundPkdId || selectedPkds.length >= 10" (click)="addSelectedFoundPkd()">&gt;</button>
               <button type="button" class="ghost-button" [disabled]="loading || !selectedPkdId" (click)="removeSelectedPkd()">&lt;</button>
-              <button type="button" class="ghost-button" [disabled]="loading || !selectedPkds.length" (click)="clearPkds()">Wyczy&#347;&#263;</button>
+              <button type="button" class="ghost-button admin-pkd-clear" [disabled]="loading || !selectedPkds.length" (click)="clearPkds()">Wyczy&#347;&#263;</button>
             </div>
             <label>Wybrane PKD (max.10)<select size="6" [(ngModel)]="selectedPkdId" aria-label="Wybrane PKD"><option *ngFor="let pkd of selectedPkds" [ngValue]="pkd.id" [title]="pkdLabel(pkd)">{{ pkdLabel(pkd) }}</option></select></label>
           </div>
@@ -161,12 +161,12 @@
       <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name" [showNotes]="false" [showLinkedAddress]="true" (notesSaved)="updateCompanyNotes($event)" (closed)="detailsCompany = null"></app-company-details>
     </section>
 
-      <div class="workspace-head" *ngIf="tab === 'users'">
+      <div class="admin-users-toolbar" *ngIf="tab === 'users'">
+        <div class="admin-user-email-filter">
+          <label for="admin-user-email">Email</label>
+          <input id="admin-user-email" type="text" [(ngModel)]="userEmailFilter" autocomplete="off">
+        </div>
         <button type="button" class="primary-button" [disabled]="creatingUser" (click)="requestCreateUser()">Utw&#243;rz u&#380;ytkownika</button>
-      </div>
-      <div class="admin-user-email-filter" *ngIf="tab === 'users'">
-        <label for="admin-user-email">Email</label>
-        <input id="admin-user-email" type="text" [(ngModel)]="userEmailFilter" autocomplete="off">
       </div>
     <section class="admin-users-grid" *ngIf="tab === 'users'" [attr.aria-busy]="usersLoading" (scroll)="planHint = null">
       <table>
