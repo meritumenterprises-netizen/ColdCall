@@ -54,7 +54,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private deleteExportRequest: Subscription | null = null;
   private exportsRequest: Subscription | null = null;
   private downloadRequest: Subscription | null = null;
-  activeFilterTab: 'pkd' | 'criteria' | 'address' = 'criteria';
+  activeFilterTab: 'pkd' | 'criteria' | 'contact' | 'address' = 'criteria';
   readonly resultTabs: ResultTab[] = [
     { key: 'all', label: 'Wszystkie', days: undefined, page: 1 },
     { key: '30', label: 'Zmienione w ost. 30 dniach', days: 30, page: 1 },
@@ -436,7 +436,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
   }
 
-  selectFilterTab(tab: 'pkd' | 'criteria' | 'address') {
+  selectFilterTab(tab: 'pkd' | 'criteria' | 'contact' | 'address') {
     this.activeFilterTab = tab;
     this.pkdHint = null;
   }
@@ -444,7 +444,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   navigateFilterTabs(event: KeyboardEvent) {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) === -1) { return; }
     event.preventDefault();
-    const tabs: ('pkd' | 'criteria' | 'address')[] = ['criteria', 'address', 'pkd'];
+    const tabs: ('pkd' | 'criteria' | 'contact' | 'address')[] = ['criteria', 'contact', 'address', 'pkd'];
     const index = tabs.indexOf(this.activeFilterTab);
     const tab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] :
       tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];

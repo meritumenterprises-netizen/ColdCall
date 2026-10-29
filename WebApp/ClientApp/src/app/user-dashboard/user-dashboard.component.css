@@ -24,6 +24,8 @@
 
 .filters-layout {
   border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, .08);
   padding: 16px;
   background: #fff;
   box-sizing: border-box;
@@ -86,6 +88,7 @@
   font-size: 14px;
   line-height: 1.5;
 }
+.address-field input { padding-top: 6px; padding-bottom: 6px; }
 .pkd-search-row { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.6fr) auto; align-items: end; gap: 12px; margin-bottom: 14px; }
 .pkd-search-row .pkd-filter-search, .pkd-description { display: flex; flex-direction: column; gap: 8px; min-width: 0; max-width: none; margin: 0; }
 .pkd-search-row label { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
@@ -115,7 +118,7 @@
 .company-status-options span { white-space: nowrap; }
 .date-range { display: flex; grid-column: 2 / -1; align-items: center; gap: 16px; flex: 0 0 auto; }
 .date-range > div { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
-.date-range input { width: 150px; flex: 0 0 150px; box-sizing: border-box; }
+.date-range input { width: 150px; flex: 0 0 150px; box-sizing: border-box; padding-top: 6px; padding-bottom: 6px; }
 .date-range input:disabled { background: #e2e8f0; color: #64748b; }
 .date-range label { color: #637168; font-weight: normal; margin: 0; white-space: nowrap; }
 @media (max-width: 600px) { .date-filter { display: flex; gap: 16px; } }

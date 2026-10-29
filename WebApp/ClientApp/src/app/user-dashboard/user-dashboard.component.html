@@ -68,6 +68,9 @@
       <button type="button" id="criteria-tab" role="tab" aria-controls="criteria-panel"
               [attr.aria-selected]="activeFilterTab === 'criteria'" [attr.tabindex]="activeFilterTab === 'criteria' ? 0 : -1"
               (click)="selectFilterTab('criteria')" (keydown)="navigateFilterTabs($event)">Og&#243;lne</button>
+      <button type="button" id="contact-tab" role="tab" aria-controls="contact-panel"
+              [attr.aria-selected]="activeFilterTab === 'contact'" [attr.tabindex]="activeFilterTab === 'contact' ? 0 : -1"
+              (click)="selectFilterTab('contact')" (keydown)="navigateFilterTabs($event)">Kontakt</button>
       <button type="button" id="address-tab" role="tab" aria-controls="address-panel"
               [attr.aria-selected]="activeFilterTab === 'address'" [attr.tabindex]="activeFilterTab === 'address' ? 0 : -1"
               (click)="selectFilterTab('address')" (keydown)="navigateFilterTabs($event)">Adres</button>
@@ -159,14 +162,8 @@
       </div>
     </section>
 
-    <form class="company-filter-panel" id="criteria-panel" role="tabpanel" aria-labelledby="criteria-tab"
-          [hidden]="activeFilterTab !== 'criteria'" (ngSubmit)="updateFilters()">
-      <div class="company-name-filter">
-        <label for="company-name">Nazwa firmy</label>
-        <input id="company-name" name="companyName" [ngModel]="filterDraft.companyName" [disabled]="filtersLocked" maxlength="1000" placeholder="Min. 3 znaki"
-               (input)="setCompanyName($event)"
-               (keydown.enter)="$event.preventDefault()">
-      </div>
+    <section class="company-filter-panel" id="contact-panel" role="tabpanel" aria-labelledby="contact-tab"
+             [hidden]="activeFilterTab !== 'contact'">
       <div class="presence-criteria-row">
       <div class="presence-filter presence-criterion">
         <label for="has-phone"><input id="has-phone" type="checkbox" [checked]="filterDraft.hasPhone === true"
@@ -189,6 +186,16 @@
                (change)="cyclePresence('hasWebsite', $event)">Witryna WWW</label>
         <span aria-live="polite">{{ presenceLabel(filterDraft.hasWebsite) }}</span>
       </div>
+      </div>
+    </section>
+
+    <form class="company-filter-panel" id="criteria-panel" role="tabpanel" aria-labelledby="criteria-tab"
+          [hidden]="activeFilterTab !== 'criteria'" (ngSubmit)="updateFilters()">
+      <div class="company-name-filter">
+        <label for="company-name">Nazwa firmy</label>
+        <input id="company-name" name="companyName" [ngModel]="filterDraft.companyName" [disabled]="filtersLocked" maxlength="1000" placeholder="Min. 3 znaki"
+               (input)="setCompanyName($event)"
+               (keydown.enter)="$event.preventDefault()">
       </div>
       <div class="date-filter">
         <div class="presence-filter">
@@ -245,19 +252,19 @@
 
     <div class="error" *ngIf="error">{{ error }}</div>
 
-    <section *ngFor="let tab of visibleResultTabs" role="tabpanel" [id]="'results-panel-' + tab.key"
-             [attr.aria-labelledby]="'results-tab-' + tab.key" [hidden]="activeResultTab !== tab">
-      <ng-container *ngIf="activeResultTab === tab">
-        <ng-container *ngTemplateOutlet="resultsGrid"></ng-container>
-      </ng-container>
-    </section>
-
     <div class="filter-tabs result-tabs" role="tablist" aria-label="Wyniki wyszukiwania">
       <button *ngFor="let tab of visibleResultTabs" type="button" role="tab" [id]="'results-tab-' + tab.key"
               [attr.aria-controls]="'results-panel-' + tab.key" [attr.aria-selected]="activeResultTab === tab"
               [attr.tabindex]="activeResultTab === tab ? 0 : -1"
               (click)="selectResultTab(tab)" (keydown)="navigateResultTabs($event)">{{ tab.label }}</button>
     </div>
+
+    <section *ngFor="let tab of visibleResultTabs" role="tabpanel" [id]="'results-panel-' + tab.key"
+             [attr.aria-labelledby]="'results-tab-' + tab.key" [hidden]="activeResultTab !== tab">
+      <ng-container *ngIf="activeResultTab === tab">
+        <ng-container *ngTemplateOutlet="resultsGrid"></ng-container>
+      </ng-container>
+    </section>
 
     <ng-container *ngTemplateOutlet="resultsPager"></ng-container>
 
@@ -335,7 +342,7 @@
     </footer>
     </ng-template>
 <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name"
-                     [activeTab]="detailsActiveTab"
+                     [activeTab]="detailsActiveTab" [showLinkedAddress]="true" [hideMissingLinkedAddress]="true"
                      (notesSaved)="updateCompanyNotes($event)" (closed)="detailsCompany = null"></app-company-details>
     </fieldset>
 </section>
