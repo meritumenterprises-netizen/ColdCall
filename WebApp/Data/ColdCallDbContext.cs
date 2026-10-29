@@ -38,7 +38,6 @@ public partial class ColdCallDbContext : DbContext
             entity.HasKey(row => row.ImportId).HasName("PK_ImportByDate");
             entity.Property(row => row.ImportId).ValueGeneratedOnAdd();
             entity.Property(row => row.ImportDate).HasColumnType("datetime");
-            entity.Property(row => row.PrevDate).HasColumnType("datetime");
             entity.Property(row => row.StartedAt).HasColumnType("datetime");
             entity.Property(row => row.FinishedAt).HasColumnType("datetime");
             entity.Property(row => row.Summary).HasColumnType("varchar(max)").IsRequired(false);

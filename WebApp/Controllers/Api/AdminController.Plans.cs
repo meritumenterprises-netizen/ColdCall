@@ -18,7 +18,7 @@ public partial class AdminController
                 MaxNumberOfCSVExportsPerSearch = p.MaxNumberOfCSVExportsPerSearch,
                 MaxNumberOfExportedRecords = p.MaxNumberOfExportedRecords, ExpiresAfterDays = p.ExpiresAfterDays,
                 ShowInOffer = p.ShowInOffer, EnableCSVDeleting = p.EnableCSVDeleting,
-                Price = p.Price, DescriptionHtml = p.DescriptionHtml, IsUpgrade = p.IsUpgrade
+                Price = p.Price, DescriptionHtml = p.DescriptionHtml, IsUpgrade = p.IsUpgrade, IsTrial = p.IsTrial
             }).ToListAsync(token));
     }
 

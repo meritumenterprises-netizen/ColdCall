@@ -5,7 +5,7 @@
 input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: #087f5b; }
 .plans-table { max-height: 300px; overflow: auto; }
 table { width: 100%; min-width: 660px; border-collapse: collapse; font-size: 12px; }
-th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #d1d5db; }
+th, td { text-align: left; padding: 0 10px; border-bottom: 1px solid #d1d5db; }
 th { position: sticky; top: 0; background: #f3f4f6; }
 tr.selected { background: #e3f3eb; }
 tbody tr { cursor: pointer; }

@@ -20,7 +20,7 @@ public partial class AdminController
         return Ok(await _db.ImportByDates.AsNoTracking()
             .OrderByDescending(row => row.StartedAt).ThenByDescending(row => row.ImportId)
             .Select(row => new {
-                row.ImportId, row.ImportDate, row.PrevDate, row.ImportOriginRecords,
+                row.ImportId, row.ImportDate,
                 row.ImportTargetRecords, row.StartedAt, row.FinishedAt, row.Duration
             }).ToListAsync(token));
     }

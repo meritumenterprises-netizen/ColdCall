@@ -4,8 +4,6 @@ public class ImportByDate
 {
     public int ImportId { get; set; }
     public DateTime ImportDate { get; set; }
-    public DateTime PrevDate { get; set; }
-    public int? ImportOriginRecords { get; set; }
     public int? ImportTargetRecords { get; set; }
     public DateTime StartedAt { get; set; }
     public DateTime? FinishedAt { get; set; }

@@ -2,7 +2,7 @@
 .imports-panel { height: calc(100vh - 190px); height: calc(100dvh - 190px); min-height: 400px; display: grid; grid-template-rows: minmax(0,1fr) minmax(0,1fr); gap: 16px; }
 .imports-table { min-height: 0; overflow: auto; border-bottom: 1px solid #d1d5db; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
-th, td { padding: 9px 10px; text-align: left; border-bottom: 1px solid #d1d5db; white-space: nowrap; }
+th, td { padding: 1px 10px; text-align: left; border-bottom: 1px solid #d1d5db; white-space: nowrap; }
 th { position: sticky; top: 0; background: #f3f4f6; z-index: 1; }
 tbody tr { cursor: pointer; }
 tbody tr:hover { background: #edf7f2; }
