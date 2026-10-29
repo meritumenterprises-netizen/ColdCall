@@ -87,15 +87,15 @@ namespace ImportCEIDGByDate
                     this.AllReports[matchingReport.Name].Add(matchingReport);
                 });
 
-                this.Statistics.OldReports = new Dictionary<string, List<CeidgReport>>();
-                this.AllReports.Keys.ToList().ForEach((key) =>
-                {
-                    if (this.Statistics.OldReports.ContainsKey(key) == false)
-                    {
-                        this.Statistics.OldReports.Add(key, new List<CeidgReport>());
-                    }
-                    this.Statistics.OldReports[key].AddRange(this.AllReports[key].Where(r => r.CreatedAtDate == Statistics.OldDate.ToString("yyyy-MM-dd")));
-                });
+                //this.Statistics.OldReports = new Dictionary<string, List<CeidgReport>>();
+                //this.AllReports.Keys.ToList().ForEach((key) =>
+                //{
+                //    if (this.Statistics.OldReports.ContainsKey(key) == false)
+                //    {
+                //        this.Statistics.OldReports.Add(key, new List<CeidgReport>());
+                //    }
+                //    this.Statistics.OldReports[key].AddRange(this.AllReports[key].Where(r => r.CreatedAtDate == Statistics.OldDate.ToString("yyyy-MM-dd")));
+                //});
 
                 this.AllReports.Keys.ToList().ForEach((key) =>
                 {
@@ -106,6 +106,10 @@ namespace ImportCEIDGByDate
                     this.Statistics.NewReports[key].AddRange(this.AllReports[key].Where(r => r.CreatedAtDate == Statistics.NewDate.ToString("yyyy-MM-dd")));
                 });
 
+                foreach (var key in this.Statistics.NewReports.Keys)
+                {
+                    this.Statistics.NewReports[key].RemoveAt(0); // delete first file
+                }
                 return true;
 
                 Console.WriteLine();
