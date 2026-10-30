@@ -146,7 +146,7 @@ public class CompaniesController : ControllerBase
     [HttpPost("export")]
     public async Task<IActionResult> Export(ExportCompaniesRequest request, CancellationToken cancellationToken)
     {
-        var days = request.ResultTab switch { "30" => 30, "7" => 7, "all" or "notes" => (int?)null, _ => request.ModifiedWithinDays };
+        var days = request.ResultTab switch { "7" => 7, "3" => 3, "all" or "notes" => (int?)null, _ => request.ModifiedWithinDays };
         var notesOnly = request.ResultTab == null ? request.NotesOnly : request.ResultTab == "notes";
         var user = await _currentUserService.GetOrCreateAsync(User);
         var isAdmin = user.IsAdmin;

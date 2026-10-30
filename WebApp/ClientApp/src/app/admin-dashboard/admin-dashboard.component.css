@@ -27,26 +27,26 @@
   .admin-company-grid td, .admin-company-grid th { padding-left: 2px; padding-right: 2px; }
   .admin-company-grid td:last-child button { width: 20px; height: 20px; }
 }
-.admin-company-grid td, .admin-company-grid th { padding: 3px 8px; border-bottom: 1px solid #cbd5e1; }
+.admin-company-grid td, .admin-company-grid th { padding: 3px 8px; border-bottom: 1px solid var(--border); }
 .admin-company-grid th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .admin-company-grid tbody tr { cursor: pointer; }
-.admin-company-grid tbody tr.selected { background: #d1fae5; }
+.admin-company-grid tbody tr.selected { background: var(--accent-soft); }
 .admin-company-grid td:last-child button { width: 28px; height: 28px; padding: 0; }
 .admin-users-grid { overflow-x: auto; }
 .admin-users-grid table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 12px; }
 .admin-users-grid th, .admin-users-grid button { font-size: inherit; }
-.admin-users-grid td, .admin-users-grid th { padding: 5px 12px; border-bottom: 1px solid #cbd5e1; text-align: left; }
+.admin-users-grid td, .admin-users-grid th { padding: 5px 12px; border-bottom: 1px solid var(--border); text-align: left; }
 .admin-users-grid th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .admin-users-grid .expired { color: #b91c1c; }
 .admin-users-grid .admin-plan-purchase-cell { text-align: center; }
-.admin-plan-purchase-cell input { width: 18px; height: 18px; margin: 0; padding: 0; accent-color: #087f5b; cursor: pointer; }
+.admin-plan-purchase-cell input { width: 18px; height: 18px; margin: 0; padding: 0; accent-color: var(--accent); cursor: pointer; }
 .admin-plan-purchase-cell input:disabled { cursor: wait; }
 .admin-filters { width: 50vw; max-width: 100%; min-width: 0; margin-bottom: 20px; }
-.admin-filter-tabs { display: flex; border-bottom: 1px solid #cbd5e1; margin-bottom: 12px; }
-.admin-filter-tabs button { padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #475569; cursor: pointer; }
-.admin-filter-tabs button.active { border-bottom-color: #0f8f6a; color: #0f8f6a; }
-.admin-filters label { font-size: 14px; font-weight: 600; }
-.admin-filters input[type="checkbox"] { flex: 0 0 16px; width: 16px; height: 16px; margin: 0 8px 0 0; padding: 0; accent-color: #0f8f6a; }
+.admin-filter-tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 12px; }
+.admin-filter-tabs button { padding: 10px 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.admin-filter-tabs button.active { border-bottom-color: var(--accent); color: var(--accent); }
+.admin-filters label { font-size: 13px; font-weight: 500; }
+.admin-filters input[type="checkbox"] { flex: 0 0 16px; width: 16px; height: 16px; margin: 0 8px 0 0; padding: 0; accent-color: var(--accent); }
 .admin-presence { display: flex; justify-content: space-between; align-items: center; margin: 12px 0; }
 .admin-presence label, .admin-date-range label, .admin-radius label { display: flex; align-items: center; }
 .admin-date-range, .admin-radius { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
@@ -58,16 +58,16 @@
 .admin-presence-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 24px; }
 .admin-presence-criterion { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 24px; }
 .admin-presence-criterion label, .admin-date-toggle { display: flex; align-items: center; gap: 10px; margin: 0; }
-.admin-presence-criterion span { flex: 0 0 auto; font-size: 12px; color: #637168; }
-#admin-criteria-panel input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padding: 0; accent-color: #087f5b; }
+.admin-presence-criterion span { flex: 0 0 auto; font-size: 12px; color: var(--text-secondary); }
+#admin-criteria-panel input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padding: 0; accent-color: var(--accent); }
 #admin-criteria-panel input.neutral { accent-color: #8a949b; opacity: .7; }
 .admin-date-filter { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 24px; margin: 16px 0; max-width: 100%; overflow-x: auto; padding: 2px 0; }
 .admin-date-toggle { white-space: nowrap; }
 .admin-date-fields { display: flex; grid-column: 2 / -1; align-items: center; gap: 16px; }
 .admin-date-fields > div { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
-.admin-date-fields label { color: #637168; font-weight: normal; margin: 0; white-space: nowrap; }
+.admin-date-fields label { color: var(--text-secondary); font-weight: normal; margin: 0; white-space: nowrap; }
 .admin-date-fields input { width: 150px; flex: 0 0 150px; font-size: 14px; }
-.admin-date-fields input:disabled { background: #e2e8f0; color: #64748b; }
+.admin-date-fields input:disabled { background: var(--surface-muted); color: var(--text-secondary); }
 .admin-company-status-filter { display: flex; align-items: center; gap: 20px; padding: 2px 0; margin: 16px 0 0; min-width: 0; overflow-x: auto; }
 #admin-company-status-label { flex: 0 0 auto; font-size: 14px; font-weight: 600; white-space: nowrap; }
 .admin-company-status-options { display: flex; align-items: center; gap: 20px; flex: 0 0 auto; }
@@ -98,7 +98,7 @@
 .admin-company-actions img { display: block; width: 18px; height: 18px; margin: 0; flex: 0 0 18px; }
 .admin-user-actions { white-space: nowrap; }
 .admin-user-actions button + button { margin-left: 8px; }
-.delete-csv-dialog { width: 480px; max-width: calc(100vw - 32px); padding: 24px; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; }
+.delete-csv-dialog { width: 480px; max-width: calc(100vw - 32px); padding: 24px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; }
 .delete-csv-dialog h2 { font-size: 22px; margin-top: 0; }
 .delete-csv-dialog::backdrop { background: #0008; }
 .delete-csv-actions { display: flex; justify-content: flex-end; gap: 12px; }
@@ -109,12 +109,12 @@
 .create-user-dialog fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .create-user-dialog input:not([type="checkbox"]), .create-user-dialog select { margin-bottom: 16px; }
 .create-user-dialog .new-user-purchase-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
-.new-user-purchase-toggle input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padding: 0; accent-color: #087f5b; }
-.change-plan-description { max-height: 260px; overflow: auto; overflow-wrap: anywhere; padding: 12px; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; line-height: 1.5; }
+.new-user-purchase-toggle input { width: 18px; height: 18px; flex: 0 0 18px; margin: 0; padding: 0; accent-color: var(--accent); }
+.change-plan-description { max-height: 260px; overflow: auto; overflow-wrap: anywhere; padding: 12px; margin-bottom: 20px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; line-height: 1.5; }
 .admin-user-email-filter { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 .admin-user-email-filter input { width: 400px; max-width: calc(100% - 60px); }
 .admin-users-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
 .admin-users-toolbar .admin-user-email-filter { margin-bottom: 0; min-width: 0; max-width: 100%; }
 .admin-users-toolbar > button { flex-shrink: 0; margin-left: auto; }
 .admin-plan-label { cursor: default; }
-.admin-plan-tooltip { position: fixed; z-index: 1100; width: 420px; max-width: calc(100vw - 24px); max-height: min(320px, calc(100vh - 24px)); overflow: auto; padding: 14px 18px; background: #fff; color: #111827; border: 1px solid #cbd5e1; border-radius: 6px; box-shadow: 0 4px 16px #0003; box-sizing: border-box; pointer-events: none; font-size: 12px; line-height: 1.4; }
+.admin-plan-tooltip { position: fixed; z-index: 1100; width: 420px; max-width: calc(100vw - 24px); max-height: min(320px, calc(100vh - 24px)); overflow: auto; padding: 14px 18px; background: #fff; color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 16px #0003; box-sizing: border-box; pointer-events: none; font-size: 12px; line-height: 1.4; }

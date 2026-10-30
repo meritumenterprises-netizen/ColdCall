@@ -57,8 +57,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   activeFilterTab: 'pkd' | 'criteria' | 'contact' | 'address' = 'criteria';
   readonly resultTabs: ResultTab[] = [
     { key: 'all', label: 'Wszystkie', days: undefined, page: 1 },
-    { key: '30', label: 'Zmienione w ost. 30 dniach', days: 30, page: 1 },
     { key: '7', label: 'Zmienione w ost. 7 dniach', days: 7, page: 1 },
+    { key: '3', label: 'Zmienione w ost. 3 dniach', days: 3, page: 1 },
     { key: 'notes', label: 'Notatki', days: undefined, page: 1 }
   ];
   hasNotes = false;
