@@ -110,14 +110,14 @@ public sealed class CeidgCompanyAddressUpdater : IDisposable
 
     private string StreetExpander ( string? street )
     {
-        if (string.IsNullOrWhiteSpace(street)) return "";
+        if (string.IsNullOrWhiteSpace(street) || street.Length <5) return "";
         if (street.StartsWith("ul."))
         {
-            return "Ulica " + street.Substring(4).Trim();
+            return "Ulica " + street.Substring(4)?.Trim();
         }
         if (street.StartsWith("al."))
         {
-            return "Aleja " + street.Substring(4).Trim();
+            return "Aleja " + street.Substring(4)?.Trim();
         }
         return street;
     }
