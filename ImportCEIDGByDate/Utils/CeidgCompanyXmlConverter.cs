@@ -89,7 +89,8 @@ namespace ImportCEIDGByDate
                             {
                                 company.StartedAt = dataRozpoczecia;
                             }
-                            try { company.ResumedOn = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataWznowieniaDzialalnosci")); } catch { }
+                            if (DateTime.TryParse(xmlDoc.GetInnerTextOrEmpty("DataWznowieniaDzialalnosci"), out var resumedOn))
+                                company.ResumedOn = resumedOn;
                         }
                         break;
                     case "Zawieszony":
@@ -99,7 +100,8 @@ namespace ImportCEIDGByDate
                             {
                                 company.SuspendedOn = dataZawieszenia;
                             }
-                            try { company.StartedAt = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci")); } catch { }
+                            if (DateTime.TryParse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci"), out var startedAt))
+                                company.StartedAt = startedAt;
                         }
                         break;
                     case "Działalność prowadzona wyłącznie w formie spółki cywilnej":
@@ -217,19 +219,24 @@ namespace ImportCEIDGByDate
                 {
                     case "Aktywny":
                         {
-                            company.StartedAt = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci"));
-                            try { company.ResumedOn = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataWznowieniaDzialalnosci")); } catch { }
+                            if (DateTime.TryParse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci"), out var startedAt))
+                                company.StartedAt = startedAt;
+                            if (DateTime.TryParse(xmlDoc.GetInnerTextOrEmpty("DataWznowieniaDzialalnosci"), out var resumedOn))
+                                company.ResumedOn = resumedOn;
                         }
                         break;
                     case "Zawieszony":
                         {
-                            company.SuspendedOn = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataZawieszeniaDzialalnosci"));
-                            try { company.StartedAt = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci")); } catch { }
+                            if (DateTime.TryParse(xmlDoc.GetInnerTextOrEmpty("DataZawieszeniaDzialalnosci"), out var suspendedOn))
+                                company.SuspendedOn = suspendedOn;
+                            if (DateTime.TryParse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci"), out var startedAt))
+                                company.StartedAt = startedAt;
                         }
                         break;
                     case "Działalność prowadzona wyłącznie w formie spółki cywilnej":
                         {
-                            company.StartedAt = DateTime.Parse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci"));
+                            if (DateTime.TryParse(xmlDoc.GetInnerTextOrEmpty("DataRozpoczeciaDzialalnosci"), out var startedAt))
+                                company.StartedAt = startedAt;
                         }
                         break;
                 }

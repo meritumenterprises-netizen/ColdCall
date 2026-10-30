@@ -87,16 +87,6 @@ namespace ImportCEIDGByDate
                     this.AllReports[matchingReport.Name].Add(matchingReport);
                 });
 
-                //this.Statistics.OldReports = new Dictionary<string, List<CeidgReport>>();
-                //this.AllReports.Keys.ToList().ForEach((key) =>
-                //{
-                //    if (this.Statistics.OldReports.ContainsKey(key) == false)
-                //    {
-                //        this.Statistics.OldReports.Add(key, new List<CeidgReport>());
-                //    }
-                //    this.Statistics.OldReports[key].AddRange(this.AllReports[key].Where(r => r.CreatedAtDate == Statistics.OldDate.ToString("yyyy-MM-dd")));
-                //});
-
                 this.AllReports.Keys.ToList().ForEach((key) =>
                 {
                     if (this.Statistics.NewReports.ContainsKey(key) == false)
