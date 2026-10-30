@@ -20,15 +20,15 @@ import { AddressOption } from '../services/api.service';
   styles: [`
     :host { display: block; min-width: 0; }
     .viewport { height: 202px; box-sizing: border-box; overflow-y: auto; overflow-x: hidden;
-      border: 1px solid #cbd5e1; border-radius: 4px; background: white; font-size: 14px; }
-    .viewport:focus-visible { outline: 2px solid #087f5b; outline-offset: 1px; }
-    .viewport[aria-disabled="true"] { background: #e2e8f0; color: #64748b; }
+      border: 1px solid var(--border); border-radius: 4px; background: white; font-size: 14px; }
+    .viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .viewport[aria-disabled="true"] { background: var(--surface-muted); color: var(--text-secondary); }
     .spacer { position: relative; }
     .rows { position: absolute; top: 0; left: 0; width: 100%; }
     .option { height: 26px; box-sizing: border-box; line-height: 26px; padding: 0 6px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; }
-    .viewport[aria-disabled="false"] .option:hover { background: #f0f7f4; }
-    .option.selected { background: #d9eee5; color: #153c2c; }
+    .viewport[aria-disabled="false"] .option:hover { background: var(--surface-hover); }
+    .option.selected { background: var(--accent-soft); color: var(--accent-strong); }
   `]
 })
 export class AddressListboxComponent implements OnChanges {

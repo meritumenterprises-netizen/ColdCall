@@ -56,6 +56,7 @@ dlldata.c
 *.tli
 *.tlh
 *.tmp
+.ceidg-full-import-*.checkpoint.json
 *.tmp_proj
 *.log
 *.vspscc

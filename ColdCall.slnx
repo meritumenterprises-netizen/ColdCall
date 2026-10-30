@@ -1,9 +1,9 @@
 <Solution>
   <Folder Name="/One-Time Batch Apps/">
-    <Project Path="BusinessesEditor/BusinessesEditor/BusinessesEditor/ModifyingCEIDG_XML.csproj" />
     <Project Path="BusinessesEditor/KrsImporter/KrsImporter.csproj" />
     <Project Path="CorrectPrevailingPkd/CorrectPrevailingPkd.csproj" />
     <Project Path="GeoPortalAddressImporter/GeoPortalAddressImporter.csproj" />
+    <Project Path="GeoPortalAddressAdjuster/GeoPortalAddressAdjuster.csproj" />
     <Project Path="ImportCeidgXml/CeidgFullImport.csproj" />
   </Folder>
   <Folder Name="/Recurrent Batch Apps/">

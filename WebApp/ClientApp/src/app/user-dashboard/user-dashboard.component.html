@@ -364,7 +364,7 @@
           </button>
         </th>
         <th scope="col" class="export-count" [attr.aria-sort]="exportsSortBy === 'numberOfRecords' ? (exportsDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
-          <button type="button" (click)="sortCsvExports('numberOfRecords')" [disabled]="exportsLoading">Liczba firm
+          <button type="button" (click)="sortCsvExports('numberOfRecords')" [disabled]="exportsLoading">Liczba działalności JDG
             <span *ngIf="exportsSortBy === 'numberOfRecords'" aria-hidden="true"><ng-container *ngIf="exportsDirection === 'asc'">&#9650;</ng-container><ng-container *ngIf="exportsDirection === 'desc'">&#9660;</ng-container></span>
           </button>
         </th>

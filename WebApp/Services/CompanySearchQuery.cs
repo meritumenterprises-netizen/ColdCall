@@ -25,8 +25,8 @@ public class CompanySearchQuery
         var miejscowoscId = criteria.MiejscowoscId;
         var radiusKm = criteria.HasFirmyWPromieniu == true ? criteria.FirmyWPromieniu : null;
         var companyName = criteria.CompanyName;
-        if (modifiedWithinDays.HasValue && modifiedWithinDays is not (7 or 30))
-            throw new ArgumentException("Dopuszczalne okresy aktywnosci to 7 lub 30 dni.");
+        if (modifiedWithinDays.HasValue && modifiedWithinDays is not (3 or 7))
+            throw new ArgumentException("Dopuszczalne okresy modyfikacji to 3 lub 7 dni.");
         if (startedFrom.HasValue != startedTo.HasValue || (startedFrom.HasValue && startedTo < startedFrom))
             throw new ArgumentException("Both dates are required and the end date must be on or after the start date.");
         if (new[] { wojewodztwoId, powiatId, gminaId, miejscowoscId }.Any(id => id is <= 0))
