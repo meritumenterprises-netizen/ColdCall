@@ -3,7 +3,7 @@ using System.Text.Json;
 
 namespace GeoPortalAddressImporter;
 
-internal sealed class GeoportalClient(HttpClient client, string directory, int delayMilliseconds, int cacheDays, RunLog log)
+internal sealed class GeoportalClient(HttpClient client, string directory, int delayMilliseconds, int cacheDays, RunLog log, bool showCandidateDiagnostics = true)
 {
     private static readonly Uri BaseUri = new("https://services.gugik.gov.pl/uug/");
     private DateTimeOffset nextRequest;
@@ -11,6 +11,7 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
     private readonly SemaphoreSlim cacheGate = new(1, 1);
     private int requests;
     private int cacheHits;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Lazy<Task<ApiResult>>> inFlight = new();
     public int Requests => Volatile.Read(ref requests);
     public int CacheHits => Volatile.Read(ref cacheHits);
 
@@ -46,7 +47,7 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
         var candidate = Matching.Candidate(company, response);
         if (candidate.Address is not { } address)
         {
-            if (candidate.Reason.StartsWith("Adres przyblizony", StringComparison.Ordinal))
+            if (showCandidateDiagnostics && candidate.Reason.StartsWith("Adres przyblizony", StringComparison.Ordinal))
                 GeoportalCandidateDiagnostics.Write(company, response);
             for (int i = 0; i < response.Points.Count(); i++)
             {
@@ -83,6 +84,17 @@ internal sealed class GeoportalClient(HttpClient client, string directory, int d
     }
 
     private async Task<ApiResult> GetAsync(string path, CancellationToken token)
+    {
+        var pending = inFlight.GetOrAdd(path, key => new Lazy<Task<ApiResult>>(() => GetCoreAsync(key, token)));
+        try { return await pending.Value.WaitAsync(token); }
+        finally
+        {
+            if (pending.IsValueCreated && pending.Value.IsCompleted)
+                ((ICollection<KeyValuePair<string, Lazy<Task<ApiResult>>>>)inFlight).Remove(new(path, pending));
+        }
+    }
+
+    private async Task<ApiResult> GetCoreAsync(string path, CancellationToken token)
     {
         var file = Path.Combine(directory, Text.Hash(path) + ".json");
         if (File.Exists(file))

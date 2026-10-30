@@ -172,17 +172,17 @@ internal static class SelfTests
                 && selectedPointResult.SourceKey?.Length == 50 && selectedPointResult.Latitude > 0 && selectedPointResult.Longitude > 0,
                 "Wybrany dalszy punkt jest zwracany do CEIDG jako poprawny adres z GPS i kluczem zrodla");
             Assert(selectedPointHandler.Calls == 1, "Wybrany punkt nie jest ponownie odrzucany dodatkowa weryfikacja");
-            using var parallelHandler = new ConcurrentHandler(cityJson);
+            using var parallelHandler = new ConcurrentHandler(cityJson, 1);
             using var parallelHttp = new HttpClient(parallelHandler);
             var parallelClient = new GeoportalClient(parallelHttp, Path.Combine(temporary, "parallel-cache"), 0, 30, log);
             var parallelCompanies = Enumerable.Range(1, ParallelAddressLookup.Concurrency).Reverse()
                 .Select(id => Company with { Id = id, Number = null }).ToArray();
             var parallelResults = await ParallelAddressLookup.FindAsync(parallelCompanies, parallelClient, CancellationToken.None);
-            Assert(parallelHandler.MaximumActive == 128, "128 jednoczesnych requestow HTTP");
+            Assert(parallelHandler.MaximumActive == 1, "Identyczne rownolegle zapytania wspoldziela jeden request HTTP");
             Assert(parallelResults.All(result => result.Error == null && result.Match?.Address?.IsCity == true), "Wyniki rownoleglych requestow");
             Assert(parallelResults.Select(result => result.Company.Id).SequenceEqual(parallelCompanies.Select(company => company.Id)),
                 "Zapis i checkpoint zachowuja kolejnosc wejsciowa mimo kolejnosci odpowiedzi");
-            Assert(parallelClient.Requests == 128, "Wspoldzielony licznik requestow");
+            Assert(parallelClient.Requests == 1, "Wspoldzielony licznik zlicza fizyczne requesty HTTP");
             using var failedHttp = new HttpClient(new FakeHandler("""{"error":"service unavailable"}"""));
             var failedClient = new GeoportalClient(failedHttp, Path.Combine(temporary, "parallel-error-cache"), 0, 30, log);
             var failedResults = await ParallelAddressLookup.FindAsync(new[] { Company }, failedClient, CancellationToken.None);
@@ -440,7 +440,7 @@ internal static class SelfTests
             })
     });
 
-    private sealed class ConcurrentHandler(string response) : HttpMessageHandler
+    private sealed class ConcurrentHandler(string response, int expectedConcurrency = ParallelAddressLookup.Concurrency) : HttpMessageHandler
     {
         private readonly TaskCompletionSource allStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int active;
@@ -450,9 +450,9 @@ internal static class SelfTests
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             var concurrent = Interlocked.Increment(ref active);
-            if (concurrent == ParallelAddressLookup.Concurrency) MaximumActive = concurrent;
+            if (concurrent == expectedConcurrency) MaximumActive = concurrent;
             var call = Interlocked.Increment(ref calls);
-            if (call == ParallelAddressLookup.Concurrency) allStarted.TrySetResult();
+            if (call == expectedConcurrency) allStarted.TrySetResult();
             try
             {
                 await allStarted.Task.WaitAsync(TimeSpan.FromSeconds(5), cancellationToken);
