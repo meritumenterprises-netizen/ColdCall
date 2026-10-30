@@ -6,6 +6,7 @@ internal static class GeoportalAddressServiceTests
 {
     public static async Task RunAsync(string directory)
     {
+        await CheckCacheAsync(directory);
         await CheckAsync(directory, "http-error", (_, _) =>
         {
             var response = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
@@ -56,6 +57,32 @@ internal static class GeoportalAddressServiceTests
         Province = "Test", County = "Test", Municipality = "Test", City = "Test",
         Street = "Test", BuildingNumber = "1", PostalCode = "00-001"
     };
+
+    private static async Task CheckCacheAsync(string directory)
+    {
+        var calls = 0;
+        using var http = new HttpClient(new Handler(async (_, token) =>
+        {
+            Interlocked.Increment(ref calls);
+            await Task.Delay(50, token);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"type":"address","found objects":0,"returned objects":0,"results":null}""")
+            };
+        }));
+        var path = Path.Combine(directory, "shared-cache");
+        using (var service = new GeoportalAddressService(http, path, 0, 1))
+        {
+            await Task.WhenAll(Enumerable.Range(0, 32).Select(_ => service.FindAsync(Request())));
+            if (calls != 1) throw new InvalidOperationException("Concurrent identical requests were not shared.");
+            await service.FindAsync(Request());
+            if (calls != 1 || service.CacheHits == 0) throw new InvalidOperationException("Cache was not reused.");
+        }
+        using (var restarted = new GeoportalAddressService(http, path, 0, 1))
+            await restarted.FindAsync(Request());
+        if (calls != 1) throw new InvalidOperationException("Cache was not reused after restart.");
+        Console.WriteLine("PASS: 32 concurrent lookups share one request; disk cache is reused on repeat and restart.");
+    }
 
     private sealed class Handler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> send) : HttpMessageHandler
     {

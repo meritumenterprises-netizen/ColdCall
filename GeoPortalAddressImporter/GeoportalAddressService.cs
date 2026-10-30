@@ -6,12 +6,17 @@ public sealed class GeoportalAddressService : IDisposable
     private readonly RunLog log;
     private readonly GeoportalClient client;
 
-    public GeoportalAddressService(HttpClient httpClient, string dataDirectory)
+    public GeoportalAddressService(HttpClient httpClient, string dataDirectory, int delayMilliseconds = 100, int cacheDays = 0,
+        bool showCandidateDiagnostics = true)
     {
         log = new RunLog(Path.Combine(dataDirectory, "logs"));
         // Imported address changes must not be verified against yesterday's cached street list.
-        client = new GeoportalClient(httpClient, Path.Combine(dataDirectory, "cache"), 100, 0, log);
+        if (delayMilliseconds < 0 || cacheDays < 0) throw new ArgumentOutOfRangeException(nameof(delayMilliseconds));
+        client = new GeoportalClient(httpClient, Path.Combine(dataDirectory, "cache"), delayMilliseconds, cacheDays, log, showCandidateDiagnostics);
     }
+
+    public int Requests => client.Requests;
+    public int CacheHits => client.CacheHits;
 
     public async Task<GeoportalAddressResult> FindAsync(GeoportalAddressRequest request,
         CancellationToken token = default)

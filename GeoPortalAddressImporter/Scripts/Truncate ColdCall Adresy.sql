@@ -1,7 +1,7 @@
 ﻿BEGIN TRY
     BEGIN TRANSACTION;
 
-    DELETE FROM [ColdCall].[CompanyAddress];
+    TRUNCATE [ColdCall].[CompanyAddress];
 
     ALTER TABLE [ColdCall].[CompanyAddress]
         DROP CONSTRAINT [FK_CompanyAddress_Adresy];
