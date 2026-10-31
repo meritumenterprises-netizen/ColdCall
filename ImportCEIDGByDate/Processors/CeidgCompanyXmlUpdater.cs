@@ -68,57 +68,13 @@ namespace ImportCEIDGByDate.Repositories
             //_md5 ??= await FirmyTempDbContext.CompanyXml.AsNoTracking()
             //    .Select(row => row.Md5).ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
             Statistics.StartNewPhase(ImportPhasesEnum.UpdateCompanyXml, "Updating companies in CompanyXML");
-            Statistics.CurrentPhase.EntriesCount = this.FirmyImportRepository.ImportOrigins.Count() + this.FirmyImportRepository.ImportTargets.Count();
+            Statistics.CurrentPhase.EntriesCount = this.FirmyImportRepository.ImportTargets.Count();
 
             Stopwatch sw = Stopwatch.StartNew();
 
             var recordCount = 0;
             var recordSize = 1000;
 
-            Console.WriteLine($"Updating Companies XML from ImportOrigin table");
-            Statistics.StartNewChildPhase(ImportPhasesEnum.UpdateCompanyXmlFromImportOrigin, "");
-            Statistics.CurrentPhase.EntriesCount = this.FirmyImportDbContext.ImportOrigins.Count();
-            foreach (var batch in this.FirmyImportDbContext.ImportOrigins.AsNoTracking().Where(origin => !string.IsNullOrEmpty(origin.Nip)).OrderBy(origin => origin.Id).AsEnumerable().Chunk(recordSize))
-            {
-                var nips = batch.Select(source => source.Nip).ToArray();
-                var existing = await FirmyTempDbContext.CompanyXml.Where(row => nips.Contains(row.Nip)).ToDictionaryAsync(row => row.Nip!, StringComparer.OrdinalIgnoreCase);
-                foreach (var sourceCompany in batch)
-                {
-                    var md5 = MD5Utils.CalculateMD5(sourceCompany.CompanyXml);
-                    existing.TryGetValue(sourceCompany.Nip!, out var sourceCompanyXmlRecord);
-                    if (sourceCompanyXmlRecord == null)
-                    {
-                        sourceCompanyXmlRecord = new Data.FirmyTemp.CompanyXml();
-                        sourceCompanyXmlRecord.Nip = sourceCompany.Nip;
-                        sourceCompanyXmlRecord.XmlContent = sourceCompany.CompanyXml;
-                        sourceCompanyXmlRecord.Md5 = md5;
-                        sourceCompanyXmlRecord.DateModified = Statistics.NewDate; ;
-                        sourceCompanyXmlRecord.WojewodztwoId = sourceCompany.WojewodztwoId;
-                        FirmyTempDbContext.CompanyXml.Add(sourceCompanyXmlRecord);
-                        existing.Add(sourceCompany.Nip!, sourceCompanyXmlRecord);
-                    }
-                    else
-                    {
-                        sourceCompanyXmlRecord.Nip = sourceCompany.Nip;
-                        sourceCompanyXmlRecord.XmlContent = sourceCompany.CompanyXml;
-                        sourceCompanyXmlRecord.Md5 = md5;
-                        sourceCompanyXmlRecord.DateModified = Statistics.NewDate; ;
-                        sourceCompanyXmlRecord.WojewodztwoId = sourceCompany.WojewodztwoId;
-                    }
-
-                    recordCount++;
-                }
-                Console.WriteLine($"Writing {recordCount} record(s) to CompanyXml");
-                await FirmyTempDbContext.SaveChangesAsync();
-                foreach (var row in existing.Values) FirmyTempDbContext.Entry(row).State = EntityState.Detached;
-            }
-            Statistics.FinishChildPhase("");
-            await this.FirmyTempDbContext.SaveChangesAsync();
-            if (GlobalSettings.TruncateImportOriginAtTheEnd)
-            {
-                await new CeidgDatabaseUtils(FirmyImportDbContext).TruncateImportOriginAsync();
-                Console.WriteLine("ImportOrigin cleared after saving CompanyXml.");
-            }
 
             Console.WriteLine($"Updating Companies XML from ImportTarget table");
 

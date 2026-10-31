@@ -93,7 +93,7 @@ ceidgDownloadFolderCleanup.CleanUp();
 
 statistics.StartNewPhase(ImportPhasesEnum.DownloadAndParseReport, "Downloading and parsing reports from CEIDG website.");
 
-var ceidgDownloader = new CeidgReportDownloader(statistics, wojewodztwa, globalSettings);
+var ceidgDownloader = new CeidgReportDownloader(statistics, wojewodztwa, globalSettings, firmyImportRepository);
 var exitCode = 0;
 bool parseReport = await ceidgDownloader.ParseReport();
 if (!parseReport)
@@ -104,6 +104,7 @@ if (!parseReport)
     goto summary;
 }
 LocalCeidgReports.AddExisting(statistics.NewReports, statistics.NewFilesFolder, newDate);
+CeidgReportSelection.KeepLatest(statistics.NewReports);
 LocalCeidgReports.SortReports(statistics.NewReports);
 
 if (statistics.NewReports.Values.Sum(reports => reports.Count) == 0)

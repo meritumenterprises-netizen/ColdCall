@@ -1,28 +1,13 @@
 using ImportCEIDGByDate.Data;
 using ImportCEIDGByDate.Data.FirmyImport;
 using Microsoft.EntityFrameworkCore;
-using System.Runtime.CompilerServices;
 
 namespace ImportCEIDGByDate.Repositories;
 
-public sealed class FirmyImportRepository(FirmyImportDbContext context)
+public sealed partial class FirmyImportRepository(FirmyImportDbContext context)
 {
-    public DbSet<ImportOrigin> ImportOrigins => context.ImportOrigins;
     public DbSet<ImportTarget> ImportTargets => context.ImportTargets;
 
-    public async IAsyncEnumerable<ImportOrigin> ReadOriginsAsync([EnumeratorCancellation] CancellationToken token = default)
-    {
-        var afterId = 0;
-        while (true)
-        {
-            var batch = await ImportOrigins.AsNoTracking().Where(row => row.Id > afterId)
-                .OrderBy(row => row.Id).Take(100).ToListAsync(token);
-            if (batch.Count == 0) yield break;
-            // Materialization closes the SQL reader before any caller work runs.
-            foreach (var origin in batch) yield return origin;
-            afterId = batch[^1].Id;
-        }
-    }
 
     public List<ImportTarget> GetNewImportCompanies()
     {
