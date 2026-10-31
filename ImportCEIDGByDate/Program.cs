@@ -59,6 +59,19 @@ var firmyImportRepository = scope.ServiceProvider.GetRequiredService<FirmyImport
 var firmyImportDbContext = scope.ServiceProvider.GetRequiredService<FirmyImportDbContext>();
 var firmyTempDbContext = scope.ServiceProvider.GetRequiredService<FirmyTempDbContext>();
 
+var configuredParallelism = await firmyTempRepository.GetLatestImportDegreeOfParallelismAsync();
+if (configuredParallelism.HasValue)
+{
+    if (configuredParallelism.Value <= 0)
+        throw new InvalidOperationException("ColdCall.GlobalSettings.GlobalDegreeOfParallelismImportByDate must be greater than zero.");
+    globalSettings.GlobalDegreeOfParallelism = configuredParallelism.Value;
+    Console.WriteLine($"GlobalDegreeOfParallelism={globalSettings.GlobalDegreeOfParallelism} (latest ColdCall.GlobalSettings record).");
+}
+else
+{
+    Console.WriteLine($"ColdCall.GlobalSettings is empty; using default GlobalDegreeOfParallelism={globalSettings.GlobalDegreeOfParallelism}.");
+}
+
 var wojewodztwa = await firmyTempRepository.Wojewodztwa.AsNoTracking().ToListAsync();
 
 var import = new ImportByDate

@@ -248,6 +248,7 @@ namespace ImportCEIDGByDate
                 var globalMd5s = new HashSet<string>(this.ContentXmlMd5s, StringComparer.OrdinalIgnoreCase);
                 var globalNips = this.FirmyTempDbContext.Companies.Select((c) => c.Nip).Distinct().ToHashSet<string>();
                 var newNips = new List<string>();
+                var stagedNips = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
                 {
                     Statistics.StartNewPhase(ImportPhasesEnum.ImportNewFilesToTable, "");
@@ -356,6 +357,17 @@ namespace ImportCEIDGByDate
 
                                 if (globalMd5s.Contains(md5) && globalNips.Contains(nip))
                                 {
+                                    // A later known version supersedes an earlier staged version of this NIP.
+                                    if (stagedNips.Remove(nip))
+                                    {
+                                        var superseded = await ImportDbContext.ImportTargets
+                                            .SingleOrDefaultAsync(target => target.Nip == nip);
+                                        if (superseded != null)
+                                        {
+                                            ImportDbContext.ImportTargets.Remove(superseded);
+                                            await ImportDbContext.SaveChangesAsync();
+                                        }
+                                    }
                                     skippedRecordCounter++;
                                     skippedKnownMd5Counter++;
                                     continue;
@@ -396,6 +408,7 @@ namespace ImportCEIDGByDate
                                     await this.ImportDbContext.SaveChangesAsync();
                                 }
 
+                                stagedNips.Add(nip);
                                 recordCounter++;
                                 if (recordCounter % flushTableEveryRecordCount == 0)
                                 {
