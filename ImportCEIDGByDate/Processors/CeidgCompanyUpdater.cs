@@ -39,7 +39,7 @@ namespace ImportCEIDGByDate
                     await deferredAddresses.RunAsync(Statistics, updater);
                     return;
                 }
-                using var ownedUpdater = new CeidgCompanyAddressUpdater(FirmyTempDbContext, this.Statistics);
+                using var ownedUpdater = new CeidgCompanyAddressUpdater(FirmyTempDbContext, this.Statistics, GlobalSettings);
                 await deferredAddresses.RunAsync(Statistics, ownedUpdater);
                 Statistics.FinishCurrentPhase("");
             }
@@ -76,7 +76,7 @@ namespace ImportCEIDGByDate
                 var companyCounter = 0;
                 var addressProgress = new AddressImportProgress("Adresy nowych firm", companyTotal);
                 var pendingAddresses = new List<PendingCompanyAddressImport>();
-                using var addressUpdater = new CeidgCompanyAddressUpdater(FirmyTempDbContext, this.Statistics);
+                using var addressUpdater = new CeidgCompanyAddressUpdater(FirmyTempDbContext, this.Statistics, GlobalSettings);
                 var afterId = 0;
                 while (true)
                 {
@@ -128,7 +128,7 @@ namespace ImportCEIDGByDate
                 var companyCounter = 0;
                 var addressProgress = new AddressImportProgress("Adresy aktualizowanych firm", companyTotal);
                 var pendingAddresses = new List<PendingCompanyAddressImport>();
-                using var addressUpdater = new CeidgCompanyAddressUpdater(FirmyTempDbContext, this.Statistics);
+                using var addressUpdater = new CeidgCompanyAddressUpdater(FirmyTempDbContext, this.Statistics, GlobalSettings);
                 var afterId = 0;
                 while (true)
                 {

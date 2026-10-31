@@ -6,7 +6,7 @@ namespace ImportCEIDGByDate.Utils
 {
     public class GlobalSettings
     {
-        public int GlobalDegreeOfParallelism = 32;
+        public int GlobalDegreeOfParallelism = 4;
         public bool TruncateImportOriginAtTheBeginning { get; set; } = true;
         public bool TruncateImportTargetAtTheBeginning { get; set; } = true;
         public bool TruncateImportOriginAtTheEnd { get; set; } = true;

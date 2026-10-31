@@ -1,6 +1,7 @@
 using GeoPortalAddressImporter;
 using ImportCEIDGByDate.Data;
 using ImportCEIDGByDate.Data.FirmyTemp;
+using ImportCEIDGByDate.Utils;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 using NetTopologySuite.Index.HPRtree;
@@ -13,21 +14,23 @@ public sealed class CeidgCompanyAddressUpdater : IDisposable
     private readonly FirmyTempDbContext context;
     private readonly HttpClient http;
     private readonly GeoportalAddressService geoportal;
+    private readonly GlobalSettings settings;
     private Statistics Statistics { get; set; }
     private Dictionary<int, string> provinces = new();
     private Dictionary<int, string> counties = new();
     private Dictionary<int, string> municipalities = new();
     private Dictionary<int, string> cities = new();
 
-    public CeidgCompanyAddressUpdater(FirmyTempDbContext context, Statistics statistics)
+    public CeidgCompanyAddressUpdater(FirmyTempDbContext context, Statistics statistics, GlobalSettings settings)
         : this(context, new HttpClient { Timeout = TimeSpan.FromSeconds(45) },
-            Path.Combine(AppContext.BaseDirectory, "geoportal"), statistics)
+            Path.Combine(AppContext.BaseDirectory, "geoportal"), statistics, settings)
     {
         this.Statistics = statistics;
     }
 
-    public CeidgCompanyAddressUpdater(FirmyTempDbContext context, HttpClient httpClient, string dataDirectory, Statistics statistics)
+    public CeidgCompanyAddressUpdater(FirmyTempDbContext context, HttpClient httpClient, string dataDirectory, Statistics statistics, GlobalSettings settings)
     {
+        this.settings = settings;
         this.context = context;
         http = httpClient;
         http.DefaultRequestHeaders.UserAgent.ParseAdd("ImportCEIDGByDate/1.0");
@@ -58,7 +61,7 @@ public sealed class CeidgCompanyAddressUpdater : IDisposable
         var progressLock = new object();
         // Only HTTP preparation is parallel; the shared DbContext stays on the serial path.
         await Parallel.ForEachAsync(Enumerable.Range(0, companies.Count),
-            new ParallelOptions { MaxDegreeOfParallelism = 32, CancellationToken = token }, async (i, cancellationToken) =>
+            new ParallelOptions { MaxDegreeOfParallelism = settings.GlobalDegreeOfParallelism, CancellationToken = token }, async (i, cancellationToken) =>
         {
             var item = await PrepareAsync(companies[i], cancellationToken, message => skippedMessages[i] = message);
             if (item != null) { item.Index = i; preparedByIndex[i] = item; }

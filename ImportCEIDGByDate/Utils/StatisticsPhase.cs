@@ -58,10 +58,7 @@ namespace ImportCEIDGByDate
                         subPhase.End = this.End.Value;
                     }
                     sb.Append($"\tPhase: {subPhase.PhaseName}, Start: {subPhase.Start}, End: {subPhase.End.Value}, Duration: {subPhase.Duration.AsString()}");
-                    if (this.EntriesCount > 0)
-                    {
-                        sb.Append($", Entries count: {this.EntriesCount}, Entries/sec: {EntriesRatePerSecond}");
-                    }
+                    sb.Append($", Entries count: {subPhase.EntriesCount}, Entries/sec: {subPhase.EntriesRatePerSecond}");
                     sb.AppendLine();
 
                 }

@@ -18,6 +18,16 @@ public sealed class FirmyTempRepository(FirmyTempDbContext context)
     public DbSet<Adresy> Addresses => context.Adresies;
     public DbSet<CompanyAddress> CompanyAddresses => context.CompanyAddresses;
 
+    public async Task<int?> GetLatestImportDegreeOfParallelismAsync(CancellationToken token = default)
+    {
+        var values = await context.Database.SqlQuery<int>($"""
+            SELECT TOP (1) GlobalDegreeOfParallelismImportByDate AS [Value]
+            FROM ColdCall.GlobalSettings
+            ORDER BY GlobalSettingsId DESC
+            """).ToListAsync(token);
+        return values.Count == 0 ? null : values[0];
+    }
+
     public Task<Company?> FindByNipAsync(string nip, CancellationToken token = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(nip);
