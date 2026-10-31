@@ -132,7 +132,7 @@ globalSettings.TruncateImportTargetAtTheEnd = false;
 //globalSettings.SkipImportDeferredAddressesAsync = true;
 
 var contentXmlCleaner = new CeidgContentXmlCleaner(statistics, firmyTempRepository, firmyImportRepository, firmyImportDbContext, firmyTempDbContext, globalSettings);
-await contentXmlCleaner.PerformContentXmlCleanup();
+//await contentXmlCleaner.PerformContentXmlCleanup(); // SKIP ContentXml cleanup for now
 
 
 await ceidgDownloader.DownloadNewFiles();
