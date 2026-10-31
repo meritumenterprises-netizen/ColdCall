@@ -26,7 +26,6 @@ namespace ImportCEIDGByDate
 
         public bool SkipImports { get; set; }
         public GlobalSettings GlobalSettings { get; set; }
-        private HashSet<string>? newSnapshotOriginNips;
 
         private HashSet<string> _md5;
         public HashSet<string> ContentXmlMd5s
@@ -239,7 +238,6 @@ namespace ImportCEIDGByDate
 
         public async Task ImportNewFiles()
         {
-            newSnapshotOriginNips = null;
             if (GlobalSettings.SkipImportNewFiles == false)
             {
                 Console.WriteLine($"Importing new files {Statistics.NewDate:yyyy-MM-dd}...");
@@ -270,7 +268,6 @@ namespace ImportCEIDGByDate
                         return;
                     }
                     Statistics.CurrentPhase.EntriesCount = Statistics.NewFilesCount;
-                    var matchedOriginNips = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                     var dbUtils = new CeidgDatabaseUtils(this.ImportDbContext);
 
                     if (this.GlobalSettings.TruncateImportTargetAtTheBeginning)
@@ -290,11 +287,14 @@ namespace ImportCEIDGByDate
                     int fileCounter = 1;
                     int fileCount = Statistics.NewReports.Sum((r) => r.Value.Count);
 
-                    foreach (var key in Statistics.NewReports.Keys)
-                    {
-                        foreach (var report in Statistics.NewReports[key])
+                    // Process all provinces chronologically so the newest report wins for each NIP.
+                    foreach (var report in Statistics.NewReports.Values.SelectMany(reports => reports)
+                        .OrderBy(report => report.CreatedAtDateTime, StringComparer.Ordinal)
+                        .ThenBy(report => report.Name, StringComparer.Ordinal)
+                        .ThenBy(report => report.Id, StringComparer.Ordinal))
                         {
                             var localNewNips = new List<string>();
+                            var fileStagedNips = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                             Statistics.StartNewChildPhase(ImportPhasesEnum.ImportNewFileToTable, $"Importing file {report.FileName} to table ImportTarget");
                             var recordCounter = 0;
                             var skippedRecordCounter = 0;
@@ -409,6 +409,7 @@ namespace ImportCEIDGByDate
                                 }
 
                                 stagedNips.Add(nip);
+                                fileStagedNips.Add(nip);
                                 recordCounter++;
                                 if (recordCounter % flushTableEveryRecordCount == 0)
                                 {
@@ -420,21 +421,20 @@ namespace ImportCEIDGByDate
                             await ImportRepository.SaveAndClearAsync();
 
                             sw.Stop();
-                            Statistics.CurrentPhase.EntriesCount = recordCounter;
-                            Console.WriteLine($"Done importing. Read {parsedRecordCounter} XML records; imported {recordCounter}; skipped {skippedRecordCounter} (known MD5: {skippedKnownMd5Counter}, duplicate MD5: {skippedDuplicateCounter}); blank NIPs: {skippedBlankNips}, new NIPs: {localNewNips.Count}. Elapsed time: {sw.ElapsedTime()}");
+                            var pendingFileRecords = fileStagedNips.Count(stagedNips.Contains);
+                            Statistics.CurrentPhase.EntriesCount = pendingFileRecords;
+                            Console.WriteLine($"Done reading. Read {parsedRecordCounter} XML records; staging writes {recordCounter}; pending NIPs from this file {pendingFileRecords}; skipped {skippedRecordCounter} (known MD5: {skippedKnownMd5Counter}, duplicate MD5: {skippedDuplicateCounter}); blank NIPs: {skippedBlankNips}, new NIPs: {localNewNips.Count}. Elapsed time: {sw.ElapsedTime()}");
                             globalRecordCounter = await ImportDbContext.ImportTargets.CountAsync();
                             fileCounter++;
-                            Statistics.CurrentPhase.EntriesCount = recordCounter;
+                            Statistics.CurrentPhase.EntriesCount = pendingFileRecords;
                             Statistics.FinishChildPhase("");
 
                             newNips.AddRange(localNewNips);
                             newNips = newNips.Distinct().ToList();
                         }
-                    }
 
                     Statistics.FinishCurrentPhase("", globalRecordCounter);
                     await ImportRepository.SaveAndClearAsync();
-                    newSnapshotOriginNips = matchedOriginNips;
                 }
                 swGlobal.Stop();
                 globalRecordCounter = ImportDbContext.ImportTargets.Count();
@@ -497,54 +497,6 @@ namespace ImportCEIDGByDate
             }
         }
 
-        public async Task RemoveNIPsPresentInImportTargetFromImportSource()
-        {
-            Statistics.StartNewPhase(ImportPhasesEnum.RemoveNIPsFromImportOriginThatArePresentInOriginTarget, "");
-            var snapshotNips = newSnapshotOriginNips ?? await FindOriginNipsInNewSnapshotAsync();
-            var deleted = await ImportRepository.ImportOrigins
-                .Where(origin => origin.Nip != null &&
-                    ImportRepository.ImportTargets.Any(target => target.Nip == origin.Nip))
-                .ExecuteDeleteAsync();
-            foreach (var nips in snapshotNips.Chunk(1000))
-                deleted += await ImportRepository.ImportOrigins
-                    .Where(origin => nips.Contains(origin.Nip!)).ExecuteDeleteAsync();
-            // Bulk deletes bypass tracking; detach only the Origin rows that no longer exist.
-            var trackedOrigins = ImportDbContext.ChangeTracker.Entries<ImportOrigin>().ToArray();
-            if (trackedOrigins.Length > 0)
-            {
-                var trackedIds = trackedOrigins.Select(entry => entry.Entity.Id).ToArray();
-                var survivingIds = await ImportRepository.ImportOrigins.AsNoTracking()
-                    .Where(row => trackedIds.Contains(row.Id)).Select(row => row.Id).ToHashSetAsync();
-                foreach (var entry in trackedOrigins)
-                    if (entry.State != EntityState.Added && !survivingIds.Contains(entry.Entity.Id))
-                        entry.State = EntityState.Detached;
-            }
-            Console.WriteLine($"Removed {deleted} ImportOrigin records with NIPs present in ImportTarget or the new-date XML snapshot.");
-            Statistics.FinishCurrentPhase("Finished", deleted);
-        }
-
-        private async Task<HashSet<string>> FindOriginNipsInNewSnapshotAsync()
-        {
-            var remaining = await ImportRepository.ImportOrigins.AsNoTracking()
-                .Where(row => row.Nip != null).Select(row => row.Nip!)
-                .ToHashSetAsync(StringComparer.OrdinalIgnoreCase);
-            var found = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            if (remaining.Count == 0) return found;
-            // Resume/skip paths have not parsed XML in this instance, so read only NIPs.
-            foreach (var report in Statistics.NewReports.Values.SelectMany(reports => reports))
-            {
-                using var reader = XmlReader.Create(Path.Combine(Statistics.NewFilesFolder, report.FileName),
-                    new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null, IgnoreWhitespace = true });
-                while (reader.Read())
-                {
-                    if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "Nip") continue;
-                    var nip = reader.ReadElementContentAsString();
-                    if (remaining.Remove(nip)) found.Add(nip);
-                }
-                if (remaining.Count == 0) break;
-            }
-            return found;
-        }
     }
 
 }

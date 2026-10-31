@@ -53,6 +53,8 @@ namespace ImportCEIDGByDate
                     sb.AppendLine($"Process is still running.");
                 }
                 sb.AppendLine($"Duration: {this.ProcessEnd.Value.Subtract(ProcessStart).AsString()}");
+                sb.AppendLine($"Added new companies: {this.Phases.Where((phase) => phase.Phase == ImportPhasesEnum.ImportNewCompanies).SingleOrDefault()?.EntriesCount}");
+                sb.AppendLine($"Updated companies:   {this.Phases.Where((phase) => phase.Phase == ImportPhasesEnum.UpdateExistingCompaniesFromTarget).SingleOrDefault()?.EntriesCount}");
                 return sb.ToString();
             }
         }

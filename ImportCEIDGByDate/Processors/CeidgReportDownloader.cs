@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using ImportCEIDGByDate.Utils;
+using ImportCEIDGByDate.Repositories;
 
 namespace ImportCEIDGByDate
 {
@@ -22,9 +23,12 @@ namespace ImportCEIDGByDate
         protected List<Wojewodztwa> Wojewodztwa { get; set; }
 
         private GlobalSettings GlobalSettings { get; set; }
+        private readonly FirmyImportRepository importRepository;
 
-        public CeidgReportDownloader(Statistics statistics, List<Wojewodztwa> wojewodztwa, GlobalSettings settings)
+        public CeidgReportDownloader(Statistics statistics, List<Wojewodztwa> wojewodztwa, GlobalSettings settings,
+            FirmyImportRepository importRepository)
         {
+            this.importRepository = importRepository;
             this.Statistics = statistics;
             this.Wojewodztwa = wojewodztwa;
             this.GlobalSettings = settings;
@@ -56,6 +60,10 @@ namespace ImportCEIDGByDate
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
                     Console.Error.WriteLine($"CEIDG /raporty returned HTTP {(int)response.StatusCode} ({response.StatusCode}).");
+                    if (response.StatusCode == HttpStatusCode.NoContent)
+                    {
+                        Console.Error.WriteLine($"The report for date {Statistics.NewDate} does not exist, exiting...");
+                    }
                     return false;
                 }
 
@@ -96,10 +104,7 @@ namespace ImportCEIDGByDate
                     this.Statistics.NewReports[key].AddRange(this.AllReports[key].Where(r => r.CreatedAtDate == Statistics.NewDate.ToString("yyyy-MM-dd")));
                 });
 
-                foreach (var key in this.Statistics.NewReports.Keys)
-                {
-                    this.Statistics.NewReports[key].RemoveAt(0); // delete first file
-                }
+                CeidgReportSelection.KeepLatest(this.Statistics.NewReports);
                 return true;
 
                 Console.WriteLine();
@@ -228,6 +233,7 @@ namespace ImportCEIDGByDate
         {
             if (GlobalSettings.SkipDownloadNewFiles == false)
             {
+                await importRepository.PrepareReportHistoryAsync(Statistics.NewDate);
                 PartialDownloadCleanup.ForFolder(this.Statistics.NewFilesFolder);
                 Statistics.StartNewPhase(ImportPhasesEnum.DownloadNewFiles, $"Downloading new files for date {Statistics.NewDate:yyyy-MM-ss}");
                 Statistics.CurrentPhase.EntriesCount = this.Statistics.NewFilesCount;
@@ -238,24 +244,41 @@ namespace ImportCEIDGByDate
                 foreach (var wojewodztwoPlik in this.Statistics.NewReports.Keys)
                 {
                     Console.WriteLine($"Downloading {wojewodztwoPlik} {this.Statistics.NewReports[wojewodztwoPlik].Count} file(s).");
-                    foreach (var ceidgReport in this.Statistics.NewReports[wojewodztwoPlik])
+                    foreach (var ceidgReport in this.Statistics.NewReports[wojewodztwoPlik].ToArray())
                     {
                         Statistics.StartNewChildPhase(ImportPhasesEnum.DownloadNewFile, "");
                         Statistics.CurrentPhase.EntriesCount = 1;
                         PartialDownloadCleanup.ForReport(ceidgReport, this.Statistics.NewFilesFolder);
                         var fullFile = Path.Combine(this.Statistics.NewFilesFolder, ceidgReport.FileNameZip);
-                        if (File.Exists(fullFile) || File.Exists(Path.Combine(this.Statistics.NewFilesFolder, ceidgReport.FileName)))
+                        var xmlFile = Path.Combine(this.Statistics.NewFilesFolder, ceidgReport.FileName);
+                        if (string.IsNullOrWhiteSpace(ceidgReport.Report))
                         {
-                            Console.WriteLine($"\tFile {ceidgReport.FileName} exists, skipping");
+                            if (!File.Exists(fullFile) && !File.Exists(xmlFile))
+                                throw new FileNotFoundException("Local report has no URL or existing ZIP/XML.", xmlFile);
+                            Console.WriteLine($"\tLocal report {ceidgReport.FileName} exists; no download URL.");
                             skippedReportCount++;
+                            Statistics.FinishChildPhase("Local file", 0);
+                            continue;
+                        }
+                        if (await importRepository.WasReportDownloadedAsync(Statistics.NewDate, ceidgReport.Report))
+                        {
+                            Console.WriteLine($"\tReport already downloaded for {Statistics.NewDate:yyyy-MM-dd}: {ceidgReport.Report}; skipping download.");
+                            if (!File.Exists(fullFile) && !File.Exists(xmlFile))
+                            {
+                                throw new FileNotFoundException(
+                                    "Report is already recorded in ImportReports, but its ZIP/XML is missing. Restore the local file before importing; download was skipped.", xmlFile);
+                            }
+                            skippedReportCount++;
+                            Statistics.FinishChildPhase("Already downloaded", 0);
                             continue;
                         }
                         Stopwatch sw = Stopwatch.StartNew();
                         Console.Write($"\tDownloading {ceidgReport.Report}... ");
                         await DownloadIndividualFile(ceidgReport, this.Statistics.NewFilesFolder, ceidgReport.FileNameZip);
+                        await importRepository.RecordDownloadedReportAsync(Statistics.NewDate, ceidgReport.Report);
                         sw.Stop();
                         Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s).");
-                        Statistics.FinishCurrentPhase("");
+                        Statistics.FinishChildPhase("Downloaded", 1);
                     }
                 }
                 if (Statistics.CurrentPhase.EntriesCount == skippedReportCount)
