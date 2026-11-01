@@ -20,12 +20,8 @@ public sealed class FirmyTempRepository(FirmyTempDbContext context)
 
     public async Task<int?> GetLatestImportDegreeOfParallelismAsync(CancellationToken token = default)
     {
-        var values = await context.Database.SqlQuery<int>($"""
-            SELECT TOP (1) GlobalDegreeOfParallelismImportByDate AS [Value]
-            FROM ColdCall.GlobalSettings
-            ORDER BY GlobalSettingsId DESC
-            """).ToListAsync(token);
-        return values.Count == 0 ? null : values[0];
+        return await context.GlobalSettings.AsNoTracking().OrderByDescending(row => row.GlobalSettingsId)
+            .Select(row => (int?)row.GlobalDegreeOfParallelismImportByDate).FirstOrDefaultAsync(token);
     }
 
     public Task<Company?> FindByNipAsync(string nip, CancellationToken token = default)

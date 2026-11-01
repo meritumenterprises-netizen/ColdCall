@@ -123,10 +123,10 @@ namespace ImportCEIDGByDate.Repositories
                 Console.WriteLine("ImportTarget cleared after saving CompanyXml.");
             }
 
-            Statistics.FinishChildPhase("");
+            Statistics.FinishChildPhase("", recordCount);
 
             sw.Stop();
-            Statistics.FinishCurrentPhase("Finished");
+            Statistics.FinishCurrentPhase("Finished", recordCount);
             Console.WriteLine($"Finished in {sw.ElapsedTime()}");
         }
     }

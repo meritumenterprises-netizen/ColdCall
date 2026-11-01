@@ -17,6 +17,7 @@ public partial class FirmyTempDbContext : DbContext
     public virtual DbSet<BusinessType> BusinessTypes { get; set; }
 
     public virtual DbSet<Company> Companies { get; set; }
+    public virtual DbSet<GlobalSetting> GlobalSettings { get; set; }
     public virtual DbSet<CompanyXml> CompanyXml { get; set; }
     public virtual DbSet<ImportByDate> ImportByDates { get; set; }
     public virtual DbSet<CompanyPkd> CompanyPkds { get; set; }
@@ -38,6 +39,13 @@ public partial class FirmyTempDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<GlobalSetting>(entity =>
+        {
+            entity.ToTable("GlobalSettings", "ColdCall");
+            entity.HasKey(e => e.GlobalSettingsId).HasName("PK_GlobalSettings");
+            entity.Property(e => e.GlobalSettingsId).UseIdentityColumn();
+            entity.Property(e => e.ApplicationInService).HasColumnType("bit").HasDefaultValue(false);
+        });
         modelBuilder.Entity<ImportByDate>(entity =>
         {
             entity.ToTable("ImportByDate", "ColdCall");
@@ -121,6 +129,9 @@ public partial class FirmyTempDbContext : DbContext
             entity.ToTable("Companies", "ColdCall");
 
             entity.HasIndex(e => e.DataModifiedOn, "IX_Companies_DataModifiedOn");
+            entity.HasIndex(e => e.ImportedOn, "IX_Companies_ImportedOn");
+            entity.HasIndex(e => new { e.StatusDzialalnosciId, e.DataModifiedOn, e.Id }, "IX_Companies_Status_DataModifiedOn_Id")
+                .IncludeProperties(e => e.StartedAt);
 
             entity.HasIndex(e => e.Nip, "IX_Companies_Nip");
 
