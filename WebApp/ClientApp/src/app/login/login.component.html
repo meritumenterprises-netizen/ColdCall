@@ -44,17 +44,22 @@
           <input id="register-streetNumber" name="streetNumber" [(ngModel)]="registration.streetNumber" required pattern=".*\S.*" maxlength="50" autocomplete="address-line2">
         </ng-container>
         <label for="local-email">Email</label>
-        <input id="local-email" name="email" type="email" [(ngModel)]="localEmail" #emailField="ngModel" required email pattern="[^\s@]+@[^\s@]+\.[^\s@]+" maxlength="254" autocomplete="username" [readOnly]="localMode === 'reset'" [attr.aria-invalid]="emailField.invalid && emailField.touched">
+        <input id="local-email" name="email" type="email" [(ngModel)]="localEmail" (ngModelChange)="resetEmailCheck()" (blur)="checkRegistrationEmail()" #emailField="ngModel" required email pattern="[^\s@]+@[^\s@]+\.[^\s@]+" maxlength="254" autocomplete="username" [readOnly]="localMode === 'reset'" [attr.aria-invalid]="(emailField.invalid && emailField.touched) || !!registrationEmailError" [attr.aria-busy]="checkingEmail" [attr.aria-describedby]="registrationEmailError ? 'registration-email-error' : null">
+        <span *ngIf="localMode === 'register' && registrationEmailError" id="registration-email-error" class="error" role="alert">{{ registrationEmailError }}</span>
         <span *ngIf="emailField.invalid && emailField.touched" class="error" role="alert">Podaj poprawny adres email.</span>
         <ng-container *ngIf="localMode !== 'forgot'">
           <label for="local-password">{{ localMode === 'reset' ? 'Nowe hasło' : 'Hasło' }}</label>
-          <input id="local-password" name="password" type="password" [(ngModel)]="localPassword" required [minlength]="localMode === 'login' ? 1 : 12" maxlength="128" [attr.autocomplete]="localMode === 'login' ? 'current-password' : 'new-password'">
+          <input id="local-password" name="password" type="password" [(ngModel)]="localPassword" required [minlength]="localMode === 'login' ? 1 : 10" maxlength="128" [attr.autocomplete]="localMode === 'login' ? 'current-password' : 'new-password'">
         </ng-container>
         <ng-container *ngIf="localMode === 'register' || localMode === 'reset'">
           <label for="local-password-confirm">Powt&#243;rz has&#322;o</label>
-          <input id="local-password-confirm" name="confirmPassword" type="password" [(ngModel)]="localPasswordConfirmation" required minlength="12" maxlength="128" autocomplete="new-password">
+          <input id="local-password-confirm" name="confirmPassword" type="password" [(ngModel)]="localPasswordConfirmation" required minlength="10" maxlength="128" autocomplete="new-password">
         </ng-container>
-        <button type="submit" class="primary-button local-auth-submit" [disabled]="localBusy || localForm.invalid">{{ localBusy ? 'Proszę czekać...' : localMode === 'register' ? 'Zarejestruj się' : localMode === 'forgot' ? 'Wyślij link' : localMode === 'reset' ? 'Zapisz hasło' : 'Zaloguj się' }}</button>
+        <app-turnstile *ngIf="localMode === 'register'" (tokenChange)="registrationToken = $event"></app-turnstile>
+        <span *ngIf="(localMode === 'register' || localMode === 'reset') && localPassword.length > 0 && localPassword.length < 10" class="error" role="alert">Has&#322;o musi mie&#263; co najmniej 10 znak&#243;w (wpisano {{ localPassword.length }}).</span>
+        <span *ngIf="(localMode === 'register' || localMode === 'reset') && localPasswordConfirmation.length > 0 && localPassword !== localPasswordConfirmation" class="error" role="alert">Has&#322;a musz&#261; by&#263; takie same.</span>
+        <span *ngIf="localMode === 'register' && checkingEmail" class="error" role="status">Sprawdzanie adresu email...</span>
+        <button type="submit" class="primary-button local-auth-submit" [disabled]="localBusy || localForm.invalid || (localMode === 'register' && (!registrationToken || checkingEmail || !!registrationEmailError))">{{ localBusy ? 'Proszę czekać...' : localMode === 'register' ? 'Zarejestruj się' : localMode === 'forgot' ? 'Wyślij link' : localMode === 'reset' ? 'Zapisz hasło' : 'Zaloguj się' }}</button>
       </fieldset>
     </form>
     <div *ngIf="localError" class="error" role="alert">{{ localError }}</div>

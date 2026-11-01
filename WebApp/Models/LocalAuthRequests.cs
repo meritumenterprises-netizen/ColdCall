@@ -16,6 +16,8 @@ public class PasswordLoginRequest : EmailRequest
 
 public class RegistrationRequest : PasswordLoginRequest
 {
+    [Required, StringLength(2048)]
+    public string TurnstileToken { get; set; } = "";
     [Required, StringLength(100)]
     public string FirstName { get; set; } = "";
     [Required, StringLength(100)]
