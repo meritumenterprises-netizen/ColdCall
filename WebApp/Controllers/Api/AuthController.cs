@@ -35,6 +35,8 @@ public partial class AuthController : ControllerBase
     public async Task<IActionResult> CreateSession()
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
+        UserLoginHistory.Add(_db, user);
+        await _db.SaveChangesAsync(HttpContext.RequestAborted);
         var claims = new List<Claim>
         {
             new(LocalAuthentication.UserIdClaim, user.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)),

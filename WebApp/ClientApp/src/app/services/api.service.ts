@@ -6,6 +6,7 @@ import { environment } from '../../environments/environment';
 import { TermsConsentService } from './terms-consent.service';
 
 export interface SortableColumn { key: string; label: string; }
+export interface AdminUserLogin { userLoginId: number; userId: number; userName: string | null; email: string | null; loginDate: string; }
 export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; totalWithoutLimit?: number; hasNotes?: boolean; }
 export interface Pkd { id: number; code: string; name: string; }
 export interface PkdClassification { status: string; text: string; pkdCodes: Pkd[]; }
@@ -268,6 +269,10 @@ export class ApiService {
   profile(): Observable<UserProfile> { return this.http.get<UserProfile>(this.url('/api/auth/profile'), this.headers()); }
   adminRegulamin(): Observable<{ globalSettingsId: number; regulamin: string | null }> {
     return this.http.get<{ globalSettingsId: number; regulamin: string | null }>(this.url('/api/admin/regulamin'), this.headers());
+  }
+  adminLogins(page: number, sortBy: string, direction: string): Observable<{ items: AdminUserLogin[]; total: number; page: number; pageSize: number }> {
+    return this.http.get<{ items: AdminUserLogin[]; total: number; page: number; pageSize: number }>(this.url('/api/admin/logins'),
+      { ...this.headers(), params: { page: String(page), sortBy, direction } });
   }
   saveAdminRegulamin(globalSettingsId: number, regulamin: string): Observable<void> {
     return this.http.put<void>(this.url('/api/admin/regulamin/' + globalSettingsId), { globalSettingsId, regulamin }, this.headers());

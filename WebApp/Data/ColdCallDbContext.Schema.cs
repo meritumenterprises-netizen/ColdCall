@@ -8,6 +8,7 @@ public partial class ColdCallDbContext
 {
     public DbSet<Adres> Adresy => Set<Adres>();
     public DbSet<GlobalSetting> GlobalSettings => Set<GlobalSetting>();
+    public DbSet<UserLogin> UserLogins => Set<UserLogin>();
     public DbSet<CompanyXml> CompanyXml => Set<CompanyXml>();
     public DbSet<CompanyUserNote> CompanyUserNotes => Set<CompanyUserNote>();
     public DbSet<CsvExport> CsvExports => Set<CsvExport>();
@@ -30,6 +31,13 @@ public partial class ColdCallDbContext
 
     private static void ConfigureDatabaseSchema(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<UserLogin>(entity =>
+        {
+            entity.ToTable("UserLogin", "ColdCall");
+            entity.HasKey(e => e.UserLoginId).HasName("PK_UserLogin");
+            entity.Property(e => e.UserLoginId).UseIdentityColumn();
+            entity.Property(e => e.LoginDate).HasColumnType("datetime");
+        });
         modelBuilder.Entity<GlobalSetting>(entity =>
         {
             entity.ToTable("GlobalSettings", "ColdCall");

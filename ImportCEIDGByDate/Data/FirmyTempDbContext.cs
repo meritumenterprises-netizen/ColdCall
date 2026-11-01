@@ -18,6 +18,7 @@ public partial class FirmyTempDbContext : DbContext
 
     public virtual DbSet<Company> Companies { get; set; }
     public virtual DbSet<GlobalSetting> GlobalSettings { get; set; }
+    public virtual DbSet<UserLogin> UserLogins { get; set; }
     public virtual DbSet<CompanyXml> CompanyXml { get; set; }
     public virtual DbSet<ImportByDate> ImportByDates { get; set; }
     public virtual DbSet<CompanyPkd> CompanyPkds { get; set; }
@@ -39,6 +40,13 @@ public partial class FirmyTempDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<UserLogin>(entity =>
+        {
+            entity.ToTable("UserLogin", "ColdCall");
+            entity.HasKey(e => e.UserLoginId).HasName("PK_UserLogin");
+            entity.Property(e => e.UserLoginId).UseIdentityColumn();
+            entity.Property(e => e.LoginDate).HasColumnType("datetime");
+        });
         modelBuilder.Entity<GlobalSetting>(entity =>
         {
             entity.ToTable("GlobalSettings", "ColdCall");
