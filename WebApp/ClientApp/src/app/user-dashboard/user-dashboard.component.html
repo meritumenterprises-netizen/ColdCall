@@ -24,7 +24,7 @@
       <a class="sidebar-title sidebar-nav-link" routerLink="/dashboard" aria-current="page">Wyszukiwania</a>
       <button *ngIf="canAddSearch" type="button" class="add-search" [title]="addSearchHint"
               aria-label="Dodaj nowe wyszukiwanie" [disabled]="savingSearch || restoringSearch || classifyingPkd"
-              (click)="newSearch()">+</button>
+              (click)="newSearch()"><img src="assets/icons/plus.svg" width="16" height="16" alt=""></button>
     </div>
     </nav>
     <div *ngFor="let search of searches" class="search-entry">
@@ -35,7 +35,7 @@
       <strong [title]="sidebarSearchName(search)">{{ shortSidebarSearchName(search) }}</strong>
       <span>{{ searchRecordLabel(search) }}</span>
     </button>
-    <button type="button" class="delete-search" [title]="canDeleteSearches ? 'Usu&#324; wyszukiwanie' : 'Plan PX0 nie pozwala na usuwanie wyszukiwa&#324;'" aria-label="usu&#324; wyszukiwanie"
+    <button *ngIf="canDeleteSearches" type="button" class="delete-search" title="Usu&#324; wyszukiwanie" aria-label="usu&#324; wyszukiwanie"
             (click)="deleteSearch(search)"
             [disabled]="!canDeleteSearches || savingSearch || restoringSearch || classifyingPkd || exportingCsv">
       <img src="assets/icons/trash-2.svg" width="16" height="16" alt="">

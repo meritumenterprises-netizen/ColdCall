@@ -10,7 +10,7 @@ export class AuthGuard implements CanActivate {
 
   canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | Observable<boolean> {
     if (this.api.isAuthenticated()) {
-      return this.allowUser(this.api.user());
+      return this.allowUser(this.api.user(), state.url);
     }
 
     if (!this.api.hasToken()) {
@@ -19,7 +19,7 @@ export class AuthGuard implements CanActivate {
     }
 
     return this.api.me(!state.url.startsWith('/payment/success')).pipe(
-      map(user => this.allowUser(user)),
+      map(user => this.allowUser(user, state.url)),
       catchError(() => {
         this.api.logout();
         this.router.navigateByUrl('/');
@@ -27,9 +27,13 @@ export class AuthGuard implements CanActivate {
       })
     );
   }
-  private allowUser(user: Me | null): boolean {
+  private allowUser(user: Me | null, url: string): boolean {
     if (user && !user.isAdmin && user.applicationInService) {
       this.router.navigateByUrl('/maintenance');
+      return false;
+    }
+    if (user && !user.isAdmin && user.requiresProfileCompletion && url.split(/[?#]/)[0] !== '/profile/data') {
+      this.router.navigateByUrl('/profile/data');
       return false;
     }
     return true;

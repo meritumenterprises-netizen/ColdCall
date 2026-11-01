@@ -207,6 +207,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<AccountEnabledMiddleware>();
 app.UseMiddleware<TermsAcceptanceMiddleware>();
+app.UseMiddleware<ProfileCompletionMiddleware>();
 app.UseAuthorization();
 app.Use(async (context, next) =>
 {

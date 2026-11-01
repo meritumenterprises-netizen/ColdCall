@@ -4,8 +4,8 @@
       <a class="sidebar-nav-link" routerLink="/profile">Profil</a>
       <ul class="sidebar-subnav">
         <li><a class="sidebar-nav-link" routerLink="/profile/data" routerLinkActive="active" [attr.aria-current]="isDataPanel ? 'page' : null">Dane</a></li>
-        <li *ngIf="profile && !profile.isAdmin"><a class="sidebar-nav-link" routerLink="/profile/plan" routerLinkActive="active" [attr.aria-current]="isPlanPanel ? 'page' : null">Plan</a></li>
-        <li *ngIf="profile && !profile.isAdmin"><a class="sidebar-nav-link" routerLink="/profile/purchases" routerLinkActive="active" [attr.aria-current]="isPurchasesPanel ? 'page' : null">Zakupy</a></li>
+        <li *ngIf="profile && !profile.isAdmin && !requiresProfileCompletion"><a class="sidebar-nav-link" routerLink="/profile/plan" routerLinkActive="active" [attr.aria-current]="isPlanPanel ? 'page' : null">Plan</a></li>
+        <li *ngIf="profile && !profile.isAdmin && !requiresProfileCompletion"><a class="sidebar-nav-link" routerLink="/profile/purchases" routerLinkActive="active" [attr.aria-current]="isPurchasesPanel ? 'page' : null">Zakupy</a></li>
       </ul>
       <a *ngIf="canSearch" class="sidebar-nav-link" routerLink="/dashboard">Wyszukiwania</a>
     </nav>
@@ -17,6 +17,7 @@
       {{ error }} <button type="button" class="ghost-button" (click)="loadPlan()">Ponów</button>
     </div>
     <ng-container *ngIf="!loading && !error">
+      <p *ngIf="requiresProfileCompletion" class="message" role="status">Uzupe&#322;nij wymagane dane u&#380;ytkownika, aby kontynuowa&#263;.</p>
       <dl *ngIf="isDataPanel && profile">
         <dt>Email</dt><dd>{{ profile.googleEmail }}</dd>
       </dl>

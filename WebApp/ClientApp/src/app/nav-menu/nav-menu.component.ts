@@ -74,7 +74,7 @@ export class NavMenuComponent {
 
   get showPlansLink() {
     const user = this.api.user();
-    return this.api.isAuthenticated() && !!user && !user.isAdmin && !user.disablePlanPurchase;
+    return this.api.isAuthenticated() && !!user && !user.isAdmin && !user.requiresProfileCompletion && !user.disablePlanPurchase;
   }
 
   collapse() {

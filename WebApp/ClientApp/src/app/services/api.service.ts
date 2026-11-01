@@ -84,7 +84,7 @@ export interface StripePurchase {
   maxNumberOfExportedRecords: number | null; amountPaid: number; paidAtUtc: string;
 }
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
-export interface Me { id: number; googleEmail: string; usesGmail?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; termsOfServiceAccepted?: boolean | null; applicationInService?: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
+export interface Me { id: number; googleEmail: string; usesGmail?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; termsOfServiceAccepted?: boolean | null; requiresProfileCompletion?: boolean; applicationInService?: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string | null; descriptionHtml?: string; }
 export interface PlanDefinitionOption { id: number; code: string; descriptionHtml: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; isEnabled?: boolean;
@@ -292,7 +292,7 @@ export class ApiService {
         }
         this.currentUser = user;
         this.authenticated = true;
-        if (notifyExpiredTrial && !user.isAdmin && !user.applicationInService && !user.hasActivePlan && (user.hasExpiredPlan || user.hasExpiredTrial) && !this.expiredTrialNotified) {
+        if (notifyExpiredTrial && !user.isAdmin && !user.requiresProfileCompletion && !user.applicationInService && !user.hasActivePlan && (user.hasExpiredPlan || user.hasExpiredTrial) && !this.expiredTrialNotified) {
           this.expiredTrialNotified = true;
           this.expiredTrialNotice.next(true);
         }
