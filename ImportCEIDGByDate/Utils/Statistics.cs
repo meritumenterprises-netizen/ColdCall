@@ -55,7 +55,7 @@ namespace ImportCEIDGByDate
                 sb.AppendLine($"Duration: {this.ProcessEnd.Value.Subtract(ProcessStart).AsString()}");
                 sb.AppendLine($"Added new companies: {this.Phases.Where((phase) => phase.Phase == ImportPhasesEnum.ImportNewCompaniesToDatabase).SingleOrDefault()?.EntriesCount}");
                 sb.AppendLine($"Updated companies:   {this.Phases.Where((phase) => phase.Phase == ImportPhasesEnum.UpdateExistingCompaniesFromTargetInDatabase).SingleOrDefault()?.EntriesCount}");
-                sb.AppendLine($"Updated companies in CompanyXml: {this.Phases.Where((phase) => phase.Phase == ImportPhasesEnum.UpdateCompanyXmlFromImportTarget).SingleOrDefault()?.EntriesCount}");
+                sb.AppendLine($"Updated companies in CompanyXml: {this.Phases.SelectMany(phase => phase.Children).Where(phase => phase.Phase == ImportPhasesEnum.UpdateCompanyXmlFromImportTarget).Sum(phase => phase.EntriesCount)}");
                 return sb.ToString();
             }
         }

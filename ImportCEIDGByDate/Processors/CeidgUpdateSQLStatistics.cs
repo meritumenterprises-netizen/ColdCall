@@ -25,7 +25,7 @@ namespace ImportCEIDGByDate.Processors
             if (GlobalSettings.UpdateSQLStatistics)
             {
                 Statistics.StartNewPhase(ImportPhasesEnum.UpdateSQLStatistics, "Updating SQL statistics for ColdCall.Companies");
-                FirmyTempDbContext.Database.ExecuteSqlRawAsync("UPDATE STATISTICS [ColdCall].[Companies] WITH FULLSCAN;");
+                await FirmyTempDbContext.Database.ExecuteSqlRawAsync("UPDATE STATISTICS [ColdCall].[Companies] WITH FULLSCAN;");
                 Statistics.FinishCurrentPhase("");
             }
         }
