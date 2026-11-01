@@ -23,27 +23,8 @@ namespace ImportCEIDGByDate
         private Statistics Statistics { get; set; }
 
         private CeidgCompanyXmlConverter CeidgConverter { get; set; }
-        private readonly CeidgDeferredAddressImport deferredAddresses;
-        public bool DeferAddressAssignment { get; init; }
 
         public GlobalSettings GlobalSettings { get; set; }
-
-        public async Task ImportDeferredAddressesAsync(CeidgCompanyAddressUpdater? updater = null)
-        {
-            if (GlobalSettings.SkipImportDeferredAddressesAsync == false)
-            {
-                Statistics.StartNewPhase(ImportPhasesEnum.ImportDeferredAddressesAsync, "");
-
-                if (updater != null)
-                {
-                    await deferredAddresses.RunAsync(Statistics, updater);
-                    return;
-                }
-                using var ownedUpdater = new CeidgCompanyAddressUpdater(FirmyTempDbContext, this.Statistics, GlobalSettings);
-                await deferredAddresses.RunAsync(Statistics, ownedUpdater);
-                Statistics.FinishCurrentPhase("");
-            }
-        }
 
         public CeidgCompanyUpdater(
             Statistics statistics,
@@ -59,7 +40,6 @@ namespace ImportCEIDGByDate
 
             this.FirmyImportDbContext = firmyImportDbContext;
             this.FirmyTempDbContext = firmyTempDbContext;
-            deferredAddresses = new CeidgDeferredAddressImport(firmyTempDbContext, firmyImportRepository);
 
             this.CeidgConverter = new CeidgCompanyXmlConverter(statistics, firmyTempRepository, firmyImportRepository, firmyImportDbContext, firmyTempDbContext);
             this.GlobalSettings = settings;
@@ -70,7 +50,7 @@ namespace ImportCEIDGByDate
         {
             if (GlobalSettings.SkipAddNewCompaniesFromImportToTemp == false)
             {
-                Statistics.StartNewPhase(ImportPhasesEnum.ImportNewCompanies, "Importing new companies");
+                Statistics.StartNewPhase(ImportPhasesEnum.ImportNewCompaniesToDatabase, "Importing new companies");
                 var companyTotal = await FirmyImportRepository.CountPendingAsync(true);
                 Statistics.CurrentPhase.EntriesCount = FirmyImportDbContext.ImportTargets.Where((t) => t.IsNew).Count();
                 var companyCounter = 0;
@@ -94,7 +74,9 @@ namespace ImportCEIDGByDate
                         if (alreadyExisting != null)
                         {
                             Console.WriteLine($"Company with NIP={nip} already exists, skipping");
-                            pendingAddresses.Add(new PendingCompanyAddressImport { Company = alreadyExisting, Target = company });
+                            await FirmyTempDbContext.SaveChangesAsync();
+                            await FirmyImportRepository.MarkImportedAsync(new[] { company.Id });
+                            addressProgress.Complete(false);
                             continue;
                         }
                         var newCompany = await CeidgConverter.ConvertXmlToNewCompany(company.WojewodztwoId, company.CompanyXml);
@@ -113,8 +95,7 @@ namespace ImportCEIDGByDate
                 }
                 await FlushAddressesAsync(pendingAddresses, addressUpdater, addressProgress);
                 Console.WriteLine($"Added new companies: {companyCounter}");
-                Statistics.CurrentPhase.EntriesCount = companyTotal;
-                Statistics.FinishCurrentPhase("Finished");
+                Statistics.FinishCurrentPhase("Finished", companyCounter);
             }
         }
 
@@ -122,7 +103,7 @@ namespace ImportCEIDGByDate
         {
             if (GlobalSettings.SkipUpdateExistingCompaniesFromImportToTemp == false)
             {
-                Statistics.StartNewPhase(ImportPhasesEnum.UpdateExistingCompaniesFromTarget, "Updating existing companies");
+                Statistics.StartNewPhase(ImportPhasesEnum.UpdateExistingCompaniesFromTargetInDatabase, "Updating existing companies");
                 var companyTotal = await FirmyImportRepository.CountPendingAsync(false);
                 Statistics.CurrentPhase.EntriesCount = FirmyImportDbContext.ImportTargets.Where((t) => t.IsUpdated).Count();
                 var companyCounter = 0;
@@ -169,8 +150,7 @@ namespace ImportCEIDGByDate
                 }
                 await FlushAddressesAsync(pendingAddresses, addressUpdater, addressProgress);
                 Console.WriteLine($"Updated existing companies: {companyCounter}");
-                Statistics.CurrentPhase.EntriesCount = companyCounter;
-                Statistics.FinishCurrentPhase("Finished");
+                Statistics.FinishCurrentPhase("Finished", companyCounter);
             }
         }
 
@@ -179,9 +159,9 @@ namespace ImportCEIDGByDate
         {
             if (pending.Count == 0) return;
             await FirmyTempDbContext.SaveChangesAsync();
-            if (DeferAddressAssignment)
+            if (GlobalSettings.SkipProcessingAddresses)
             {
-                foreach (var item in pending) deferredAddresses.Enqueue(item.Company.Id, item.Target.Id);
+                await FirmyImportRepository.MarkImportedAsync(pending.Select(item => item.Target.Id).ToArray());
                 pending.Clear();
                 return;
             }

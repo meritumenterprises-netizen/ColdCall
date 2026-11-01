@@ -1,0 +1,8 @@
+﻿USE [Firmy_temp];
+GO
+
+CHECKPOINT;
+GO
+
+DBCC SHRINKFILE (N'Firmy_log', 2048);
+GO

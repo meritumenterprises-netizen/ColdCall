@@ -8,6 +8,16 @@ public sealed partial class FirmyImportRepository
 {
     public DbSet<ImportReport> ImportReports => context.ImportReports;
 
+    public async Task<HashSet<string>> GetDownloadedReportUrlsAsync(DateTime importDate, CancellationToken token = default)
+    {
+        var from = importDate.Date;
+        var to = from.AddDays(1);
+        var urls = await ImportReports.AsNoTracking()
+            .Where(report => report.ImportDate >= from && report.ImportDate < to)
+            .Select(report => report.Url).ToListAsync(token);
+        return urls.ToHashSet(StringComparer.Ordinal);
+    }
+
     public async Task PrepareReportHistoryAsync(DateTime importDate, CancellationToken token = default)
     {
         var from = importDate.Date;
