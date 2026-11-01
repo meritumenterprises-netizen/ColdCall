@@ -209,8 +209,10 @@ public static class QueryableExtensions
             "wojewodztwo" => desc ? query.OrderByDescending(x => x.Wojewodztwo!.Name) : query.OrderBy(x => x.Wojewodztwo!.Name),
             "city" => desc ? query.OrderByDescending(x => x.Miejscowosc!.Name) : query.OrderBy(x => x.Miejscowosc!.Name),
             "fulladdress" => desc
-                ? query.OrderByDescending(x => (x.Miejscowosc!.Name ?? "") + " " + (x.PostalCode ?? "") + " " + (x.Street ?? "") + " " + (x.BuildingNumber ?? "") + (x.ApartmentNumber == null ? "" : "/" + x.ApartmentNumber))
-                : query.OrderBy(x => (x.Miejscowosc!.Name ?? "") + " " + (x.PostalCode ?? "") + " " + (x.Street ?? "") + " " + (x.BuildingNumber ?? "") + (x.ApartmentNumber == null ? "" : "/" + x.ApartmentNumber)),
+                ? query.OrderByDescending(x => EF.Property<string>(x, "AddressSortPrefix"))
+                    .ThenByDescending(x => EF.Property<string>(x, "AddressSort"))
+                : query.OrderBy(x => EF.Property<string>(x, "AddressSortPrefix"))
+                    .ThenBy(x => EF.Property<string>(x, "AddressSort")),
             "gmina" => desc ? query.OrderByDescending(x => x.Gmina!.Name) : query.OrderBy(x => x.Gmina!.Name),
             "powiat" => desc ? query.OrderByDescending(x => x.Powiat!.Name) : query.OrderBy(x => x.Powiat!.Name),
             "postalcode" => desc ? query.OrderByDescending(x => x.PostalCode) : query.OrderBy(x => x.PostalCode),
@@ -224,8 +226,8 @@ public static class QueryableExtensions
             "instagramaccount" => desc ? query.OrderByDescending(x => x.InstagramAccount) : query.OrderBy(x => x.InstagramAccount),
             "facebookaccount" => desc ? query.OrderByDescending(x => x.FacebookAccount) : query.OrderBy(x => x.FacebookAccount),
             "startedat" => desc
-                ? query.OrderByDescending(x => x.ResumedOn.HasValue && (!x.StartedAt.HasValue || x.ResumedOn > x.StartedAt) ? x.ResumedOn : x.StartedAt)
-                : query.OrderBy(x => x.ResumedOn.HasValue && (!x.StartedAt.HasValue || x.ResumedOn > x.StartedAt) ? x.ResumedOn : x.StartedAt),
+                ? query.OrderByDescending(x => x.StartedAt)
+                : query.OrderBy(x => x.StartedAt),
             "datamodifiedon" => desc ? query.OrderByDescending(x => x.DataModifiedOn) : query.OrderBy(x => x.DataModifiedOn),
             _ => desc ? query.OrderByDescending(x => x.Name) : query.OrderBy(x => x.Name)
         };

@@ -1,11 +1,21 @@
-<section class="login-shell">
+<section class="login-shell" [class.registration-shell]="localMode === 'register'" [class.login-bottom-shell]="localMode === 'login' || localMode === 'forgot'">
   <div class="login-art">
     <h1>FindMyClient</h1>
+    <div class="home-statistics">
     <article class="company-count-card" aria-live="polite">
       <div class="company-count-value">{{ companyCount === null ? (companyCountError ? '-' : '...') : formatCompanyCount() }}</div>
       <div class="company-count-label">Liczba działalności JDG</div>
       <button *ngIf="companyCountError" type="button" class="company-count-retry" (click)="loadCompanyCount()">Pon&#243;w</button>
     </article>
+    <article class="company-count-card" aria-live="polite">
+      <div class="company-count-value">{{ formatStatistic(geoAddressCount) }}</div>
+      <div class="company-count-label">Liczba adres&#243;w</div>
+    </article>
+    <article class="company-count-card" aria-live="polite">
+      <div class="company-count-value">{{ formatStatistic(recentlyImportedCount) }}</div>
+      <div class="company-count-label">JDG zmienione w ost. 7 dniach</div>
+    </article>
+    </div>
     <p>Platforma B2B do wyszukiwania i pozyskiwania klientów biznesowych (Sales Intelligence & Lead Generation), umożliwiająca precyzyjne identyfikowanie potencjalnych klientów na podstawie danych rejestrowych jednoosobowych działalności gospodarczych, branży (PKD), lokalizacji geograficznej i odległości.</p>
   </div>
 
@@ -16,11 +26,26 @@
     </div>
     <h2>{{ localMode === 'register' ? 'Utwórz konto' : localMode === 'forgot' ? 'Odzyskaj hasło' : localMode === 'reset' ? 'Ustaw nowe hasło' : 'Zaloguj się' }}</h2>
     <form #localForm="ngForm" (ngSubmit)="submitLocalAuth()">
-      <fieldset class="local-auth-fields" [disabled]="localBusy">
-        <label *ngIf="localMode === 'register'" for="register-name">Imi&#281; i nazwisko</label>
-        <input *ngIf="localMode === 'register'" id="register-name" name="displayName" [(ngModel)]="localDisplayName" required minlength="2" maxlength="200" autocomplete="name">
+      <fieldset class="local-auth-fields" [class.registration-fields]="localMode === 'register'" [class.login-fields]="localMode === 'login'" [disabled]="localBusy">
+        <ng-container *ngIf="localMode === 'register'">
+          <label for="register-firstName">Imi&#281;</label>
+          <input id="register-firstName" name="firstName" [(ngModel)]="registration.firstName" required pattern=".*\S.*" maxlength="100" autocomplete="given-name">
+          <label for="register-lastName">Nazwisko</label>
+          <input id="register-lastName" name="lastName" [(ngModel)]="registration.lastName" required pattern=".*\S.*" maxlength="100" autocomplete="family-name">
+          <label for="register-companyName">Nazwa firmy</label>
+          <input id="register-companyName" name="companyName" [(ngModel)]="registration.companyName" maxlength="200" autocomplete="organization">
+          <label for="register-postalCode">Kod pocztowy</label>
+          <input id="register-postalCode" name="postalCode" [(ngModel)]="registration.postalCode" required pattern="[0-9]{2}-[0-9]{3}" minlength="6" maxlength="6" autocomplete="postal-code">
+          <label for="register-city">Miasto</label>
+          <input id="register-city" name="city" [(ngModel)]="registration.city" required pattern=".*\S.*" maxlength="100" autocomplete="address-level2">
+          <label for="register-street">Ulica</label>
+          <input id="register-street" name="street" [(ngModel)]="registration.street" required pattern=".*\S.*" maxlength="200" autocomplete="address-line1">
+          <label for="register-streetNumber">Nr ulicy/lokalu</label>
+          <input id="register-streetNumber" name="streetNumber" [(ngModel)]="registration.streetNumber" required pattern=".*\S.*" maxlength="50" autocomplete="address-line2">
+        </ng-container>
         <label for="local-email">Email</label>
-        <input id="local-email" name="email" type="email" [(ngModel)]="localEmail" required email maxlength="254" autocomplete="username" [readOnly]="localMode === 'reset'">
+        <input id="local-email" name="email" type="email" [(ngModel)]="localEmail" #emailField="ngModel" required email pattern="[^\s@]+@[^\s@]+\.[^\s@]+" maxlength="254" autocomplete="username" [readOnly]="localMode === 'reset'" [attr.aria-invalid]="emailField.invalid && emailField.touched">
+        <span *ngIf="emailField.invalid && emailField.touched" class="error" role="alert">Podaj poprawny adres email.</span>
         <ng-container *ngIf="localMode !== 'forgot'">
           <label for="local-password">{{ localMode === 'reset' ? 'Nowe hasło' : 'Hasło' }}</label>
           <input id="local-password" name="password" type="password" [(ngModel)]="localPassword" required [minlength]="localMode === 'login' ? 1 : 12" maxlength="128" [attr.autocomplete]="localMode === 'login' ? 'current-password' : 'new-password'">

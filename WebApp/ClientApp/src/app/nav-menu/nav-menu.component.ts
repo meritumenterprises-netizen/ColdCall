@@ -46,6 +46,8 @@ export class NavMenuComponent {
   }
 
   constructor(public api: ApiService, private router: Router) {}
+  get isHomePage() { return this.router.url.split(/[?#]/)[0] === '/'; }
+  get isMaintenancePage() { return this.router.url.split(/[?#]/)[0] === '/maintenance'; }
 
   get activePlan() {
     const user = this.api.user();

@@ -5,20 +5,24 @@
     <button class="search-item" [class.active]="tab === 'users'" (click)="tab = 'users'">U&#380;ytkownicy</button>
     <button class="search-item" [class.active]="tab === 'plans'" (click)="tab = 'plans'">Plany</button>
     <button class="search-item" [class.active]="tab === 'imports'" (click)="tab = 'imports'">Importy</button>
+    <button class="search-item" [class.active]="tab === 'global-settings'" (click)="tab = 'global-settings'">Ustawienia globalne</button>
   </aside>
 
   <main class="workspace">
+    <div *ngIf="maintenanceMode" class="message" role="status">Jest ustawiony tryb konserwarcji systemu. Zmie&#324; to w Ustawieniach Globalnych</div>
     <header class="workspace-head" *ngIf="tab !== 'users'">
       <div>
         <h1 *ngIf="tab === 'companies'">Wyszukiwanie firm</h1>
         <h1 *ngIf="tab === 'plans'">Plany</h1>
         <h1 *ngIf="tab === 'imports'">Importy</h1>
+        <h1 *ngIf="tab === 'global-settings'">Ustawienia globalne</h1>
       </div>
     </header>
 
     <div class="message" *ngIf="message">{{ message }}</div>
     <app-admin-plans *ngIf="tab === 'plans'"></app-admin-plans>
     <app-admin-imports *ngIf="tab === 'imports'"></app-admin-imports>
+    <app-admin-global-settings *ngIf="tab === 'global-settings'" (settingsSaved)="maintenanceMode = false"></app-admin-global-settings>
 
     <section *ngIf="tab === 'companies'">
       <div class="admin-filters">
@@ -129,7 +133,7 @@
                 <td>{{ formatNumber((page - 1) * pageSize + i + 1) }}</td>
                 <td class="grid-name-value" [title]="company.name">{{ company.name }}</td>
                 <td>{{ company.nip }}</td>
-                <td class="grid-address-value" [title]="fullAddress(company)">{{ fullAddress(company) }}</td>
+                <td class="grid-address-value" [title]="company.addressSort || ''">{{ company.addressSort }}</td>
                 <td [title]="formatPhone(company.phone)">{{ formatPhone(company.phone) }}</td>
                 <td [title]="company.email || ''"><a *ngIf="company.email && company.email.trim()" [href]="emailUrl(company.email)" [title]="company.email" target="_blank" rel="noopener noreferrer"
                        (click)="$event.stopPropagation()" (dblclick)="$event.stopPropagation()" (keydown.enter)="$event.stopPropagation()">{{ company.email }}</a></td>
@@ -164,7 +168,7 @@
       <div class="admin-users-toolbar" *ngIf="tab === 'users'">
         <div class="admin-user-email-filter">
           <label for="admin-user-email">Email</label>
-          <input id="admin-user-email" type="text" [(ngModel)]="userEmailFilter" autocomplete="off">
+          <input id="admin-user-email" type="text" [(ngModel)]="userEmailFilter" (ngModelChange)="changeUsersPage(1)" autocomplete="off">
         </div>
         <button type="button" class="primary-button" [disabled]="creatingUser" (click)="requestCreateUser()">Utw&#243;rz u&#380;ytkownika</button>
       </div>
@@ -181,7 +185,7 @@
         <tbody>
           <tr *ngIf="usersLoading"><td [attr.colspan]="userColumns.length + 1" role="status">Wczytywanie...</td></tr>
           <ng-container *ngIf="!usersLoading">
-            <tr *ngFor="let row of userRows; trackBy: trackUser">
+            <tr *ngFor="let row of pagedUserRows; trackBy: trackUser">
               <td>{{ row.displayName || '-' }}</td>
               <td>{{ row.googleEmail }}</td>
               <td><span *ngIf="row.planCode; else noUserPlan" tabindex="0" class="admin-plan-label"
@@ -213,6 +217,12 @@
         </tbody>
       </table>
     </section>
+    <footer *ngIf="tab === 'users'" class="admin-list-pager admin-users-pager" aria-label="Paginacja uzytkownikow">
+      <span>{{ formatNumber(userRows.length) }} u&#380;ytkownik&#243;w</span>
+      <button type="button" (click)="changeUsersPage(usersPage - 1)" [disabled]="usersLoading || usersPage === 1">Poprzednia</button>
+      <span>Strona {{ usersPage }} z {{ usersTotalPages }}</span>
+      <button type="button" (click)="changeUsersPage(usersPage + 1)" [disabled]="usersLoading || usersPage >= usersTotalPages">Nast&#281;pna</button>
+    </footer>
     <div *ngIf="tab === 'users' && planHint" id="admin-plan-tooltip" role="tooltip" class="admin-plan-tooltip"
          [style.left.px]="planHint.left" [style.top.px]="planHint.top" [innerHTML]="planHint.html"></div>
     <dialog #createUserDialog class="delete-csv-dialog create-user-dialog" aria-labelledby="create-user-title"

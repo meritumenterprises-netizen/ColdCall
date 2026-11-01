@@ -3,6 +3,8 @@ a.navbar-brand {
   text-align: center;
   word-break: break-all;
 }
+.maintenance-logout { position: absolute; top: 16px; right: 24px; z-index: 1; padding: 8px 12px; color: var(--text-primary); }
+.maintenance-logout:hover { background: var(--surface-hover); }
 
 html {
   font-size: 14px;

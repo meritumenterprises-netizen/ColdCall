@@ -100,21 +100,36 @@ public partial class AdminController : ControllerBase
         }
 
         var total = await query.CountAsync();
-        var items = await query.ApplyCompanySort(sortBy, direction)
-            .ThenBy(x => x.Id)
-            .Skip((Math.Max(page, 1) - 1) * pageSize)
-            .Take(pageSize)
+        var offset = (Math.Max(page, 1) - 1) * pageSize;
+        int[]? addressPageIds = null;
+        IQueryable<Company> pageQuery;
+        if (string.Equals(sortBy, "fullAddress", StringComparison.OrdinalIgnoreCase))
+        {
+            addressPageIds = await AdminCompanyAddressPage.LoadIdsAsync(query,
+                string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase), offset, pageSize,
+                HttpContext.RequestAborted);
+            pageQuery = query.Where(company => addressPageIds.Contains(company.Id));
+        }
+        else
+            pageQuery = query.ApplyCompanySort(sortBy, direction).ThenBy(x => x.Id).Skip(offset).Take(pageSize);
+        var items = await pageQuery
             .Select(x => new CompanyDto(
                 x.Id, x.Name, x.BusinessTypeId, x.BusinessType != null ? x.BusinessType.TypDzialalnosci : null, x.FirstName, x.LastName, x.Krs, x.Nip,
                 x.Wojewodztwo!.Name, x.Miejscowosc!.Name, x.Gmina!.Name, x.Powiat!.Name, x.PostalCode,
                 x.Street, x.BuildingNumber, x.ApartmentNumber, x.Phone, x.Email, x.GoogleEmail,
                 x.Website, x.InstagramAccount, x.FacebookAccount,
-                x.ResumedOn.HasValue && (!x.StartedAt.HasValue || x.ResumedOn > x.StartedAt) ? x.ResumedOn : x.StartedAt,
+                x.StartedAt,
                 x.CreatedOn,
                 x.Regon, x.StatusDzialalnosciId, x.StatusDzialalnosci!.Nazwa, x.AddressIsMissing, x.BlockedByRODO,
-                x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId, x.DataModifiedOn))
+                x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId, x.DataModifiedOn,
+                null, null, null, EF.Property<string>(x, "AddressSort")))
             .ToListAsync();
 
+        if (addressPageIds != null)
+        {
+            var positions = addressPageIds.Select((id, index) => new { id, index }).ToDictionary(item => item.id, item => item.index);
+            items = items.OrderBy(item => positions[item.Id]).ToList();
+        }
         return Ok(new PagedResult<CompanyDto>(items, total, page, pageSize, QueryableExtensions.CompanySortableColumns));
     }
 
@@ -163,6 +178,11 @@ public partial class AdminController : ControllerBase
         company.Street = request.Street;
         company.BuildingNumber = request.BuildingNumber;
         company.ApartmentNumber = request.ApartmentNumber;
+        var cityName = await _db.Miejscowosci.Where(city => city.Id == company.MiejscowoscId)
+            .Select(city => city.Name).FirstOrDefaultAsync() ?? "";
+        _db.Entry(company).Property<string>("AddressSort").CurrentValue = cityName + " " + (company.PostalCode ?? "")
+            + " " + (company.Street ?? "") + " " + (company.BuildingNumber ?? "")
+            + (company.ApartmentNumber == null ? "" : "/" + company.ApartmentNumber);
         company.Phone = request.Phone;
         company.Email = request.Email;
         company.GoogleEmail = request.GoogleEmail;

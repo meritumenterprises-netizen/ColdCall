@@ -16,8 +16,20 @@ public class PasswordLoginRequest : EmailRequest
 
 public class RegistrationRequest : PasswordLoginRequest
 {
-    [Required, StringLength(200, MinimumLength = 2)]
-    public string DisplayName { get; set; } = "";
+    [Required, StringLength(100)]
+    public string FirstName { get; set; } = "";
+    [Required, StringLength(100)]
+    public string LastName { get; set; } = "";
+    [StringLength(200)]
+    public string? CompanyName { get; set; }
+    [Required, StringLength(6, MinimumLength = 6), RegularExpression(@"[0-9]{2}-[0-9]{3}")]
+    public string PostalCode { get; set; } = "";
+    [Required, StringLength(100)]
+    public string City { get; set; } = "";
+    [Required, StringLength(200)]
+    public string Street { get; set; } = "";
+    [Required, StringLength(50)]
+    public string StreetNumber { get; set; } = "";
 }
 
 public class EmailTokenRequest : EmailRequest

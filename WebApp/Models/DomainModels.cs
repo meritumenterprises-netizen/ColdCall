@@ -1,6 +1,6 @@
 namespace ColdCall.Models;
 
-public class AppUser
+public partial class AppUser
 {
     public int Id { get; set; }
     public string GoogleSubject { get; set; } = "";

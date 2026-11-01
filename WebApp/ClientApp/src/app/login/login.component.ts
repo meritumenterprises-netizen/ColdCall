@@ -14,7 +14,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild('googleRequiredDialog', { static: true }) googleRequiredDialog: ElementRef;
   localMode: 'login' | 'register' | 'forgot' | 'reset' = 'login';
   localEmail = '';
-  localDisplayName = '';
+  registration = { firstName: '', lastName: '', companyName: '', postalCode: '', city: '', street: '', streetNumber: '' };
   localPassword = '';
   localPasswordConfirmation = '';
   localBusy = false;
@@ -31,6 +31,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
 
   private handleAuthenticated(me: Me, offer?: TrialOffer) {
     if (me.isAdmin) { this.router.navigateByUrl('/admin'); return; }
+    if (me.applicationInService) { this.router.navigateByUrl('/maintenance'); return; }
     if (!me.hasActivePlan && (me.hasExpiredPlan || me.hasExpiredTrial)) {
       return;
     }
@@ -49,6 +50,17 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
     if (this.localBusy) { return; }
     this.localError = ''; this.localMessage = '';
     const email = this.localEmail.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      this.localError = 'Podaj poprawny adres email.'; return;
+    }
+    if (this.localMode === 'register' && [this.registration.firstName, this.registration.lastName,
+        this.registration.postalCode, this.registration.city, this.registration.street, this.registration.streetNumber]
+        .some(value => !value.trim())) {
+      this.localError = 'Uzupelnij wymagane dane osobowe i adresowe.'; return;
+    }
+    if (this.localMode === 'register' && !/^[0-9]{2}-[0-9]{3}$/.test(this.registration.postalCode)) {
+      this.localError = 'Podaj kod pocztowy w formacie 00-000.'; return;
+    }
     if (this.localMode === 'register' && /@(?:gmail|googlemail)\.com$/i.test(email)) { this.googleRequiredDialog.nativeElement.showModal(); return; }
     if ((this.localMode === 'register' || this.localMode === 'reset') && this.localPassword !== this.localPasswordConfirmation) {
       this.localError = 'Hasla musza byc takie same.'; return;
@@ -61,7 +73,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
       ).subscribe(() => this.localPassword = '', err => this.handleLocalError(err));
       return;
     }
-    const request = this.localMode === 'register' ? this.api.registerLocal(this.localDisplayName, email, this.localPassword)
+    const request = this.localMode === 'register' ? this.api.registerLocal(this.registration, email, this.localPassword)
       : this.localMode === 'forgot' ? this.api.forgotPassword(email) : this.api.resetPassword(email, this.resetToken, this.localPassword);
     const wasReset = this.localMode === 'reset';
     this.localBusy = true;
@@ -109,6 +121,8 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
     this.router.navigateByUrl('/plans');
   }
   companyCount: number | null = null;
+  geoAddressCount: number | null = null;
+  recentlyImportedCount: number | null = null;
   companyCountError = false;
   private countRequest: Subscription | null = null;
   private countFormatter = new Intl.NumberFormat('pl-PL');
@@ -135,6 +149,8 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
     this.countRequest = this.api.companyCount().pipe(timeout(15000), retry(1)).subscribe(result => {
       this.zone.run(() => {
         this.companyCount = result.count;
+        this.geoAddressCount = result.geoAddressCount;
+        this.recentlyImportedCount = result.recentlyImportedCount;
         this.companyCountError = false;
       });
     }, () => this.zone.run(() => this.companyCountError = true));
@@ -147,6 +163,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   formatCompanyCount() { return this.companyCount === null ? '' : this.countFormatter.format(this.companyCount); }
+  formatStatistic(value: number | null) { return value == null ? (this.companyCountError ? '-' : '...') : this.countFormatter.format(value); }
   error = '';
   isLoading = true;
   currentOrigin = window.location.origin;
@@ -195,12 +212,12 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
         google.accounts.id.renderButton(
           document.getElementById('googleSignInButton'),
           {
-            theme: 'filled_blue',
+            theme: 'outline',
             size: 'large',
             text: 'signin_with',
             shape: 'rectangular',
             logo_alignment: 'left',
-            width: Math.min(320, document.getElementById('googleSignInButton').parentElement.clientWidth || Math.max(200, window.innerWidth - 104))
+            width: Math.min(400, document.getElementById('googleSignInButton').parentElement.clientWidth || Math.max(200, window.innerWidth - 104))
           }
         );
         this.setStatus(false);

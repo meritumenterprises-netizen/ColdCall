@@ -55,6 +55,9 @@ public class AuthController : ControllerBase
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         var isAdmin = user.IsAdmin;
+        var applicationInService = await _db.GlobalSettings.AsNoTracking()
+            .OrderByDescending(settings => settings.GlobalSettingsId)
+            .Select(settings => settings.ApplicationInService).FirstOrDefaultAsync(HttpContext.RequestAborted);
         await _csvCleanup.DeleteOrphanedAsync(HttpContext.RequestAborted);
         if (!isAdmin)
         {
@@ -85,6 +88,7 @@ public class AuthController : ControllerBase
             DisplayName = user.DisplayName ?? User.FindFirstValue("name"),
             PictureUrl = User.FindFirstValue("picture"),
             isAdmin,
+            applicationInService,
             hasActivePlan = activePlan != null,
             hasExpiredTrial,
             hasExpiredPlan,

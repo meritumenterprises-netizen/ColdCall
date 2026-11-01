@@ -54,7 +54,7 @@
 #admin-criteria-panel { padding: 10px 0; }
 .admin-company-name-filter { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
 .admin-company-name-filter label { flex: 0 0 auto; margin: 0; }
-.admin-company-name-filter input { flex: 1; min-width: 0; width: 100%; padding-top: 10px; padding-bottom: 10px; font-size: 14px; line-height: 1.5; }
+.admin-company-name-filter input { flex: 1; min-width: 0; width: 100%; padding-top: 6px; padding-bottom: 6px; font-size: 14px; line-height: 1.5; }
 .admin-presence-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 24px; }
 .admin-presence-criterion { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 24px; }
 .admin-presence-criterion label, .admin-date-toggle { display: flex; align-items: center; gap: 10px; margin: 0; }
@@ -66,7 +66,7 @@
 .admin-date-fields { display: flex; grid-column: 2 / -1; align-items: center; gap: 16px; }
 .admin-date-fields > div { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 .admin-date-fields label { color: var(--text-secondary); font-weight: normal; margin: 0; white-space: nowrap; }
-.admin-date-fields input { width: 150px; flex: 0 0 150px; font-size: 14px; }
+.admin-date-fields input { width: 150px; flex: 0 0 150px; font-size: 14px; padding-top: 6px; padding-bottom: 6px; }
 .admin-date-fields input:disabled { background: var(--surface-muted); color: var(--text-secondary); }
 .admin-company-status-filter { display: flex; align-items: center; gap: 20px; padding: 2px 0; margin: 16px 0 0; min-width: 0; overflow-x: auto; }
 #admin-company-status-label { flex: 0 0 auto; font-size: 14px; font-weight: 600; white-space: nowrap; }
@@ -116,5 +116,6 @@
 .admin-users-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
 .admin-users-toolbar .admin-user-email-filter { margin-bottom: 0; min-width: 0; max-width: 100%; }
 .admin-users-toolbar > button { flex-shrink: 0; margin-left: auto; }
+.admin-users-pager { padding-top: 10px; padding-bottom: 10px; }
 .admin-plan-label { cursor: default; }
 .admin-plan-tooltip { position: fixed; z-index: 1100; width: 420px; max-width: calc(100vw - 24px); max-height: min(320px, calc(100vh - 24px)); overflow: auto; padding: 14px 18px; background: #fff; color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 16px #0003; box-sizing: border-box; pointer-events: none; font-size: 12px; line-height: 1.4; }

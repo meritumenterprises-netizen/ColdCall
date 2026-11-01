@@ -8,11 +8,14 @@ import { RouterModule } from '@angular/router';
 import { AppComponent } from './app.component';
 import { NavMenuComponent } from './nav-menu/nav-menu.component';
 import { LoginComponent } from './login/login.component';
+import { MaintenanceComponent } from './maintenance/maintenance.component';
+import { MaintenanceGuard } from './maintenance/maintenance.guard';
 import { UserDashboardComponent } from './user-dashboard/user-dashboard.component';
 import { AddressListboxComponent } from './user-dashboard/address-listbox.component';
 import { AdminDashboardComponent } from './admin-dashboard/admin-dashboard.component';
 import { AdminPlansComponent } from './admin-dashboard/admin-plans.component';
 import { AdminImportsComponent } from './admin-dashboard/admin-imports.component';
+import { AdminGlobalSettingsComponent } from './admin-dashboard/admin-global-settings.component';
 import { PlansComponent } from './plans/plans.component';
 import { PaymentSuccessComponent } from './plans/payment-success.component';
 import { ProfileComponent } from './profile/profile.component';
@@ -26,11 +29,13 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
     AppComponent,
     NavMenuComponent,
     LoginComponent,
+    MaintenanceComponent,
     UserDashboardComponent,
     AddressListboxComponent,
     AdminDashboardComponent,
     AdminPlansComponent,
     AdminImportsComponent,
+    AdminGlobalSettingsComponent,
     PlansComponent,
     PaymentSuccessComponent,
     ProfileComponent,
@@ -43,6 +48,7 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
     FormsModule,
     RouterModule.forRoot([
       { path: '', component: LoginComponent, pathMatch: 'full', canActivate: [LandingGuard] },
+      { path: 'maintenance', component: MaintenanceComponent, canActivate: [MaintenanceGuard] },
       { path: 'dashboard', component: UserDashboardComponent, canActivate: [AuthGuard] },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [AuthGuard] },
       { path: 'plans', component: PlansComponent, canActivate: [AuthGuard] },

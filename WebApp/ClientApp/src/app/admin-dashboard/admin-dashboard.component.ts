@@ -302,10 +302,21 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     if (this.classificationRequest) { this.classificationRequest.unsubscribe(); }
     this.addressFields.forEach(field => { if (field.request) { field.request.unsubscribe(); } });
   }
-  tab: 'companies' | 'users' | 'plans' | 'imports' = 'companies';
+  tab: 'companies' | 'users' | 'plans' | 'imports' | 'global-settings' = 'companies';
   companies: Company[] = [];
   users: AppUser[] = [];
   usersLoading = false;
+  usersPage = 1;
+  readonly usersPageSize = 10;
+  get usersTotalPages() { return Math.max(1, Math.ceil(this.userRows.length / this.usersPageSize)); }
+  get pagedUserRows() {
+    const start = (this.usersPage - 1) * this.usersPageSize;
+    return this.userRows.slice(start, start + this.usersPageSize);
+  }
+  changeUsersPage(page: number) {
+    this.usersPage = Math.max(1, Math.min(page, this.usersTotalPages));
+    this.planHint = null;
+  }
   usersSortBy = 'displayName';
   usersDirection = 'asc';
   userColumns: SortableColumn[] = [
@@ -355,6 +366,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     if (this.usersLoading || !this.userColumns.some(c => c.key === column)) { return; }
     this.usersDirection = this.usersSortBy === column && this.usersDirection === 'asc' ? 'desc' : 'asc';
     this.usersSortBy = column;
+    this.changeUsersPage(1);
   }
   businessTypes: BusinessType[] = [];
   allPkds: Pkd[] = [];
@@ -405,7 +417,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { key: 'dataModifiedOn', label: 'Zmodyfikowano' }
   ];
 
-  constructor(private api: ApiService) {}
+  maintenanceMode = false;
+  constructor(private api: ApiService) {
+    this.maintenanceMode = this.api.takeAdminMaintenanceNotice();
+  }
 
   ngOnInit() {
     this.loadCompanyStatuses();
@@ -427,7 +442,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   loadUsers() {
     this.usersLoading = true;
-    this.api.users().pipe(finalize(() => this.usersLoading = false)).subscribe(x => this.users = x,
+    this.api.users().pipe(finalize(() => this.usersLoading = false)).subscribe(x => {
+      this.users = x;
+      this.changeUsersPage(this.usersPage);
+    },
       () => this.message = 'Nie udalo sie pobrac uzytkownikow.');
   }
 

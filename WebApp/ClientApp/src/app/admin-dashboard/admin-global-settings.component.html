@@ -1,0 +1,24 @@
+<div *ngIf="error" class="error" role="alert">{{ error }} <button type="button" class="ghost-button" (click)="load()">Pon&#243;w</button></div>
+<p *ngIf="loading" role="status">Wczytywanie...</p>
+<form *ngIf="!loading && rows[0] as row" class="settings-panel" [attr.aria-busy]="row.saving" (ngSubmit)="save(row)">
+  <fieldset [disabled]="row.saving">
+    <div class="parallelism-field">
+      <label for="import-parallelism">Globalny stopie&#324; wsp&#243;&#322;rz&#281;dno&#347;ci dla Importera</label>
+      <input id="import-parallelism" name="parallelism" type="number" min="1" max="2147483647" step="1" required
+             [(ngModel)]="row.globalDegreeOfParallelismImportByDate" [attr.aria-invalid]="!valid(row)"
+             [attr.aria-describedby]="!valid(row) ? 'parallelism-error' : null" (ngModelChange)="row.saved = false">
+    </div>
+    <div *ngIf="!valid(row)" id="parallelism-error" class="error" role="alert">Podaj dodatni&#261; liczb&#281; ca&#322;kowit&#261;.</div>
+    <label class="maintenance-field" for="application-in-service">
+      <input id="application-in-service" name="applicationInService" type="checkbox" [(ngModel)]="row.applicationInService" (ngModelChange)="row.saved = false">
+      System w trybie konserwacji
+    </label>
+    <div class="settings-actions">
+      <button type="submit" class="primary-button" [disabled]="row.saving || !changed(row) || !valid(row)">{{ row.saving ? 'Zapisywanie...' : 'Zapisz' }}</button>
+      <button type="button" class="ghost-button" [disabled]="row.saving || !changed(row)" (click)="cancel(row)">Anuluj</button>
+      <span *ngIf="row.saved" role="status">Zapisano.</span>
+    </div>
+  </fieldset>
+  <div *ngIf="row.error" class="error" role="alert">{{ row.error }}</div>
+</form>
+<p *ngIf="!loading && !error && !rows.length">Brak ustawie&#324;.</p>

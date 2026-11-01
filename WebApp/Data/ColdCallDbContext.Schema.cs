@@ -7,6 +7,7 @@ namespace ColdCall.Data;
 public partial class ColdCallDbContext
 {
     public DbSet<Adres> Adresy => Set<Adres>();
+    public DbSet<GlobalSetting> GlobalSettings => Set<GlobalSetting>();
     public DbSet<CompanyXml> CompanyXml => Set<CompanyXml>();
     public DbSet<CompanyUserNote> CompanyUserNotes => Set<CompanyUserNote>();
     public DbSet<CsvExport> CsvExports => Set<CsvExport>();
@@ -29,6 +30,13 @@ public partial class ColdCallDbContext
 
     private static void ConfigureDatabaseSchema(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<GlobalSetting>(entity =>
+        {
+            entity.ToTable("GlobalSettings", "ColdCall");
+            entity.HasKey(e => e.GlobalSettingsId).HasName("PK_GlobalSettings");
+            entity.Property(e => e.GlobalSettingsId).UseIdentityColumn();
+            entity.Property(e => e.ApplicationInService).HasColumnType("bit").HasDefaultValue(false);
+        });
         modelBuilder.Entity<CompanyXml>(entity =>
         {
             entity.ToTable("CompanyXml", "ColdCall");
@@ -95,6 +103,13 @@ public partial class ColdCallDbContext
             entity.Property(x => x.GoogleSubject).HasColumnType("nvarchar(max)").IsRequired();
             entity.Property(x => x.GoogleEmail).HasColumnType("nvarchar(450)").HasMaxLength(450).IsRequired();
             entity.Property(x => x.DisplayName).HasColumnType("nvarchar(max)").IsRequired(false);
+            entity.Property(x => x.FirstName).HasMaxLength(100).IsRequired(false);
+            entity.Property(x => x.LastName).HasMaxLength(100).IsRequired(false);
+            entity.Property(x => x.CompanyName).HasMaxLength(200).IsRequired(false);
+            entity.Property(x => x.PostalCode).HasMaxLength(20).IsRequired(false);
+            entity.Property(x => x.City).HasMaxLength(100).IsRequired(false);
+            entity.Property(x => x.Street).HasMaxLength(200).IsRequired(false);
+            entity.Property(x => x.StreetNumber).HasMaxLength(50).IsRequired(false);
             entity.Property(x => x.CreatedAtUtc).HasColumnType("datetime2").IsRequired();
             entity.Property(x => x.LastLoginAtUtc).HasColumnType("datetime2").IsRequired();
             entity.HasIndex(x => x.GoogleEmail).HasDatabaseName("IX_Users_GoogleEmail").IsUnique().IsClustered(false);
@@ -118,6 +133,18 @@ public partial class ColdCallDbContext
             entity.Property(x => x.SuspendedOn).HasColumnType("datetime").IsRequired(false);
             entity.Property(x => x.ResumedOn).HasColumnType("datetime").IsRequired(false);
             entity.Property(x => x.ImportedOn).HasColumnType("datetime").IsRequired(false);
+            entity.HasIndex(x => x.ImportedOn).HasDatabaseName("IX_Companies_ImportedOn");
+            entity.HasIndex(x => new { x.StatusDzialalnosciId, x.DataModifiedOn, x.Id })
+                .HasDatabaseName("IX_Companies_Status_DataModifiedOn_Id").IncludeProperties(nameof(Company.StartedAt));
+            entity.Property<string>("AddressSort").HasMaxLength(1400);
+            entity.Property<string>("AddressSortPrefix").HasMaxLength(800)
+                .HasComputedColumnSql("CONVERT(nvarchar(800), LEFT([AddressSort], 800))", stored: true);
+            entity.HasIndex("AddressSortPrefix", nameof(Company.Id)).HasDatabaseName("IX_Companies_AddressSortPrefix_Id")
+                .IncludeProperties("AddressSort", nameof(Company.StatusDzialalnosciId));
+            entity.HasIndex(new[] { "AddressSortPrefix", nameof(Company.Id) }, "IX_Companies_AddressSortPrefixDesc_Id")
+                .IsDescending(true, false).IncludeProperties("AddressSort", nameof(Company.StatusDzialalnosciId));
+            entity.HasIndex(x => new { x.StartedAt, x.Id }).HasDatabaseName("IX_Companies_StartedAt_Id")
+                .IsDescending(true, false).IncludeProperties(nameof(Company.WojewodztwoId));
             entity.Property(x => x.BatchImported).HasColumnType("bit").IsRequired().HasDefaultValue(false);
             entity.Property(x => x.FirstName).HasMaxLength(128);
             entity.Property(x => x.LastName).HasMaxLength(128);
