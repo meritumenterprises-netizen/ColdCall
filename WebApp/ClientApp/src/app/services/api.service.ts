@@ -387,8 +387,8 @@ export class ApiService {
       params: { searchProfileId: String(searchProfileId), sortBy, direction } });
   }
 
-  csvExportQuota(searchProfileId: number): Observable<{ used: number; limit: number | null; remaining: number | null }> {
-    return this.http.get<{ used: number; limit: number | null; remaining: number | null }>(
+  csvExportQuota(searchProfileId: number): Observable<{ used: number; limit: number | null; remaining: number | null; exportBlockedUntilUtc?: string | null }> {
+    return this.http.get<{ used: number; limit: number | null; remaining: number | null; exportBlockedUntilUtc?: string | null }>(
       this.url('/api/companies/export-quota'), { ...this.headers(), params: { searchProfileId: String(searchProfileId) } });
   }
 
@@ -477,6 +477,9 @@ export class ApiService {
   }
   deleteUserAccount(id: number): Observable<void> {
     return this.http.delete<void>(this.url('/api/admin/users/' + id), this.headers());
+  }
+  csvDeletionQuota(): Observable<{ limit: number | null; used: number; remaining: number | null }> {
+    return this.http.get<{ limit: number | null; used: number; remaining: number | null }>(this.url('/api/companies/exports/deletion-quota'), this.headers());
   }
   grantPlan(userId: number, planCode: string) { return this.http.post(this.url('/api/admin/users/grant-plan'), { userId, planCode }, this.headers()); }
 }

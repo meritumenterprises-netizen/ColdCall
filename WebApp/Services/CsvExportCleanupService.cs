@@ -73,6 +73,7 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
             .Select(e => new { e.SearchProfileId, e.CsvFileName }).SingleOrDefaultAsync(token);
         if (export?.SearchProfileId is not int profileId) return false;
         await LockAsync("CSVExport:" + profileId, token);
+        await CsvDeletionQuota.ReserveAsync(db, userId, new[] { exportId }, token);
 
         var configuredRoot = configuration["CSVExportFolder"];
         if (string.IsNullOrWhiteSpace(configuredRoot)) throw new InvalidOperationException("Brak CSVExportFolder.");
@@ -109,6 +110,11 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
         await LockAsync("UserExports:" + userId, token);
         await LockAsync("CSVExport:" + profileId, token);
         if (!await db.SearchProfiles.AnyAsync(p => p.Id == profileId && p.AppUserId == userId, token)) return false;
+        if ((await CsvDeletionQuota.GetAsync(db, userId, token)).Limit != null)
+            throw new SearchDeletionNotAllowedException();
+        var exportIds = await db.CsvExports.Where(export => export.SearchProfileId == profileId)
+            .Select(export => export.EksportCsvId).ToListAsync(token);
+        await CsvDeletionQuota.ReserveAsync(db, userId, exportIds, token);
         var configuredRoot = configuration["CSVExportFolder"];
         if (string.IsNullOrWhiteSpace(configuredRoot)) throw new InvalidOperationException("Brak CSVExportFolder.");
         var root = Path.GetFullPath(configuredRoot, environment.ContentRootPath);
@@ -190,6 +196,7 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
             if (deleteAccount)
             {
                 await db.CompanyUserNotes.Where(note => note.UserId == userId).ExecuteDeleteAsync(token);
+                await db.CsvDeletionHistory.Where(row => row.UserId == userId).ExecuteDeleteAsync(token);
                 await db.UserPlans.Where(plan => plan.AppUserId == userId).ExecuteDeleteAsync(token);
                 return await db.Users.Where(user => user.Id == userId && !user.IsAdmin).ExecuteDeleteAsync(token);
             }

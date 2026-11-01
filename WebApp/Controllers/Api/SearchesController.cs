@@ -47,7 +47,15 @@ public class SearchesController : ControllerBase
     public async Task<IActionResult> Delete(int id, [FromServices] CsvExportCleanupService cleanup, CancellationToken token)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
-        return await cleanup.DeleteSearchAsync(user.Id, id, token) ? NoContent() : NotFound();
+        try { return await cleanup.DeleteSearchAsync(user.Id, id, token) ? NoContent() : NotFound(); }
+        catch (SearchDeletionNotAllowedException ex)
+        {
+            return StatusCode(403, new { code = "SearchDeletionNotAllowed", message = ex.Message });
+        }
+        catch (CsvDailyDeletionLimitException ex)
+        {
+            return StatusCode(429, new { code = "DailyCsvDeletionLimit", message = ex.Message, remaining = ex.Remaining });
+        }
     }
 
     [HttpPost("{id:int}/check-csv-export")]
