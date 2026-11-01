@@ -14,7 +14,7 @@ namespace ColdCall.Controllers.Api;
 [Route("api/auth")]
 [Authorize]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
-public class AuthController : ControllerBase
+public partial class AuthController : ControllerBase
 {
     private readonly ColdCallDbContext _db;
     private readonly ICurrentUserService _currentUserService;
@@ -170,6 +170,7 @@ public class AuthController : ControllerBase
             ExpiresAtUtc = DateTime.SpecifyKind(plan.ExpiresAtUtc, DateTimeKind.Utc),
             IsExpired = plan.ExpiresAtUtc <= DateTime.UtcNow
         };
-        return Ok(new { user.DisplayName, user.GoogleEmail, user.IsAdmin, plan = profilePlan });
+        return Ok(new { user.DisplayName, user.GoogleEmail, user.IsAdmin, user.FirstName, user.LastName,
+            user.CompanyName, user.PostalCode, user.City, user.Street, user.StreetNumber, plan = profilePlan });
     }
 }

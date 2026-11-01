@@ -101,7 +101,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
   updateUserAdmin(userId: number, isAdmin: boolean) {
     const user = this.users.find(item => item.id === userId);
-    if (!user || this.currentUserId === null || userId === this.currentUserId || this.busyUserIds.has(userId)) { return; }
+    if (!user || this.currentUserId === null || userId === this.currentUserId || (user.isAdmin && !isAdmin) || this.busyUserIds.has(userId)) { return; }
     const previous = !!user.isAdmin;
     user.isAdmin = isAdmin;
     this.busyUserIds.add(userId);
@@ -256,6 +256,13 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   private companiesRequest: Subscription | null = null;
   private filterDelay: Subscription | null = null;
   private classificationRequest: Subscription | null = null;
+
+  updateCompanyName(delay = true) {
+    if (this.filterDelay) { this.filterDelay.unsubscribe(); }
+    const name = (this.filters.companyName || '').trim();
+    if (name.length > 0 && name.length < 3) { return; }
+    this.updateFilters(delay);
+  }
 
   updateFilters(delay = false) {
     if (this.filterDelay) { this.filterDelay.unsubscribe(); }

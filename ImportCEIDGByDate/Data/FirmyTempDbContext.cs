@@ -160,7 +160,11 @@ public partial class FirmyTempDbContext : DbContext
             entity.Property(e => e.FirstName).HasMaxLength(128);
             entity.Property(e => e.LastName).HasMaxLength(128);
             entity.Property(e => e.PostalCode).HasMaxLength(8);
-            entity.Property(e => e.AddressSort).HasMaxLength(1400);
+            entity.Property(e => e.AddressSort).HasMaxLength(800);
+            entity.HasIndex(e => new { e.AddressSort, e.Id }).HasDatabaseName("IX_Companies_AddressSort_Id")
+                .IncludeProperties(e => e.StatusDzialalnosciId);
+            entity.HasIndex(new[] { nameof(Company.AddressSort), nameof(Company.Id) }, "IX_Companies_AddressSortDesc_Id")
+                .IsDescending(true, false).IncludeProperties(e => e.StatusDzialalnosciId);
             entity.Property(e => e.Street).HasMaxLength(1024);
             entity.Property(e => e.BuildingNumber).HasMaxLength(32);
             entity.Property(e => e.ApartmentNumber).HasMaxLength(32);

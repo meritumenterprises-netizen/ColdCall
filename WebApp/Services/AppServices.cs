@@ -209,10 +209,8 @@ public static class QueryableExtensions
             "wojewodztwo" => desc ? query.OrderByDescending(x => x.Wojewodztwo!.Name) : query.OrderBy(x => x.Wojewodztwo!.Name),
             "city" => desc ? query.OrderByDescending(x => x.Miejscowosc!.Name) : query.OrderBy(x => x.Miejscowosc!.Name),
             "fulladdress" => desc
-                ? query.OrderByDescending(x => EF.Property<string>(x, "AddressSortPrefix"))
-                    .ThenByDescending(x => EF.Property<string>(x, "AddressSort"))
-                : query.OrderBy(x => EF.Property<string>(x, "AddressSortPrefix"))
-                    .ThenBy(x => EF.Property<string>(x, "AddressSort")),
+                ? query.OrderByDescending(x => EF.Property<string>(x, "AddressSort"))
+                : query.OrderBy(x => EF.Property<string>(x, "AddressSort")),
             "gmina" => desc ? query.OrderByDescending(x => x.Gmina!.Name) : query.OrderBy(x => x.Gmina!.Name),
             "powiat" => desc ? query.OrderByDescending(x => x.Powiat!.Name) : query.OrderBy(x => x.Powiat!.Name),
             "postalcode" => desc ? query.OrderByDescending(x => x.PostalCode) : query.OrderBy(x => x.PostalCode),

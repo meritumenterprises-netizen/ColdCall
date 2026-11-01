@@ -1,6 +1,13 @@
 .profile-layout { min-height: calc(100vh - 72px); }
 .sidebar a { display: block; text-decoration: none; }
 .profile-content { min-width: 0; }
+.profile-details { max-width: 650px; margin-top: 24px; }
+.profile-details fieldset { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; align-items: center; }
+.profile-details input { min-width: 0; width: 100%; box-sizing: border-box; }
+.profile-details #profile-postalCode { width: calc(6ch + 28px); }
+.profile-save { grid-column: 1 / -1; }
+.profile-save button { margin-top: 12px; }
+@media (max-width: 540px) { .profile-details fieldset { grid-template-columns: minmax(0, 1fr); gap: 8px; } }
 h1 { font-size: 24px; margin: 0 0 24px; }
 dl { margin: 0; max-width: 800px; }
 dt { font-weight: 700; color: #475569; margin-top: 20px; }
