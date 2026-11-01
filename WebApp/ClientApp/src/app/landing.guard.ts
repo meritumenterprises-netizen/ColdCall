@@ -11,7 +11,8 @@ export class LandingGuard implements CanActivate {
   canActivate(route: ActivatedRouteSnapshot): boolean | Observable<boolean | UrlTree> {
     if (route.queryParams.mode === 'confirm-email' || route.queryParams.mode === 'reset-password') { return true; }
     return this.api.restoreSession().pipe(
-      map(user => this.router.parseUrl(user.isAdmin ? '/admin' : user.hasActivePlan ? '/dashboard' : '/plans')),
+      map(user => this.router.parseUrl(user.isAdmin ? '/admin' : user.applicationInService ? '/maintenance'
+        : user.hasActivePlan ? '/dashboard' : '/plans')),
       catchError(() => {
         this.api.logout();
         return of(true);

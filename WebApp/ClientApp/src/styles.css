@@ -57,7 +57,7 @@ button, input, textarea, select {
 .topbar nav a.active, .topbar nav a:hover { background: var(--accent-soft); color: var(--accent-strong); }
 
 .login-shell {
-  min-height: calc(100vh - 64px);
+  min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(300px, 1fr) 430px;
   gap: 32px;
@@ -66,7 +66,8 @@ button, input, textarea, select {
   background: #fff;
 }
 
-.login-art { color: var(--text-primary); max-width: 760px; }
+.login-art { color: var(--text-primary); max-width: 760px; align-self: start; display: flex; flex-direction: column; align-items: flex-start; }
+.login-art > p { margin-top: 0; margin-bottom: 24px; }
 .brand-mark {
   width: 72px; height: 72px; display: grid; place-items: center;
   background: var(--accent); color: white; border-radius: 8px; font-weight: 650; margin-bottom: 28px;
@@ -105,6 +106,8 @@ textarea { resize: vertical; }
   color: var(--text-secondary);
   font-weight: 700;
 }
+.google-login-box { flex-wrap: wrap; }
+#googleSignInButton { width: 100%; min-width: 0; flex: 0 0 100%; }
 
 .primary-button, .ghost-button, .pager button, .login-card button {
   border: 0;
@@ -273,6 +276,7 @@ tbody tr:hover { background: #f8fafc; }
   margin-top: 14px;
 }
 .pager span { color: var(--text-secondary); font-weight: 700; }
+.admin-list-pager { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; font-size: 13px; }
 
 .plan-grid {
   display: grid;
@@ -351,6 +355,19 @@ tbody tr:hover { background: #f8fafc; }
 .login-card .local-auth-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
 .local-auth-fields { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .local-auth-fields label { margin-top: 6px; font-weight: 600; }
+.local-auth-fields.registration-fields { display: grid; grid-template-columns: minmax(0, 120px) minmax(0, 1fr); gap: 8px 12px; align-items: center; }
+.local-auth-fields.registration-fields label { margin: 0; overflow-wrap: anywhere; }
+.local-auth-fields.login-fields { display: grid; grid-template-columns: minmax(0, 120px) minmax(0, 1fr); gap: 8px 12px; align-items: center; }
+.local-auth-fields.login-fields label { margin: 0; }
+.local-auth-fields.login-fields input { min-width: 0; width: 100%; }
+.login-fields .local-auth-submit, .login-fields .error { grid-column: 1 / -1; }
+.local-auth-fields.registration-fields input { min-width: 0; width: 100%; padding-top: 6px; padding-bottom: 6px; }
+.local-auth-fields.registration-fields #register-postalCode { width: calc(6ch + 26px); max-width: 100%; }
+.registration-fields .local-auth-submit, .registration-fields .error { grid-column: 1 / -1; }
+.login-shell.registration-shell { padding-bottom: 12px; box-sizing: border-box; }
+.registration-shell .login-card { align-self: end; }
+.login-shell.login-bottom-shell { padding-bottom: 0; }
+.login-bottom-shell .login-card { align-self: end; }
 .local-auth-submit { margin-top: 12px; }
 .future-activity-date { color: #b91c1c; }
 .local-auth-links { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
@@ -388,3 +405,10 @@ th { font-weight: 500; text-transform: none; background: var(--surface-page); }
 .company-count-card { background: var(--surface); color: var(--text-primary); border-color: var(--border); }
 .company-count-label { color: var(--text-secondary); }
 .company-count-retry { color: var(--accent); }
+.home-statistics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; width: 100%; margin: 16px 0; }
+.home-statistics .company-count-card { min-width: 0; margin: 0; padding: 16px 12px; }
+.home-statistics .company-count-value { font-size: 30px; }
+.home-statistics .company-count-label { font-size: 14px; text-align: center; overflow-wrap: anywhere; }
+@media (max-width: 1100px) and (min-width: 901px), (max-width: 600px) {
+  .home-statistics { grid-template-columns: 1fr; }
+}

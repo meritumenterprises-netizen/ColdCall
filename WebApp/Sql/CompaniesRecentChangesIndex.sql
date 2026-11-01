@@ -1,0 +1,16 @@
+USE [Firmy_temp];
+GO
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET ARITHABORT ON;
+SET NUMERIC_ROUNDABORT OFF;
+GO
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE object_id = OBJECT_ID(N'ColdCall.Companies')
+               AND name = N'IX_Companies_Status_DataModifiedOn_Id')
+    CREATE NONCLUSTERED INDEX [IX_Companies_Status_DataModifiedOn_Id]
+        ON [ColdCall].[Companies] ([StatusDzialalnosciId], [DataModifiedOn], [Id])
+        INCLUDE ([StartedAt]);
+GO

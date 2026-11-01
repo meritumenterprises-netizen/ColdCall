@@ -25,6 +25,7 @@ export interface AdminPlanDefinition {
 }
 export type AddressLevel = 'wojewodztwa' | 'powiaty' | 'gminy' | 'miejscowosci';
 export interface Company {
+  addressSort?: string | null;
   userNotes?: string | null;
   id: number; name: string; businessTypeId: number; businessTypeName?: string; firstName?: string; lastName?: string; krs?: string; nip?: string;
   wojewodztwo?: string; city?: string; gmina?: string; powiat?: string; postalCode?: string; street?: string;
@@ -36,6 +37,7 @@ export interface Company {
   addressIsMissing: boolean | null; blockedByRODO: boolean;
   wojewodztwoId?: number | null; miejscowoscId?: number | null; gminaId?: number | null; powiatId?: number | null;
 }
+export interface AdminGlobalSetting { globalSettingsId: number; globalDegreeOfParallelismImportByDate: number; applicationInService: boolean; }
 export interface CompanyAddress { companyAdresId: number; companyId: number; addressId: number; }
 export interface CompanyAddressDetails extends CompanyAddress {
   wojewodztwoId: number; powiatId: number; gminaId: number; miejscowoscId: number;
@@ -78,7 +80,7 @@ export interface StripePurchase {
   maxNumberOfExportedRecords: number | null; amountPaid: number; paidAtUtc: string;
 }
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
-export interface Me { id: number; googleEmail: string; usesGmail?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
+export interface Me { id: number; googleEmail: string; usesGmail?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; applicationInService?: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string | null; descriptionHtml?: string; }
 export interface PlanDefinitionOption { id: number; code: string; descriptionHtml: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; isEnabled?: boolean; }
@@ -104,6 +106,12 @@ export class ApiService {
   acknowledgeExpiredTrial() { this.expiredTrialNotice.next(false); }
   private token = '';
   private authenticated = false;
+  private adminMaintenanceNotice = false;
+  takeAdminMaintenanceNotice(): boolean {
+    const show = this.adminMaintenanceNotice;
+    this.adminMaintenanceNotice = false;
+    return show;
+  }
   private currentUser: Me | null = null;
   private localSession = Number(localStorage.getItem('coldcall_session_expires')) > Date.now();
   private csrfToken = '';
@@ -148,6 +156,7 @@ export class ApiService {
   }
 
   logout() {
+    this.adminMaintenanceNotice = false;
     localStorage.removeItem('coldcall_session_expires');
     this.purchasedPlan = null;
     this.expiredTrialNotified = false;
@@ -166,8 +175,14 @@ export class ApiService {
   acceptTrial(token: string, termsAccepted: boolean) {
     return this.http.post(this.url('/api/auth/accept-trial'), { token, termsAccepted }, this.headers());
   }
-  companyCount(): Observable<{ count: number }> {
-    return this.http.get<{ count: number }>(this.url('/api/statistics/companies'));
+  companyCount(): Observable<{ count: number; geoAddressCount: number; recentlyImportedCount: number }> {
+    return this.http.get<{ count: number; geoAddressCount: number; recentlyImportedCount: number }>(
+      this.url('/api/statistics/companies'), { params: new HttpParams().set('v', '2') }).pipe(tap(result => {
+        if (!result || ![result.count, result.geoAddressCount, result.recentlyImportedCount]
+            .every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0)) {
+          throw new Error('Incomplete home statistics response.');
+        }
+      }));
   }
   hasToken() {
     return !!this.token || (this.localSession && Number(localStorage.getItem('coldcall_session_expires')) > Date.now());
@@ -212,8 +227,8 @@ export class ApiService {
     const token = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
     return token.pipe(switchMap(() => this.http.post<T>(this.url('/api/account/' + path), body, this.headers())));
   }
-  registerLocal(displayName: string, email: string, password: string) {
-    return this.accountPost<{ message: string }>('register', { displayName, email, password });
+  registerLocal(details: { firstName: string; lastName: string; companyName: string; postalCode: string; city: string; street: string; streetNumber: string }, email: string, password: string) {
+    return this.accountPost<{ message: string }>('register', { ...details, email, password });
   }
   loginLocal(email: string, password: string) {
     this.purchasedPlan = null;
@@ -242,9 +257,12 @@ export class ApiService {
     const csrf = this.localSession && !this.csrfToken ? this.refreshCsrf() : of(this.csrfToken);
     return csrf.pipe(switchMap(() => this.http.get<Me>(this.url('/api/auth/me'), this.headers())),
       tap(user => {
+        if (!this.authenticated) {
+          this.adminMaintenanceNotice = user.isAdmin && !!user.applicationInService;
+        }
         this.currentUser = user;
         this.authenticated = true;
-        if (notifyExpiredTrial && !user.isAdmin && !user.hasActivePlan && (user.hasExpiredPlan || user.hasExpiredTrial) && !this.expiredTrialNotified) {
+        if (notifyExpiredTrial && !user.isAdmin && !user.applicationInService && !user.hasActivePlan && (user.hasExpiredPlan || user.hasExpiredTrial) && !this.expiredTrialNotified) {
           this.expiredTrialNotified = true;
           this.expiredTrialNotice.next(true);
         }
@@ -378,6 +396,13 @@ export class ApiService {
   extendUserPlan(id: number) { return this.http.post(this.url('/api/admin/users/' + id + '/extend-plan'), {}, this.headers()); }
   adminImports(): Observable<AdminImport[]> {
     return this.http.get<AdminImport[]>(this.url('/api/admin/imports'), this.headers());
+  }
+  adminGlobalSettings(): Observable<AdminGlobalSetting[]> {
+    return this.http.get<AdminGlobalSetting[]>(this.url('/api/admin/global-settings'), this.headers());
+  }
+  saveAdminGlobalSettings(settings: AdminGlobalSetting): Observable<void> {
+    return this.http.put<void>(this.url('/api/admin/global-settings/' + settings.globalSettingsId), settings, this.headers())
+      .pipe(tap(() => { if (this.currentUser) { this.currentUser.applicationInService = settings.applicationInService; } }));
   }
   deleteAdminImport(id: number): Observable<void> {
     return this.http.delete<void>(this.url('/api/admin/imports/' + id), this.headers());

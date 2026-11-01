@@ -36,14 +36,20 @@ public class CompanySearchQuery
         if (radiusKm.HasValue && (!new[] { 1, 5, 10, 20, 50, 100, 200, 500 }.Contains(radiusKm.Value)
             || !miejscowoscId.HasValue))
             throw new ArgumentException("Wybierz miejscowosc i poprawny promien.");
-        var query = ApplyDetailFilters(ApplyPkdFilter(BaseCompanyQuery(includeAllCompanies), pkdIds),
-            radiusKm.HasValue ? null : address, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
+        var companies = _db.Companies.AsNoTracking();
         if (!includeAllCompanies || criteria.CompanyStatusIds != null)
         {
-            var statuses = CompanyStatusSelection.Parse(criteria.CompanyStatusIds);
-            query = query.Where(row => _db.Companies.Any(company => company.Id == row.Id
-                && statuses.Contains((int)company.StatusDzialalnosciId)));
+            var statuses = CompanyStatusSelection.Parse(criteria.CompanyStatusIds).Select(status => (byte)status).ToArray();
+            companies = companies.Where(company => statuses.Contains(company.StatusDzialalnosciId));
         }
+        if (modifiedWithinDays.HasValue)
+        {
+            var now = DateTime.Now;
+            var since = now.AddDays(-modifiedWithinDays.Value);
+            companies = companies.Where(company => company.DataModifiedOn >= since && company.DataModifiedOn <= now);
+        }
+        var query = ApplyDetailFilters(ApplyPkdFilter(BaseCompanyQuery(companies, includeAllCompanies), pkdIds),
+            radiusKm.HasValue ? null : address, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
         if (radiusKm.HasValue)
         {
             // Administrative selections identify the center only; candidates are filtered solely by distance.
@@ -59,11 +65,6 @@ public class CompanySearchQuery
             query = ApplyAdministrativeFilter(query, wojewodztwoId, powiatId, gminaId, miejscowoscId);
         if (!string.IsNullOrWhiteSpace(companyName) && companyName.Trim().Length >= 3)
             query = query.Where(x => x.Name.Contains(companyName.Trim()));
-        if (modifiedWithinDays.HasValue)
-            query = query.Where(row => _db.Companies.Any(company => company.Id == row.Id
-                && company.DataModifiedOn.HasValue
-                && company.DataModifiedOn >= DateTime.Now.AddDays(-modifiedWithinDays.Value)
-                && company.DataModifiedOn <= DateTime.Now));
         return query;
     }
 
@@ -71,20 +72,19 @@ public class CompanySearchQuery
         query.Where(row => _db.CompanyUserNotes.Any(note => note.CompanyId == row.Id
             && note.UserId == userId && note.Notes.Trim() != ""));
 
-    private IQueryable<CompanyShortDto> BaseCompanyQuery(bool includeAllCompanies) => includeAllCompanies
-        ? _db.Companies.AsNoTracking().Select(c => new CompanyShortDto
+    private IQueryable<CompanyShortDto> BaseCompanyQuery(IQueryable<Company> companies, bool includeAllCompanies) => includeAllCompanies
+        ? companies.Select(c => new CompanyShortDto
         {
             Id = c.Id, Name = c.Name, Nip = c.Nip, Phone = c.Phone, Email = c.Email,
             Www = c.Website,
-            DataAktywnosci = c.ResumedOn.HasValue && (!c.StartedAt.HasValue || c.ResumedOn > c.StartedAt)
-                ? c.ResumedOn : c.StartedAt,
+            DataAktywnosci = c.StartedAt,
             DataModifiedOn = c.DataModifiedOn,
             FullAddress = (c.Miejscowosc!.Name ?? "") + " " + (c.PostalCode ?? "") + " " + (c.Street ?? "") + " "
                 + (c.BuildingNumber ?? "") + (c.ApartmentNumber == null ? "" : "/" + c.ApartmentNumber)
         })
         :
         from row in _db.CompaniesShort
-        join company in _db.Companies on row.Id equals company.Id
+        join company in companies on row.Id equals company.Id
         select new CompanyShortDto
         {
             Id = row.Id,
@@ -94,8 +94,7 @@ public class CompanySearchQuery
             Phone = row.Phone,
             Email = row.Email,
             Www = row.Www,
-            DataAktywnosci = company.ResumedOn.HasValue && (!company.StartedAt.HasValue || company.ResumedOn > company.StartedAt)
-                ? company.ResumedOn : company.StartedAt,
+            DataAktywnosci = company.StartedAt,
             DataModifiedOn = company.DataModifiedOn,
             TypyDzialalnosci = row.TypDzialalnosci
         };

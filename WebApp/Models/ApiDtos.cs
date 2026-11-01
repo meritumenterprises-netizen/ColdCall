@@ -61,7 +61,8 @@ public record CompanyDto(
     DateTime? DataModifiedOn = null,
     DateTime? ResumedOn = null,
     string? UserNotes = null,
-    DateTime? SuspendedOn = null);
+    DateTime? SuspendedOn = null,
+    string? AddressSort = null);
 
 public record CompanyUpdateDto(
     [System.ComponentModel.DataAnnotations.StringLength(1000)] string Name,

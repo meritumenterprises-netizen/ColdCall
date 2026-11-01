@@ -532,7 +532,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.page = tab.page;
     this.selectedCompanyId = null;
     this.detailsCompany = null;
-    this.loadCompanies();
+    this.loadCompanies(false);
   }
 
   navigateResultTabs(event: KeyboardEvent) {

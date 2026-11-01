@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { ActivatedRouteSnapshot, CanActivate, Router, RouterStateSnapshot } from '@angular/router';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
-import { ApiService } from './services/api.service';
+import { ApiService, Me } from './services/api.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthGuard implements CanActivate {
@@ -10,7 +10,7 @@ export class AuthGuard implements CanActivate {
 
   canActivate(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): boolean | Observable<boolean> {
     if (this.api.isAuthenticated()) {
-      return true;
+      return this.allowUser(this.api.user());
     }
 
     if (!this.api.hasToken()) {
@@ -19,12 +19,19 @@ export class AuthGuard implements CanActivate {
     }
 
     return this.api.me(!state.url.startsWith('/payment/success')).pipe(
-      map(() => true),
+      map(user => this.allowUser(user)),
       catchError(() => {
         this.api.logout();
         this.router.navigateByUrl('/');
         return of(false);
       })
     );
+  }
+  private allowUser(user: Me | null): boolean {
+    if (user && !user.isAdmin && user.applicationInService) {
+      this.router.navigateByUrl('/maintenance');
+      return false;
+    }
+    return true;
   }
 }

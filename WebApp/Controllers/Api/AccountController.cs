@@ -52,7 +52,9 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
     {
         var email = Normalize(request.Email);
         if (await RequiresGoogle(email)) return GoogleRequired();
-        if (string.IsNullOrWhiteSpace(request.DisplayName)) return BadRequest(new { message = "Podaj imie i nazwisko." });
+        if (new[] { request.FirstName, request.LastName, request.PostalCode, request.City, request.Street, request.StreetNumber }
+            .Any(string.IsNullOrWhiteSpace))
+            return BadRequest(new { message = "Uzupelnij wymagane dane osobowe i adresowe." });
         await using var transaction = await db.Database.BeginTransactionAsync();
         await credentials.Database.UseTransactionAsync(transaction.GetDbTransaction());
         var resource = "RegisterEmail:" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(email)));
@@ -64,7 +66,12 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
         var user = new AppUser
         {
             GoogleEmail = email, GoogleSubject = "local:" + Guid.NewGuid().ToString("N"),
-            DisplayName = request.DisplayName.Trim(), IsAdmin = false, IsEnabled = true, UsesGmail = false
+            DisplayName = request.FirstName.Trim() + " " + request.LastName.Trim(),
+            FirstName = request.FirstName.Trim(), LastName = request.LastName.Trim(),
+            CompanyName = string.IsNullOrWhiteSpace(request.CompanyName) ? null : request.CompanyName.Trim(),
+            PostalCode = request.PostalCode.Trim(), City = request.City.Trim(),
+            Street = request.Street.Trim(), StreetNumber = request.StreetNumber.Trim(),
+            IsAdmin = false, IsEnabled = true, UsesGmail = false
         };
         db.Users.Add(user);
         await db.SaveChangesAsync();

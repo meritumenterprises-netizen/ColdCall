@@ -1,9 +1,15 @@
 <div class="imports-panel">
   <div class="imports-table" [attr.aria-busy]="loading">
     <table>
-      <thead><tr><th>ID</th><th>Data importu</th><th>Import Records</th><th>Rozpocz&#281;to</th><th>Zako&#324;czono</th><th>Czas trwania</th><th>Usu&#324;</th></tr></thead>
+      <thead><tr><th>ID</th>
+        <th *ngFor="let column of columns" [attr.aria-sort]="sortBy === column.key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+          <button type="button" class="sort-button" (click)="sort(column.key)" [disabled]="loading">{{ column.label }}
+            <span *ngIf="sortBy === column.key">{{ sortDirection === 'asc' ? '&#9650;' : '&#9660;' }}</span>
+          </button>
+        </th>
+        <th>Usu&#324;</th></tr></thead>
       <tbody>
-        <tr *ngFor="let row of imports" [class.selected]="selectedId === row.importId"
+        <tr *ngFor="let row of pagedImports" [class.selected]="selectedId === row.importId"
             tabindex="0" [attr.aria-selected]="selectedId === row.importId"
             (click)="select(row)" (keydown.enter)="select(row)" (keydown.space)="$event.preventDefault(); select(row)">
           <td>{{ row.importId }}</td><td>{{ row.importDate | date:'yyyy-MM-dd' }}</td>
@@ -11,15 +17,22 @@
           <td>{{ row.startedAt | date:'yyyy-MM-dd HH:mm:ss' }}</td>
           <td>{{ row.finishedAt ? (row.finishedAt | date:'yyyy-MM-dd HH:mm:ss') : '—' }}</td>
           <td>{{ row.duration || '—' }}</td>
+          <td>{{ (recordsPerSecond(row) | number:'1.2-2') || '—' }}</td>
           <td><button type="button" class="delete-import" title="Usu&#324;" aria-label="Usu&#324; import"
             [disabled]="deletingIds.has(row.importId)" (click)="deleteImport(row, $event)"
             (keydown)="$event.stopPropagation()">&#215;</button></td>
         </tr>
-        <tr *ngIf="loading"><td colspan="7">Wczytywanie...</td></tr>
-        <tr *ngIf="!loading && !imports.length"><td colspan="7">Brak import&#243;w.</td></tr>
+        <tr *ngIf="loading"><td colspan="8">Wczytywanie...</td></tr>
+        <tr *ngIf="!loading && !imports.length"><td colspan="8">Brak import&#243;w.</td></tr>
       </tbody>
     </table>
   </div>
+  <footer class="admin-list-pager" aria-label="Paginacja importow">
+    <span>{{ imports.length }} import&#243;w</span>
+    <button type="button" (click)="changePage(page - 1)" [disabled]="loading || page === 1">Poprzednia</button>
+    <span>Strona {{ page }} z {{ totalPages }}</span>
+    <button type="button" (click)="changePage(page + 1)" [disabled]="loading || page >= totalPages">Nast&#281;pna</button>
+  </footer>
   <div class="summary-panel">
     <label for="import-summary">Summary <span *ngIf="summaryLoading" role="status">Wczytywanie...</span></label>
     <textarea id="import-summary" readonly wrap="off" [value]="summary" [attr.aria-busy]="summaryLoading"></textarea>

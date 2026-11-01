@@ -15,12 +15,18 @@ public class StatisticsController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet("companies")]
-    [ResponseCache(Duration = 60, Location = ResponseCacheLocation.Any)]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Companies(CancellationToken cancellationToken)
     {
         try
         {
-            return Ok(new { count = await _db.Companies.LongCountAsync(cancellationToken) });
+            var now = DateTime.Now;
+            var since = now.AddDays(-7);
+            var count = await _db.Companies.LongCountAsync(cancellationToken);
+            var geoAddressCount = await _db.Adresy.LongCountAsync(cancellationToken);
+            var recentlyImportedCount = await _db.Companies.LongCountAsync(
+                company => company.ImportedOn >= since && company.ImportedOn <= now, cancellationToken);
+            return Ok(new { count, geoAddressCount, recentlyImportedCount });
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

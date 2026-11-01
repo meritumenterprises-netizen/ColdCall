@@ -48,62 +48,74 @@ public class CompaniesController : ControllerBase
         [FromQuery] string? companyStatusIds = null,
         [FromQuery] bool notesOnly = false)
     {
-        var user = await _currentUserService.GetOrCreateAsync(User);
-        var hasActivePlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow);
-        var isAdmin = user.IsAdmin;
-        if (!isAdmin && !hasActivePlan)
-        {
-            return StatusCode(StatusCodes.Status402PaymentRequired, new { message = "Plan wygasl albo nie zostal jeszcze zakupiony." });
-        }
-
-        pageSize = 10;
-        var maximumRecordLimit = await PlanRecordLimits.ForUserAsync(_db, user.Id, isAdmin);
-        if (maximumRecordLimit <= 0)
-            return StatusCode(StatusCodes.Status403Forbidden, new { message = "Plan nie pozwala na pobieranie rekordow." });
-        // The plan, not a request parameter or a saved search, determines the result cap.
-        recordLimit = maximumRecordLimit;
-        IQueryable<CompanyShortDto> query;
-        bool hasNotes;
         try
         {
-            var criteria = new SearchProfileCriteria
+            var user = await _currentUserService.GetOrCreateAsync(User);
+            var hasActivePlan = await _db.UserPlans.AnyAsync(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow);
+            var isAdmin = user.IsAdmin;
+            if (!isAdmin && !hasActivePlan)
             {
-                CompanyName = companyName ?? "", Address = address ?? "", HasPhone = hasPhone, HasEmail = hasEmail,
-                CompanyStatusIds = CompanyStatusSelection.Serialize(CompanyStatusSelection.Parse(companyStatusIds)),
-                HasWebsite = hasWebsite, DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue,
-                DateFrom = startedFrom, DateTo = startedTo, WojewodztwoId = wojewodztwoId, PowiatId = powiatId,
-                GminaId = gminaId, MiejscowoscId = miejscowoscId,
-                HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
-            };
-            var search = new CompanySearchQuery(_db);
-            query = await search.BuildAsync(criteria, pkdIds, null, addressLocality);
-            hasNotes = await search.WithUserNotes(query, user.Id).AnyAsync(HttpContext.RequestAborted);
-            if (modifiedWithinDays.HasValue)
+                return StatusCode(StatusCodes.Status402PaymentRequired, new { message = "Plan wygasl albo nie zostal jeszcze zakupiony." });
+            }
+
+            pageSize = 10;
+            var maximumRecordLimit = await PlanRecordLimits.ForUserAsync(_db, user.Id, isAdmin);
+            if (maximumRecordLimit <= 0)
+                return StatusCode(StatusCodes.Status403Forbidden, new { message = "Plan nie pozwala na pobieranie rekordow." });
+            // The plan, not a request parameter or a saved search, determines the result cap.
+            recordLimit = maximumRecordLimit;
+            IQueryable<CompanyShortDto> query;
+            bool hasNotes;
+            try
+            {
+                var criteria = new SearchProfileCriteria
+                {
+                    CompanyName = companyName ?? "", Address = address ?? "", HasPhone = hasPhone, HasEmail = hasEmail,
+                    CompanyStatusIds = CompanyStatusSelection.Serialize(CompanyStatusSelection.Parse(companyStatusIds)),
+                    HasWebsite = hasWebsite, DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue,
+                    DateFrom = startedFrom, DateTo = startedTo, WojewodztwoId = wojewodztwoId, PowiatId = powiatId,
+                    GminaId = gminaId, MiejscowoscId = miejscowoscId,
+                    HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
+                };
+                var search = new CompanySearchQuery(_db);
                 query = await search.BuildAsync(criteria, pkdIds, modifiedWithinDays, addressLocality);
-            if (notesOnly) query = search.WithUserNotes(query, user.Id);
+                hasNotes = await _db.CompanyUserNotes.AsNoTracking()
+                    .AnyAsync(note => note.UserId == user.Id && note.Notes.Trim() != "", HttpContext.RequestAborted);
+                if (hasNotes)
+                {
+                    var allResults = modifiedWithinDays.HasValue
+                        ? await search.BuildAsync(criteria, pkdIds, null, addressLocality) : query;
+                    hasNotes = await search.WithUserNotes(allResults, user.Id).AnyAsync(HttpContext.RequestAborted);
+                }
+                if (notesOnly) query = search.WithUserNotes(query, user.Id);
+            }
+            catch (ArgumentException exception)
+            {
+                return BadRequest(new { message = exception.Message });
+            }
+
+            var totalWithoutLimit = await query.CountAsync(HttpContext.RequestAborted);
+            var total = Math.Min(totalWithoutLimit, recordLimit.Value);
+            page = Math.Clamp(page, 1, Math.Max(1, (int)Math.Ceiling(total / (double)pageSize)));
+            var offset = (page - 1) * pageSize;
+            var items = await query
+                .ApplyCompanyShortSort(sortBy, direction)
+                .Skip(offset)
+                .Take(Math.Min(pageSize, total - offset))
+                .ToListAsync(HttpContext.RequestAborted);
+
+            var pageIds = items.Select(item => item.Id).ToArray();
+            var notes = await _db.CompanyUserNotes.AsNoTracking()
+                .Where(note => note.UserId == user.Id && pageIds.Contains(note.CompanyId))
+                .ToDictionaryAsync(note => note.CompanyId, note => note.Notes, HttpContext.RequestAborted);
+            foreach (var item in items)
+                item.UserNotes = notes.GetValueOrDefault(item.Id);
+            return Ok(new PagedResult<CompanyShortDto>(items, total, page, pageSize, QueryableExtensions.CompanyShortSortableColumns, totalWithoutLimit, hasNotes));
         }
-        catch (ArgumentException exception)
+        catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
         {
-            return BadRequest(new { message = exception.Message });
+            return new EmptyResult();
         }
-
-        var totalWithoutLimit = await query.CountAsync(HttpContext.RequestAborted);
-        var total = Math.Min(totalWithoutLimit, recordLimit.Value);
-        page = Math.Clamp(page, 1, Math.Max(1, (int)Math.Ceiling(total / (double)pageSize)));
-        var offset = (page - 1) * pageSize;
-        var items = await query
-            .ApplyCompanyShortSort(sortBy, direction)
-            .Skip(offset)
-            .Take(Math.Min(pageSize, total - offset))
-            .ToListAsync();
-
-        var pageIds = items.Select(item => item.Id).ToArray();
-        var notes = await _db.CompanyUserNotes.AsNoTracking()
-            .Where(note => note.UserId == user.Id && pageIds.Contains(note.CompanyId))
-            .ToDictionaryAsync(note => note.CompanyId, note => note.Notes, HttpContext.RequestAborted);
-        foreach (var item in items)
-            item.UserNotes = notes.GetValueOrDefault(item.Id);
-        return Ok(new PagedResult<CompanyShortDto>(items, total, page, pageSize, QueryableExtensions.CompanyShortSortableColumns, totalWithoutLimit, hasNotes));
     }
 
     [HttpGet("{id:int}")]
