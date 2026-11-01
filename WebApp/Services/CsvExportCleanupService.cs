@@ -59,6 +59,9 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
     public async Task<int> DeleteForUserAsync(int userId, CancellationToken token)
         => await DeleteAsync(userId, false, token);
 
+    public async Task<bool> DeleteAccountAsync(int userId, CancellationToken token)
+        => await DeleteAsync(userId, false, token, deleteAccount: true) == 1;
+
     public async Task<bool> DeleteExportAsync(int userId, int exportId, CancellationToken token)
     {
         if (userId <= 0 || exportId <= 0) return false;
@@ -135,7 +138,7 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
         return await DeleteAsync(userId, true, token);
     }
 
-    private async Task<int> DeleteAsync(int userId, bool expiredTrial, CancellationToken token)
+    private async Task<int> DeleteAsync(int userId, bool expiredTrial, CancellationToken token, bool deleteAccount = false)
     {
         if (userId <= 0) throw new ArgumentOutOfRangeException(nameof(userId));
         var configuredRoot = configuration["CSVExportFolder"];
@@ -167,6 +170,12 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
         }
         var userLock = "UserExports:" + userId;
         await LockAsync(userLock, token);
+        if (deleteAccount)
+        {
+            var user = await db.Users.FromSqlInterpolated($"SELECT * FROM ColdCall.Users WITH (UPDLOCK, HOLDLOCK) WHERE Id = {userId}")
+                .AsNoTracking().SingleOrDefaultAsync(token);
+            if (user == null || user.IsAdmin) return 0;
+        }
         var profileIds = await db.SearchProfiles.Where(p => p.AppUserId == userId).OrderBy(p => p.Id).Select(p => p.Id).ToListAsync(token);
         foreach (var profileId in profileIds) await LockAsync("CSVExport:" + profileId, token);
 
@@ -178,6 +187,12 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
                 .ExecuteDeleteAsync(token);
             if (expiredTrial)
                 await db.SearchProfiles.Where(p => p.AppUserId == userId && profileIds.Contains(p.Id)).ExecuteDeleteAsync(token);
+            if (deleteAccount)
+            {
+                await db.CompanyUserNotes.Where(note => note.UserId == userId).ExecuteDeleteAsync(token);
+                await db.UserPlans.Where(plan => plan.AppUserId == userId).ExecuteDeleteAsync(token);
+                return await db.Users.Where(user => user.Id == userId && !user.IsAdmin).ExecuteDeleteAsync(token);
+            }
             return deleted;
         }, token);
     }

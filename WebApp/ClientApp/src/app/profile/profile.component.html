@@ -24,9 +24,10 @@
         <fieldset [disabled]="saving">
           <ng-container *ngFor="let field of detailFields">
             <label [for]="'profile-' + field.key">{{ field.label }}</label>
-            <input [id]="'profile-' + field.key" [name]="field.key" [(ngModel)]="details[field.key]"
-              [required]="field.key !== 'companyName'" [maxlength]="field.max" [attr.autocomplete]="field.autocomplete"
-              [pattern]="field.key === 'postalCode' ? '[0-9]{2}-[0-9]{3}' : field.key === 'companyName' ? '.*' : '.*\\S.*'">
+            <input [id]="'profile-' + field.key" [name]="field.key" [(ngModel)]="details[field.key]" #detailInput="ngModel"
+              [required]="field.key !== 'companyName' && field.key !== 'nip'" [maxlength]="field.max" [attr.autocomplete]="field.autocomplete"
+              [pattern]="field.key === 'nip' ? '[0-9]{10}' : field.key === 'postalCode' ? '[0-9]{2}-[0-9]{3}' : field.key === 'companyName' ? '.*' : '.*\\S.*'">
+            <span *ngIf="field.key === 'nip' && detailInput.invalid && detailInput.touched" class="error" role="alert">NIP musi zawiera&#263; 10 cyfr.</span>
           </ng-container>
           <div class="profile-save">
             <div *ngIf="saveError" class="error" role="alert">{{ saveError }}</div>

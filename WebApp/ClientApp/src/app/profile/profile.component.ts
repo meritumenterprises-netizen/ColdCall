@@ -14,7 +14,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   purchasedPlan: CurrentPlan | null = null;
   plan: CurrentPlan | null = null;
   profile: UserProfile | null = null;
-  details: ProfileDetails = { firstName: '', lastName: '', companyName: '', postalCode: '', city: '', street: '', streetNumber: '' };
+  details: ProfileDetails = { firstName: '', lastName: '', companyName: '', nip: '', postalCode: '', city: '', street: '', streetNumber: '' };
   saving = false;
   saveError = '';
   saveMessage = '';
@@ -23,6 +23,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     { key: 'firstName', label: 'Imi\u0119', max: 100, autocomplete: 'given-name' },
     { key: 'lastName', label: 'Nazwisko', max: 100, autocomplete: 'family-name' },
     { key: 'companyName', label: 'Nazwa firmy', max: 200, autocomplete: 'organization' },
+    { key: 'nip', label: 'NIP', max: 10, autocomplete: 'off' },
     { key: 'postalCode', label: 'Kod pocztowy', max: 6, autocomplete: 'postal-code' },
     { key: 'city', label: 'Miasto', max: 100, autocomplete: 'address-level2' },
     { key: 'street', label: 'Ulica', max: 200, autocomplete: 'address-line1' },
@@ -32,9 +33,10 @@ export class ProfileComponent implements OnInit, OnDestroy {
   saveDetails() {
     if (this.saving) { return; }
     this.saveError = ''; this.saveMessage = '';
-    if (this.detailFields.some(field => field.key !== 'companyName' && !this.details[field.key].trim())
+    if (this.detailFields.some(field => field.key !== 'companyName' && field.key !== 'nip' && !this.details[field.key].trim())
+      || (!!this.details.nip && !/^[0-9]{10}$/.test(this.details.nip))
       || !/^[0-9]{2}-[0-9]{3}$/.test(this.details.postalCode)) {
-      this.saveError = 'Uzupelnij wymagane pola i kod pocztowy w formacie 00-000.'; return;
+      this.saveError = 'Uzupelnij wymagane pola, kod pocztowy (00-000) oraz NIP (10 cyfr), jesli podano.'; return;
     }
     const details = { ...this.details };
     this.saving = true;

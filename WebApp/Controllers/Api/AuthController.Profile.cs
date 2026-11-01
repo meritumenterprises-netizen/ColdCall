@@ -9,6 +9,7 @@ public partial class AuthController
     public async Task<IActionResult> UpdateProfile(UpdateProfileRequest request)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
+        user.Nip = string.IsNullOrWhiteSpace(request.Nip) ? null : request.Nip.Trim();
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.CompanyName = string.IsNullOrWhiteSpace(request.CompanyName) ? null : request.CompanyName.Trim();

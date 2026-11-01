@@ -1,4 +1,5 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { isFutureActivityDate } from '../services/activity-date';
 import { from, Observable, of, Subscription, timer } from 'rxjs';
 import { catchError, concatMap, finalize, map, switchMap, take, timeout } from 'rxjs/operators';
@@ -138,7 +139,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     { key: 'details', label: 'Szczeg\u00f3\u0142y' }
   ];
 
-  constructor(private api: ApiService) {}
+  @Input() publicPageTitle = '';
+  constructor(private api: ApiService, private route: ActivatedRoute, private router: Router) {}
 
   ngOnInit() {
     const user = this.api.user();
@@ -148,6 +150,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.appliedFilters = { ...this.filterDraft };
     this.lastUpdatedFilterState = this.filterState();
     this.loadSearches();
+    if (this.publicPageTitle) { return; }
     this.loadCompanyStatuses();
     this.loadPkds();
   }
@@ -173,11 +176,22 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.searchesRequest = this.api.searches().subscribe(profiles => {
       this.searches = profiles;
       this.searchesLoaded = true;
-      if (profiles.length) { this.selectSearch(profiles[0]); }
+      if (this.publicPageTitle) {
+        this.restoringSearch = false;
+        this.refreshSearchCounts(profiles);
+        return;
+      }
+      const requested = Number(this.route.snapshot.queryParams.searchId);
+      if (this.route.snapshot.queryParams.newSearch === 'true') { this.restoringSearch = false; this.newSearch(); }
+      else if (profiles.length) {
+        this.selectSearch(profiles.find(profile => profile.id === requested) || profiles[0]);
+        if (this.route.snapshot.queryParams.view === 'csv') { this.selectDashboardTab('export'); }
+      }
       else { this.restoringSearch = false; this.loadAddressOptions(0); this.loadCompanies(); }
       this.refreshSearchCounts(profiles);
     }, () => {
       this.restoringSearch = false;
+      if (this.publicPageTitle) { this.filterError = 'Nie udalo sie pobrac zapisanych wyszukiwan.'; return; }
       this.loadAddressOptions(0);
       this.loadCompanies();
       this.filterError = 'Nie udalo sie pobrac zapisanych wyszukiwan.';
@@ -284,6 +298,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   newSearch() {
+    if (this.publicPageTitle) { this.router.navigate(['/dashboard'], { queryParams: { newSearch: 'true' } }); return; }
     if (!this.canAddSearch || this.savingSearch || this.restoringSearch || this.classifyingPkd) { return; }
     this.rememberDraft();
     this.activeDashboardTab = 'search';
@@ -340,6 +355,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   openSearchExports(profile: SearchProfile) {
+    if (this.publicPageTitle) { this.router.navigate(['/dashboard'], { queryParams: { searchId: profile.id, view: 'csv' } }); return; }
     if (profile.id <= 0 || this.searchPlanExpired || this.savingSearch || this.restoringSearch || this.classifyingPkd || this.exportingCsv) { return; }
     if (profile.id !== this.currentSearchId) { this.selectSearch(profile); }
     if (profile.id === this.currentSearchId) { this.selectDashboardTab('export'); }
@@ -858,6 +874,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   selectSearch(profile: SearchProfile) {
+    if (this.publicPageTitle) { this.router.navigate(['/dashboard'], { queryParams: { searchId: profile.id } }); return; }
     if (this.savingSearch || this.classifyingPkd || this.exportingCsv) { return; }
     if (profile.id === this.currentSearchId) { this.selectDashboardTab('search'); return; }
     this.rememberDraft();

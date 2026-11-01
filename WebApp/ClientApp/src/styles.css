@@ -57,7 +57,7 @@ button, input, textarea, select {
 .topbar nav a.active, .topbar nav a:hover { background: var(--accent-soft); color: var(--accent-strong); }
 
 .login-shell {
-  min-height: 100vh;
+  min-height: calc(100vh - 64px);
   display: grid;
   grid-template-columns: minmax(300px, 1fr) 430px;
   gap: 32px;
@@ -73,7 +73,7 @@ button, input, textarea, select {
   background: var(--accent); color: white; border-radius: 8px; font-weight: 650; margin-bottom: 28px;
 }
 .login-art h1 { font-size: 44px; margin: 0 0 18px; }
-.login-art p { max-width: 560px; color: #4b5563; font-size: 20px; line-height: 1.5; }
+.login-art p { width: 100%; max-width: 100%; overflow-wrap: anywhere; color: #4b5563; font-size: 20px; line-height: 1.5; }
 
 .login-card, .data-panel, .plan-card, .user-row {
   background: white;
@@ -389,7 +389,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outlin
 .primary-button:hover:not(:disabled) { background: var(--accent-strong); }
 .ghost-button, .pager button { border: 1px solid var(--border); background: var(--surface); font-weight: 500; }
 .ghost-button:hover:not(:disabled), .pager button:hover:not(:disabled) { background: var(--surface-hover); }
-.logo { font-weight: 650; color: var(--text-primary); }
+.logo { font-weight: 650; color: var(--accent); }
 .topbar { background: var(--surface-page); }
 .sidebar { background: var(--surface-page); padding: 22px 16px; }
 .sidebar-title { font-size: 13px; font-weight: 600; }

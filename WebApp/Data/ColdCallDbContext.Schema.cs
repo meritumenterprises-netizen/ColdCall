@@ -106,6 +106,7 @@ public partial class ColdCallDbContext
             entity.Property(x => x.FirstName).HasMaxLength(100).IsRequired(false);
             entity.Property(x => x.LastName).HasMaxLength(100).IsRequired(false);
             entity.Property(x => x.CompanyName).HasMaxLength(200).IsRequired(false);
+            entity.Property(x => x.Nip).HasMaxLength(10).IsRequired(false);
             entity.Property(x => x.PostalCode).HasMaxLength(20).IsRequired(false);
             entity.Property(x => x.City).HasMaxLength(100).IsRequired(false);
             entity.Property(x => x.Street).HasMaxLength(200).IsRequired(false);

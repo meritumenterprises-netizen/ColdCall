@@ -1,4 +1,5 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { isFutureActivityDate } from '../services/activity-date';
 import { Subscription, timer } from 'rxjs';
 import { finalize } from 'rxjs/operators';
@@ -98,6 +99,21 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   get currentUserId(): number | null {
     const user = this.api.user();
     return user ? user.id : null;
+  }
+  deleteUserAccount(userId: number) {
+    const user = this.users.find(item => item.id === userId);
+    if (!user || user.isAdmin || this.currentUserId === null || userId === this.currentUserId || this.busyUserIds.has(userId)) { return; }
+    if (!window.confirm('Czy naprawd\u0119 chcesz usun\u0105\u0107 konto ' + user.googleEmail
+      + '? Zostan\u0105 usuni\u0119te tak\u017ce plany, wyszukiwania, notatki, historia zakup\u00f3w, dane logowania i pliki CSV. Tej operacji nie mo\u017cna cofn\u0105\u0107.')) { return; }
+    this.busyUserIds.add(userId);
+    this.message = '';
+    const request = this.api.deleteUserAccount(userId).pipe(finalize(() => this.busyUserIds.delete(userId))).subscribe(() => {
+      this.users = this.users.filter(item => item.id !== userId);
+      if (this.selectedUserId === userId) { this.selectedUserId = null; }
+      this.usersPage = Math.min(this.usersPage, this.usersTotalPages);
+      this.message = 'Konto zosta\u0142o usuni\u0119te.';
+    }, err => this.message = err.error && err.error.message ? err.error.message : 'Nie uda\u0142o si\u0119 usun\u0105\u0107 konta.');
+    this.userActionRequests.add(request);
   }
   updateUserAdmin(userId: number, isAdmin: boolean) {
     const user = this.users.find(item => item.id === userId);
@@ -457,11 +473,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   ];
 
   maintenanceMode = false;
-  constructor(private api: ApiService) {
+  @Input() publicPageTitle = '';
+  constructor(private api: ApiService, private route: ActivatedRoute, private router: Router) {
     this.maintenanceMode = this.api.takeAdminMaintenanceNotice();
   }
 
+  openAdminTab(tab: string) {
+    this.router.navigate(['/admin'], { queryParams: { tab } });
+  }
+
   ngOnInit() {
+    if (this.publicPageTitle) { return; }
+    const tab = this.route.snapshot.queryParams.tab;
+    if (['companies', 'users', 'plans', 'imports', 'global-settings'].includes(tab)) { this.tab = tab; }
     this.loadCompanyStatuses();
     this.loadPkds();
     this.loadAddressOptions(0);

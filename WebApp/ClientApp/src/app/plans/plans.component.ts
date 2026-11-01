@@ -13,19 +13,25 @@ export class PlansComponent implements OnInit {
 
   constructor(private api: ApiService) {}
 
+  get hasHighestPlan(): boolean {
+    const user = this.api.user();
+    return !!user && !user.isAdmin && user.hasActivePlan && !!user.plan && user.plan.code.toUpperCase() === 'PX50';
+  }
+
   get canReturnToDashboard(): boolean {
     const user = this.api.user();
     return !!user && (user.isAdmin || user.hasActivePlan);
   }
 
   ngOnInit() {
+    if (this.hasHighestPlan) { return; }
     this.api.plans().subscribe(x => {
       this.plans = x;
     });
   }
 
   buy(plan: Plan) {
-    if (!plan.canPurchase || this.buying) { return; }
+    if (this.hasHighestPlan || !plan.canPurchase || this.buying) { return; }
     this.buying = true;
     this.error = '';
 
