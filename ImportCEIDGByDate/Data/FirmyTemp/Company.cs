@@ -28,6 +28,7 @@ public partial class Company
     public int? PowiatId { get; set; }
 
     public string? PostalCode { get; set; }
+    public string? AddressSort { get; set; }
 
     public string? Street { get; set; }
 

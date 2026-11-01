@@ -149,6 +149,7 @@ public partial class FirmyTempDbContext : DbContext
             entity.Property(e => e.FirstName).HasMaxLength(128);
             entity.Property(e => e.LastName).HasMaxLength(128);
             entity.Property(e => e.PostalCode).HasMaxLength(8);
+            entity.Property(e => e.AddressSort).HasMaxLength(1400);
             entity.Property(e => e.Street).HasMaxLength(1024);
             entity.Property(e => e.BuildingNumber).HasMaxLength(32);
             entity.Property(e => e.ApartmentNumber).HasMaxLength(32);

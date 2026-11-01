@@ -1,0 +1,1 @@
+﻿start "" /wait /affinity F ImportCEIDGByDate.exe 2026-10-29

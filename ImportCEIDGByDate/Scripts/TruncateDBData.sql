@@ -1,0 +1,5 @@
+﻿USE [Firmy_temp];
+GO
+
+DBCC SHRINKFILE (N'Firmy', TRUNCATEONLY);
+GO

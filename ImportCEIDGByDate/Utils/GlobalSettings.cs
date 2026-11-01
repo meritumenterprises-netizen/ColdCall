@@ -34,5 +34,7 @@ namespace ImportCEIDGByDate.Utils
         public bool SkipImportDeferredAddressesAsync { get; set; } = false;
 
         public bool SkipProcessingAddresses { get; set; }
+
+        public bool UpdateSQLStatistics { get; set; } = true;
     }
 }

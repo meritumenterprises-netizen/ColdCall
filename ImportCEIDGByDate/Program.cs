@@ -82,9 +82,7 @@ var import = new ImportByDate
 firmyTempDbContext.ImportByDates.Add(import);
 await firmyTempDbContext.SaveChangesAsync();
 
-globalSettings.TruncateImportOriginAtTheEnd = false;
-globalSettings.TruncateImportTargetAtTheEnd = false;
-globalSettings.SkipProcessingAddresses = true;
+globalSettings.SkipProcessingAddresses = false;
 
 statistics.FinishCurrentPhase("Initialization complete.");
 
@@ -116,8 +114,8 @@ if (statistics.NewReports.Values.Sum(reports => reports.Count) == 0)
     goto summary;
 }
 
-globalSettings.TruncateImportOriginAtTheEnd = false;
-globalSettings.TruncateImportTargetAtTheEnd = false;
+globalSettings.TruncateImportOriginAtTheEnd = true;
+globalSettings.TruncateImportTargetAtTheEnd = true;
 //globalSettings.SkipImportOldFiles = true;
 //globalSettings.SkipImportNewFiles = true;
 //globalSettings.SkipDownloadOldFiles = true;
@@ -146,10 +144,7 @@ await ceidgImporter.ImportNewFiles();
 //await ceidgImporter.RemoveNIPsPresentInImportTargetFromImportSource();
 await ceidgImporter.UpdateImportTargetMetadata();
 
-var ceidgUpdater = new CeidgCompanyUpdater(statistics, firmyTempRepository, firmyImportRepository, firmyImportDbContext, firmyTempDbContext, globalSettings)
-{
-    DeferAddressAssignment = false
-};
+var ceidgUpdater = new CeidgCompanyUpdater(statistics, firmyTempRepository, firmyImportRepository, firmyImportDbContext, firmyTempDbContext, globalSettings);
 
 await ceidgUpdater.AddNewCompaniesFromImportTargetToTemp();
 await ceidgUpdater.UpdateExistingCompaniesFromImportTargetToTemp();
@@ -157,7 +152,8 @@ await ceidgUpdater.UpdateExistingCompaniesFromImportTargetToTemp();
 var ceidgCompanyXmlUpdater = new CeidgCompanyXmlUpdater(statistics, firmyTempRepository, firmyImportRepository, firmyImportDbContext, firmyTempDbContext, globalSettings);
 await ceidgCompanyXmlUpdater.UpdateCompaniesXml();
 
-
+var ceidgUpdateSQLStatistics = new CeidgUpdateSQLStatistics(statistics, globalSettings, firmyTempDbContext);
+await ceidgUpdateSQLStatistics.UpdateSQLStatistics();
 
 summary:
 

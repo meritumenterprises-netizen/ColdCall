@@ -44,6 +44,8 @@ namespace ImportCEIDGByDate
             xmlDoc.LoadXml(xml);
             company.BusinessType = 1; // Jednoosobowa dzialalność gospodarcza
             company.WojewodztwoId = wojewodztwoId;
+            if (wojewodztwoId == 1)
+                company.SkipAddressVerification = true;
             
             company.Name = xmlDoc.GetInnerTextOrEmpty("NazwaPodmiotu");
             company.FirstName = xmlDoc.GetInnerTextOrEmpty("Imie");
@@ -73,6 +75,7 @@ namespace ImportCEIDGByDate
             {
                 company.MiejscowoscId = Lookups.CityId(xmlDoc.GetInnerTextOrEmpty("Miejscowosc"));
             }
+            company.AddressSort = CompanyAddressSort.Build(company, Lookups.CityName(company.MiejscowoscId));
             #endregion
 
             #region Statusy działalności
@@ -180,6 +183,8 @@ namespace ImportCEIDGByDate
 
             company.BusinessType = 1; // Jednoosobowa dzialalność gospodarcza
             company.WojewodztwoId = wojewodztwoId;
+            if (wojewodztwoId == 1)
+                company.SkipAddressVerification = true;
             company.Name = xmlDoc.GetInnerTextOrEmpty("NazwaPodmiotu");
             company.FirstName = xmlDoc.GetInnerTextOrEmpty("Imie");
             company.LastName = xmlDoc.GetInnerTextOrEmpty("Nazwisko");
@@ -208,6 +213,7 @@ namespace ImportCEIDGByDate
             {
                 company.MiejscowoscId = Lookups.CityId(xmlDoc.GetInnerTextOrEmpty("Miejscowosc"));
             }
+            company.AddressSort = CompanyAddressSort.Build(company, Lookups.CityName(company.MiejscowoscId));
             #endregion
 
             #region Statusy działalności

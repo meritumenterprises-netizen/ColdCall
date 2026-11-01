@@ -235,11 +235,14 @@ namespace ImportCEIDGByDate
             {
                 await importRepository.PrepareReportHistoryAsync(Statistics.NewDate);
                 PartialDownloadCleanup.ForFolder(this.Statistics.NewFilesFolder);
-                Statistics.StartNewPhase(ImportPhasesEnum.DownloadNewFiles, $"Downloading new files for date {Statistics.NewDate:yyyy-MM-ss}");
-                Statistics.CurrentPhase.EntriesCount = this.Statistics.NewFilesCount;
-                Console.WriteLine($"Downloading {this.Statistics.NewFilesCount} files for {this.Statistics.NewDate.ToString("yy-MM-dd")}");
-
-                var skippedReportCount = 0;
+                var downloadedUrls = await importRepository.GetDownloadedReportUrlsAsync(Statistics.NewDate);
+                var totalDownloads = Statistics.NewReports.Values.SelectMany(reports => reports)
+                    .Where(report => !string.IsNullOrWhiteSpace(report.Report) && !downloadedUrls.Contains(report.Report))
+                    .Select(report => report.Report).Distinct(StringComparer.Ordinal).Count();
+                var downloadPhase = Statistics.StartNewPhase(ImportPhasesEnum.DownloadNewFiles,
+                    $"Downloading new files for date {Statistics.NewDate:yyyy-MM-dd}");
+                Console.WriteLine($"Downloading {totalDownloads} files for {Statistics.NewDate:yyyy-MM-dd}");
+                var downloadNumber = 0;
 
                 foreach (var wojewodztwoPlik in this.Statistics.NewReports.Keys)
                 {
@@ -256,11 +259,10 @@ namespace ImportCEIDGByDate
                             if (!File.Exists(fullFile) && !File.Exists(xmlFile))
                                 throw new FileNotFoundException("Local report has no URL or existing ZIP/XML.", xmlFile);
                             Console.WriteLine($"\tLocal report {ceidgReport.FileName} exists; no download URL.");
-                            skippedReportCount++;
                             Statistics.FinishChildPhase("Local file", 0);
                             continue;
                         }
-                        if (await importRepository.WasReportDownloadedAsync(Statistics.NewDate, ceidgReport.Report))
+                        if (downloadedUrls.Contains(ceidgReport.Report))
                         {
                             Console.WriteLine($"\tReport already downloaded for {Statistics.NewDate:yyyy-MM-dd}: {ceidgReport.Report}; skipping download.");
                             if (!File.Exists(fullFile) && !File.Exists(xmlFile))
@@ -268,24 +270,22 @@ namespace ImportCEIDGByDate
                                 throw new FileNotFoundException(
                                     "Report is already recorded in ImportReports, but its ZIP/XML is missing. Restore the local file before importing; download was skipped.", xmlFile);
                             }
-                            skippedReportCount++;
                             Statistics.FinishChildPhase("Already downloaded", 0);
                             continue;
                         }
                         Stopwatch sw = Stopwatch.StartNew();
-                        Console.Write($"\tDownloading {ceidgReport.Report}... ");
+                        downloadNumber++;
+                        Console.Write($"\tDownloading {downloadNumber}/{totalDownloads} {ceidgReport.Report}... ");
                         await DownloadIndividualFile(ceidgReport, this.Statistics.NewFilesFolder, ceidgReport.FileNameZip);
                         await importRepository.RecordDownloadedReportAsync(Statistics.NewDate, ceidgReport.Report);
+                        downloadedUrls.Add(ceidgReport.Report);
                         sw.Stop();
                         Console.WriteLine($"Done in {sw.Elapsed.TotalSeconds:F2} second(s).");
                         Statistics.FinishChildPhase("Downloaded", 1);
                     }
                 }
-                if (Statistics.CurrentPhase.EntriesCount == skippedReportCount)
-                {
-                    Statistics.CurrentPhase.PhaseSkipped = true;
-                }
-                Statistics.FinishCurrentPhase("Finished");
+                downloadPhase.PhaseSkipped = totalDownloads == 0;
+                Statistics.FinishCurrentPhase("Finished", downloadNumber);
             }
         }
 
