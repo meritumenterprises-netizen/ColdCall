@@ -1,0 +1,9 @@
+table { width: 100%; table-layout: fixed; }
+.admin-list-pager { margin-top: 10px; }
+th:first-child { width: 80px; }
+th:nth-child(2) { width: 220px; }
+td { overflow-wrap: anywhere; }
+td:nth-child(2) { white-space: nowrap; }
+.sort-button { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+.sort-indicator { display: inline-block; width: 12px; font-size: 10px; }
+@media (max-width: 600px) { th:first-child { width: 50px; } th:nth-child(2) { width: 150px; } td, th { padding: 8px 4px; font-size: 12px; } }

@@ -344,7 +344,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     if (this.classificationRequest) { this.classificationRequest.unsubscribe(); }
     this.addressFields.forEach(field => { if (field.request) { field.request.unsubscribe(); } });
   }
-  tab: 'companies' | 'users' | 'plans' | 'imports' | 'global-settings' | 'regulamin' = 'companies';
+  tab: 'companies' | 'users' | 'plans' | 'imports' | 'global-settings' | 'regulamin' | 'logins' = 'companies';
   companies: Company[] = [];
   users: AppUser[] = [];
   selectedUserId: number | null = null;
@@ -485,7 +485,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   ngOnInit() {
     if (this.publicPageTitle) { return; }
     const tab = this.route.snapshot.queryParams.tab;
-    if (['companies', 'users', 'plans', 'imports', 'global-settings', 'regulamin'].includes(tab)) { this.tab = tab; }
+    if (['companies', 'users', 'plans', 'imports', 'global-settings', 'regulamin', 'logins'].includes(tab)) { this.tab = tab; }
     this.loadCompanyStatuses();
     this.loadPkds();
     this.loadAddressOptions(0);

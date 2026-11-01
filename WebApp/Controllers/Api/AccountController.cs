@@ -148,6 +148,7 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
             await trials.EnsureAssignedAsync(user.Id, HttpContext.RequestAborted);
         }
         user.LastLoginAtUtc = DateTime.UtcNow;
+        UserLoginHistory.Add(db, user);
         await db.SaveChangesAsync();
         var session = LocalAuthentication.SessionProperties();
         await HttpContext.SignInAsync(LocalAuthentication.Scheme, LocalAuthentication.Principal(account), session);

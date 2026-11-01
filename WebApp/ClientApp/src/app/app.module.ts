@@ -21,6 +21,7 @@ import { AdminPlansComponent } from './admin-dashboard/admin-plans.component';
 import { AdminImportsComponent } from './admin-dashboard/admin-imports.component';
 import { AdminGlobalSettingsComponent } from './admin-dashboard/admin-global-settings.component';
 import { AdminRegulaminComponent } from './admin-dashboard/admin-regulamin.component';
+import { AdminLoginsComponent } from './admin-dashboard/admin-logins.component';
 import { TermsDialogComponent } from './terms-dialog/terms-dialog.component';
 import { AdminUserPaymentsComponent } from './admin-dashboard/admin-user-payments.component';
 import { PlansComponent } from './plans/plans.component';
@@ -47,6 +48,7 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
     AdminImportsComponent,
     AdminGlobalSettingsComponent,
     AdminRegulaminComponent,
+    AdminLoginsComponent,
     TermsDialogComponent,
     AdminUserPaymentsComponent,
     PlansComponent,
