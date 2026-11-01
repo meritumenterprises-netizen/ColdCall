@@ -16,8 +16,11 @@ public partial class AdminController
         if (!request.IsAdmin.HasValue)
             return BadRequest(new { message = "Podaj uprawnienia administratora." });
         var isAdmin = request.IsAdmin.Value;
-        var updated = await _db.Users.Where(user => user.Id == id && user.Id != admin.Id)
+        var updated = await _db.Users.Where(user => user.Id == id && user.Id != admin.Id && (!user.IsAdmin || isAdmin))
             .ExecuteUpdateAsync(setters => setters.SetProperty(user => user.IsAdmin, isAdmin), token);
-        return updated == 1 ? Ok(new { IsAdmin = isAdmin }) : NotFound();
+        if (updated == 1) return Ok(new { IsAdmin = isAdmin });
+        if (await _db.Users.AnyAsync(user => user.Id == id && user.IsAdmin, token))
+            return BadRequest(new { message = "Nie mozesz odebrac uprawnien innemu administratorowi." });
+        return NotFound();
     }
 }

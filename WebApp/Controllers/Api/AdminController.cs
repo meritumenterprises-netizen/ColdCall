@@ -182,7 +182,7 @@ public partial class AdminController : ControllerBase
             .Select(city => city.Name).FirstOrDefaultAsync() ?? "";
         _db.Entry(company).Property<string>("AddressSort").CurrentValue = cityName + " " + (company.PostalCode ?? "")
             + " " + (company.Street ?? "") + " " + (company.BuildingNumber ?? "")
-            + (company.ApartmentNumber == null ? "" : "/" + company.ApartmentNumber);
+            + (string.IsNullOrWhiteSpace(company.ApartmentNumber) ? "" : "/" + company.ApartmentNumber.Trim());
         company.Phone = request.Phone;
         company.Email = request.Email;
         company.GoogleEmail = request.GoogleEmail;

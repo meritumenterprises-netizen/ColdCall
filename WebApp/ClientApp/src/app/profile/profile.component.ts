@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild 
 import { Subscription } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ApiService, CurrentPlan, StripePurchase, UserProfile } from '../services/api.service';
+import { ApiService, CurrentPlan, StripePurchase, UserProfile, ProfileDetails } from '../services/api.service';
 
 @Component({
   selector: 'app-profile',
@@ -14,6 +14,35 @@ export class ProfileComponent implements OnInit, OnDestroy {
   purchasedPlan: CurrentPlan | null = null;
   plan: CurrentPlan | null = null;
   profile: UserProfile | null = null;
+  details: ProfileDetails = { firstName: '', lastName: '', companyName: '', postalCode: '', city: '', street: '', streetNumber: '' };
+  saving = false;
+  saveError = '';
+  saveMessage = '';
+  private saveRequest: Subscription | null = null;
+  detailFields = [
+    { key: 'firstName', label: 'Imi\u0119', max: 100, autocomplete: 'given-name' },
+    { key: 'lastName', label: 'Nazwisko', max: 100, autocomplete: 'family-name' },
+    { key: 'companyName', label: 'Nazwa firmy', max: 200, autocomplete: 'organization' },
+    { key: 'postalCode', label: 'Kod pocztowy', max: 6, autocomplete: 'postal-code' },
+    { key: 'city', label: 'Miasto', max: 100, autocomplete: 'address-level2' },
+    { key: 'street', label: 'Ulica', max: 200, autocomplete: 'address-line1' },
+    { key: 'streetNumber', label: 'Nr ulicy/lokalu', max: 50, autocomplete: 'address-line2' }
+  ];
+
+  saveDetails() {
+    if (this.saving) { return; }
+    this.saveError = ''; this.saveMessage = '';
+    if (this.detailFields.some(field => field.key !== 'companyName' && !this.details[field.key].trim())
+      || !/^[0-9]{2}-[0-9]{3}$/.test(this.details.postalCode)) {
+      this.saveError = 'Uzupelnij wymagane pola i kod pocztowy w formacie 00-000.'; return;
+    }
+    const details = { ...this.details };
+    this.saving = true;
+    this.saveRequest = this.api.updateProfile(details).pipe(finalize(() => this.saving = false)).subscribe(() => {
+      if (this.profile) { Object.assign(this.profile, details, { displayName: details.firstName.trim() + ' ' + details.lastName.trim() }); }
+      this.saveMessage = 'Dane zostaly zapisane.';
+    }, () => this.saveError = 'Nie udalo sie zapisac danych. Sprobuj ponownie.');
+  }
   loading = true;
   error = '';
   private request: Subscription | null = null;
@@ -76,6 +105,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     this.error = '';
     this.request = this.api.profile().pipe(finalize(() => this.loading = false)).subscribe(user => {
       this.profile = user;
+      this.detailFields.forEach(field => this.details[field.key] = user[field.key] || '');
       this.plan = user.plan || null;
       if (this.isPurchasesPanel) {
         if (user.isAdmin) { this.router.navigateByUrl('/profile/data', { replaceUrl: true }); return; }
@@ -93,6 +123,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.saveRequest) { this.saveRequest.unsubscribe(); }
     if (this.request) { this.request.unsubscribe(); }
     if (this.purchasesRequest) { this.purchasesRequest.unsubscribe(); }
   }

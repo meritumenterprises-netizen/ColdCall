@@ -135,13 +135,11 @@ public partial class ColdCallDbContext
             entity.HasIndex(x => x.ImportedOn).HasDatabaseName("IX_Companies_ImportedOn");
             entity.HasIndex(x => new { x.StatusDzialalnosciId, x.DataModifiedOn, x.Id })
                 .HasDatabaseName("IX_Companies_Status_DataModifiedOn_Id").IncludeProperties(nameof(Company.StartedAt));
-            entity.Property<string>("AddressSort").HasMaxLength(1400);
-            entity.Property<string>("AddressSortPrefix").HasMaxLength(800)
-                .HasComputedColumnSql("CONVERT(nvarchar(800), LEFT([AddressSort], 800))", stored: true);
-            entity.HasIndex("AddressSortPrefix", nameof(Company.Id)).HasDatabaseName("IX_Companies_AddressSortPrefix_Id")
-                .IncludeProperties("AddressSort", nameof(Company.StatusDzialalnosciId));
-            entity.HasIndex(new[] { "AddressSortPrefix", nameof(Company.Id) }, "IX_Companies_AddressSortPrefixDesc_Id")
-                .IsDescending(true, false).IncludeProperties("AddressSort", nameof(Company.StatusDzialalnosciId));
+            entity.Property<string>("AddressSort").HasMaxLength(800);
+            entity.HasIndex("AddressSort", nameof(Company.Id)).HasDatabaseName("IX_Companies_AddressSort_Id")
+                .IncludeProperties(nameof(Company.StatusDzialalnosciId));
+            entity.HasIndex(new[] { "AddressSort", nameof(Company.Id) }, "IX_Companies_AddressSortDesc_Id")
+                .IsDescending(true, false).IncludeProperties(nameof(Company.StatusDzialalnosciId));
             entity.HasIndex(x => new { x.StartedAt, x.Id }).HasDatabaseName("IX_Companies_StartedAt_Id")
                 .IsDescending(true, false).IncludeProperties(nameof(Company.WojewodztwoId));
             entity.Property(x => x.BatchImported).HasColumnType("bit").IsRequired().HasDefaultValue(false);

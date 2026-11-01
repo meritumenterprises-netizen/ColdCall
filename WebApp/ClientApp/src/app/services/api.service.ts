@@ -75,7 +75,8 @@ export interface SearchCriteria {
 export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; hasCsvExports?: boolean; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; order: number; canPurchase: boolean; }
 export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; enableCSVDeleting: boolean; expiresAtUtc: string; isExpired?: boolean; }
-export interface UserProfile { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }
+export interface ProfileDetails { firstName: string; lastName: string; companyName: string; postalCode: string; city: string; street: string; streetNumber: string; }
+export interface UserProfile extends ProfileDetails { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }
 export interface StripePurchase {
   planCode: string; maxNumberOfSearches: number; maxNumberOfCSVExportsPerSearch: number | null;
   maxNumberOfExportedRecords: number | null; amountPaid: number; paidAtUtc: string;
@@ -264,6 +265,7 @@ export class ApiService {
     return this.http.get<{ applicationInService: boolean }>(this.url('/api/system/status'));
   }
   profile(): Observable<UserProfile> { return this.http.get<UserProfile>(this.url('/api/auth/profile'), this.headers()); }
+  updateProfile(details: ProfileDetails) { return this.http.put<void>(this.url('/api/auth/profile'), details, this.headers()); }
   purchases(sortBy = 'paidAtUtc', direction = 'desc'): Observable<StripePurchase[]> {
     return this.http.get<StripePurchase[]>(this.url('/api/auth/purchases'), { ...this.headers(), params: { sortBy, direction } });
   }

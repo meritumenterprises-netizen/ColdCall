@@ -46,7 +46,7 @@
         <section id="admin-criteria-panel" role="tabpanel" [hidden]="activeFilterTab !== 'criteria'">
           <div class="admin-company-name-filter">
             <label for="admin-company-name">Nazwa firmy</label>
-            <input id="admin-company-name" [(ngModel)]="filters.companyName" (ngModelChange)="updateFilters(true)" (keydown.enter)="$event.preventDefault(); updateFilters()" placeholder="Min. 3 znaki" maxlength="1000">
+            <input id="admin-company-name" [(ngModel)]="filters.companyName" (ngModelChange)="updateCompanyName()" (keydown.enter)="$event.preventDefault(); updateCompanyName(false)" placeholder="Min. 3 znaki" maxlength="1000">
           </div>
           <div class="admin-presence-row">
             <div class="admin-presence-criterion" *ngFor="let key of ['hasPhone', 'hasEmail', 'hasWebsite']">
@@ -211,8 +211,8 @@
               </td>
               <td class="admin-plan-purchase-cell">
                 <input type="checkbox" [checked]="row.isAdmin"
-                       [disabled]="currentUserId === null || row.id === currentUserId || busyUserIds.has(row.id)"
-                       [attr.aria-readonly]="row.id === currentUserId ? 'true' : null"
+                       [disabled]="currentUserId === null || row.isAdmin || row.id === currentUserId || busyUserIds.has(row.id)"
+                       [attr.aria-readonly]="row.isAdmin || row.id === currentUserId ? 'true' : null"
                        [attr.aria-label]="'Admin: ' + row.googleEmail"
                        (change)="updateUserAdmin(row.id, $event.target.checked)">
               </td>
