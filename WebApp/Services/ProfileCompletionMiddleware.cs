@@ -8,7 +8,7 @@ public class ProfileCompletionMiddleware(RequestDelegate next)
 {
     private static readonly HashSet<string> AllowedPaths = new(StringComparer.OrdinalIgnoreCase)
     {
-        "/api/auth/session", "/api/auth/me", "/api/auth/terms", "/api/auth/profile"
+        "/api/auth/session", "/api/auth/me", "/api/auth/terms", "/api/auth/profile", "/api/public/regulamin"
     };
 
     public async Task InvokeAsync(HttpContext context, ColdCallDbContext db)

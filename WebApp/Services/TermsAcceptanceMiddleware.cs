@@ -8,7 +8,7 @@ public class TermsAcceptanceMiddleware(RequestDelegate next)
 {
     private static readonly HashSet<string> AllowedPaths = new(StringComparer.OrdinalIgnoreCase)
     {
-        "/api/auth/session", "/api/auth/me", "/api/auth/terms"
+        "/api/auth/session", "/api/auth/me", "/api/auth/terms", "/api/public/regulamin"
     };
 
     public async Task InvokeAsync(HttpContext context, ColdCallDbContext db)

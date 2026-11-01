@@ -11,6 +11,7 @@ import { LoginComponent } from './login/login.component';
 import { TurnstileComponent } from './login/turnstile.component';
 import { LandingMenuComponent } from './login/landing-menu.component';
 import { PublicPageComponent } from './login/public-page.component';
+import { PublicRegulaminComponent } from './login/public-regulamin.component';
 import { PublicPageGuard } from './public-page.guard';
 import { MaintenanceComponent } from './maintenance/maintenance.component';
 import { MaintenanceGuard } from './maintenance/maintenance.guard';
@@ -40,6 +41,7 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
     TurnstileComponent,
     LandingMenuComponent,
     PublicPageComponent,
+    PublicRegulaminComponent,
     MaintenanceComponent,
     UserDashboardComponent,
     AddressListboxComponent,
