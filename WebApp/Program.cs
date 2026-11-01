@@ -257,7 +257,6 @@ static async Task EnsureDatabaseSchemaAsync(ColdCallDbContext db)
         await using var command = connection.CreateCommand();
         var appTables = new[]
         {
-            "AdminEmails",
             "Companies",
             "CompanyPkds",
             "Gminy",

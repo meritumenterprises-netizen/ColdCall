@@ -16,6 +16,7 @@ import { AdminDashboardComponent } from './admin-dashboard/admin-dashboard.compo
 import { AdminPlansComponent } from './admin-dashboard/admin-plans.component';
 import { AdminImportsComponent } from './admin-dashboard/admin-imports.component';
 import { AdminGlobalSettingsComponent } from './admin-dashboard/admin-global-settings.component';
+import { AdminUserPaymentsComponent } from './admin-dashboard/admin-user-payments.component';
 import { PlansComponent } from './plans/plans.component';
 import { PaymentSuccessComponent } from './plans/payment-success.component';
 import { ProfileComponent } from './profile/profile.component';
@@ -36,6 +37,7 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
     AdminPlansComponent,
     AdminImportsComponent,
     AdminGlobalSettingsComponent,
+    AdminUserPaymentsComponent,
     PlansComponent,
     PaymentSuccessComponent,
     ProfileComponent,
