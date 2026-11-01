@@ -55,6 +55,9 @@ public partial class AuthController : ControllerBase
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         var isAdmin = user.IsAdmin;
+        if (!user.IsAdmin && user.TermsOfServiceAccepted != true)
+            return Ok(new { user.Id, user.GoogleEmail, user.DisplayName, user.IsAdmin, user.TermsOfServiceAccepted,
+                hasActivePlan = false, maxNumberOfExportedRecords = 0, maxNumberOfSearches = 0 });
         var applicationInService = await _db.GlobalSettings.AsNoTracking()
             .OrderByDescending(settings => settings.GlobalSettingsId)
             .Select(settings => settings.ApplicationInService).FirstOrDefaultAsync(HttpContext.RequestAborted);
@@ -84,6 +87,7 @@ public partial class AuthController : ControllerBase
             user.Id,
             user.GoogleEmail,
             user.UsesGmail,
+            user.TermsOfServiceAccepted,
             user.DisablePlanPurchase,
             DisplayName = user.DisplayName ?? User.FindFirstValue("name"),
             PictureUrl = User.FindFirstValue("picture"),

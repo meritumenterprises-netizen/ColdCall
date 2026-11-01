@@ -142,7 +142,7 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
         if (!account.EmailConfirmed) return BadRequest(new { code = "EmailNotConfirmed", message = "Potwierdz adres email przed zalogowaniem." });
         await manager.ResetAccessFailedCountAsync(account);
         TrialOffer? offer = null;
-        if (!user.IsAdmin)
+        if (!user.IsAdmin && user.TermsOfServiceAccepted == true)
         {
             await trials.DeactivateExpiredAsync(user.Id, HttpContext.RequestAborted);
             await trials.EnsureAssignedAsync(user.Id, HttpContext.RequestAborted);

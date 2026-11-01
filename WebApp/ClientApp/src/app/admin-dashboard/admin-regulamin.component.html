@@ -1,0 +1,21 @@
+<section [attr.aria-busy]="loading || saving">
+  <p *ngIf="loading" role="status">Wczytywanie...</p>
+  <div *ngIf="error" class="error" role="alert">{{ error }} <button *ngIf="!dirty" type="button" (click)="load()">Pon&#243;w</button></div>
+  <p *ngIf="message" role="status">{{ message }}</p>
+  <ng-container *ngIf="!loading">
+    <div class="regulamin-tabs" role="tablist" aria-label="Regulamin" (keydown)="navigateTabs($event)">
+      <button id="regulamin-preview-tab" data-tab="preview" type="button" role="tab" [class.active]="activeTab === 'preview'"
+        [attr.aria-selected]="activeTab === 'preview'" [attr.tabindex]="activeTab === 'preview' ? 0 : -1" aria-controls="regulamin-preview" (click)="activeTab = 'preview'">Podgl&#261;d</button>
+      <button id="regulamin-html-tab" data-tab="html" type="button" role="tab" [class.active]="activeTab === 'html'"
+        [attr.aria-selected]="activeTab === 'html'" [attr.tabindex]="activeTab === 'html' ? 0 : -1" aria-controls="regulamin-html" (click)="activeTab = 'html'">HTML</button>
+    </div>
+    <div id="regulamin-preview" role="tabpanel" aria-labelledby="regulamin-preview-tab" [hidden]="activeTab !== 'preview'" class="regulamin-preview" [innerHTML]="text"></div>
+    <div id="regulamin-html" role="tabpanel" aria-labelledby="regulamin-html-tab" [hidden]="activeTab !== 'html'">
+      <textarea aria-label="Tekst HTML regulaminu" [(ngModel)]="text" [disabled]="saving" maxlength="2000000" spellcheck="false"></textarea>
+    </div>
+    <div class="regulamin-actions">
+      <button type="button" class="primary-button" [disabled]="saving || !dirty" (click)="save()">{{ saving ? 'Zapisywanie...' : 'Zapisz' }}</button>
+      <button type="button" class="ghost-button" [disabled]="saving || !dirty" (click)="cancel()">Anuluj</button>
+    </div>
+  </ng-container>
+</section>
