@@ -1,0 +1,15 @@
+<header class="landing-header" [class.embedded]="embedded">
+  <a *ngIf="!embedded" routerLink="/" class="landing-brand">FindMyClient</a>
+  <nav aria-label="Menu strony">
+    <div class="contact-menu">
+      <button #contactButton type="button" class="menu-trigger" [attr.aria-expanded]="contactOpen"
+              aria-controls="landing-contact-options" (click)="contactOpen = !contactOpen">Kontakt <span aria-hidden="true">&#9662;</span></button>
+      <div *ngIf="contactOpen" id="landing-contact-options" class="contact-options">
+        <a routerLink="/kontakt/informacja" (click)="contactOpen = false">Feedback</a>
+        <a routerLink="/kontakt/wsparcie-techniczne" (click)="contactOpen = false">Wsparcie techniczne</a>
+        <a routerLink="/kontakt/rodo" (click)="contactOpen = false">RODO</a>
+      </div>
+    </div>
+    <a routerLink="/regulamin" class="menu-trigger">Regulamin</a>
+  </nav>
+</header>

@@ -52,7 +52,8 @@
     </div>
   </aside>
 
-  <main class="workspace">
+  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><p *ngIf="filterError" class="error" role="alert">{{ filterError }}</p></main>
+  <main class="workspace" [style.display]="publicPageTitle ? 'none' : null">
     <section id="dashboard-search-panel" class="dashboard-panel" role="region" aria-label="Wyszukiwanie"
              [hidden]="activeDashboardTab !== 'search'">
     <p *ngIf="searchPlanExpired" class="error" role="status">Plan wygas&#322;. Wyszukiwanie jest zablokowane. Przejd&#378; do <a routerLink="/plans">plan&#243;w</a>, &#380;eby odzyska&#263; dost&#281;p.</p>

@@ -44,7 +44,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
         this.registrationEmailError = 'Nie udalo sie sprawdzic adresu email. Wyjdz z pola ponownie, aby sprobowac jeszcze raz.';
       });
   }
-  registration = { firstName: '', lastName: '', companyName: '', postalCode: '', city: '', street: '', streetNumber: '' };
+  registration = { firstName: '', lastName: '', companyName: '', nip: '', postalCode: '', city: '', street: '', streetNumber: '' };
   localPassword = '';
   localPasswordConfirmation = '';
   localBusy = false;
@@ -113,6 +113,9 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
         this.registration.postalCode, this.registration.city, this.registration.street, this.registration.streetNumber]
         .some(value => !value.trim())) {
       this.localError = 'Uzupelnij wymagane dane osobowe i adresowe.'; return;
+    }
+    if (this.localMode === 'register' && this.registration.nip && !/^[0-9]{10}$/.test(this.registration.nip)) {
+      this.localError = 'NIP musi zawierac 10 cyfr.'; return;
     }
     if (this.localMode === 'register' && !/^[0-9]{2}-[0-9]{3}$/.test(this.registration.postalCode)) {
       this.localError = 'Podaj kod pocztowy w formacie 00-000.'; return;
@@ -238,7 +241,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   currentOrigin = window.location.origin;
 
   constructor(
-    private api: ApiService,
+    public api: ApiService,
     private router: Router,
     private route: ActivatedRoute,
     private zone: NgZone,

@@ -1,14 +1,15 @@
 <div class="app-layout admin-layout">
   <aside class="sidebar">
     <div class="sidebar-title">Administrator</div>
-    <button class="search-item" [class.active]="tab === 'companies'" (click)="tab = 'companies'">Firmy</button>
-    <button class="search-item" [class.active]="tab === 'users'" (click)="tab = 'users'">U&#380;ytkownicy</button>
-    <button class="search-item" [class.active]="tab === 'plans'" (click)="tab = 'plans'">Plany</button>
-    <button class="search-item" [class.active]="tab === 'imports'" (click)="tab = 'imports'">Importy</button>
-    <button class="search-item" [class.active]="tab === 'global-settings'" (click)="tab = 'global-settings'">Ustawienia globalne</button>
+    <button class="search-item" [class.active]="tab === 'companies'" (click)="publicPageTitle ? openAdminTab('companies') : tab = 'companies'">Firmy</button>
+    <button class="search-item" [class.active]="tab === 'users'" (click)="publicPageTitle ? openAdminTab('users') : tab = 'users'">U&#380;ytkownicy</button>
+    <button class="search-item" [class.active]="tab === 'plans'" (click)="publicPageTitle ? openAdminTab('plans') : tab = 'plans'">Plany</button>
+    <button class="search-item" [class.active]="tab === 'imports'" (click)="publicPageTitle ? openAdminTab('imports') : tab = 'imports'">Importy</button>
+    <button class="search-item" [class.active]="tab === 'global-settings'" (click)="publicPageTitle ? openAdminTab('global-settings') : tab = 'global-settings'">Ustawienia globalne</button>
   </aside>
 
-  <main class="workspace">
+  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1></main>
+  <main class="workspace" [style.display]="publicPageTitle ? 'none' : null">
     <div *ngIf="maintenanceMode" class="message" role="status">Jest ustawiony tryb konserwarcji systemu. Zmie&#324; to w Ustawieniach Globalnych</div>
     <header class="workspace-head" *ngIf="tab !== 'users'">
       <div>
@@ -220,6 +221,7 @@
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="requestChangePlan(row)">Zmie&#324; plan</button>
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="extendPlan(row.id)">Przed&#322;u&#380; o 7 dni</button>
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id)" (click)="requestDeleteCsv(row)">Usu&#324; pliki CSV</button>
+                <button type="button" class="ghost-button compact" [disabled]="row.isAdmin || currentUserId === null || row.id === currentUserId || busyUserIds.has(row.id)" (click)="deleteUserAccount(row.id)">Usu&#324; konto</button>
               </td>
             </tr>
             <tr *ngIf="!userRows.length"><td [attr.colspan]="userColumns.length + 1">Brak u&#380;ytkownik&#243;w.</td></tr>
@@ -240,6 +242,7 @@
           <label>Imi&#281;<input type="text" readonly [value]="user.firstName || ''"></label>
           <label>Nazwisko<input type="text" readonly [value]="user.lastName || ''"></label>
           <label *ngIf="user.companyName && user.companyName.trim()">Nazwa firmy<input type="text" readonly [value]="user.companyName"></label>
+          <label>NIP<input type="text" readonly [value]="user.nip || ''"></label>
           <label>Kod pocztowy<input type="text" readonly [value]="user.postalCode || ''"></label>
           <label>Miasto<input type="text" readonly [value]="user.city || ''"></label>
           <label>Ulica<input type="text" readonly [value]="user.street || ''"></label>

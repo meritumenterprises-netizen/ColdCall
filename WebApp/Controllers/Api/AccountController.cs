@@ -100,6 +100,7 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
             DisplayName = request.FirstName.Trim() + " " + request.LastName.Trim(),
             FirstName = request.FirstName.Trim(), LastName = request.LastName.Trim(),
             CompanyName = string.IsNullOrWhiteSpace(request.CompanyName) ? null : request.CompanyName.Trim(),
+            Nip = string.IsNullOrWhiteSpace(request.Nip) ? null : request.Nip.Trim(),
             PostalCode = request.PostalCode.Trim(), City = request.City.Trim(),
             Street = request.Street.Trim(), StreetNumber = request.StreetNumber.Trim(),
             IsAdmin = false, IsEnabled = true, UsesGmail = false

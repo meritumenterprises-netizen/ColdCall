@@ -75,7 +75,7 @@ export interface SearchCriteria {
 export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; hasCsvExports?: boolean; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; order: number; canPurchase: boolean; }
 export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; enableCSVDeleting: boolean; expiresAtUtc: string; isExpired?: boolean; }
-export interface ProfileDetails { firstName: string; lastName: string; companyName: string; postalCode: string; city: string; street: string; streetNumber: string; }
+export interface ProfileDetails { firstName: string; lastName: string; companyName: string; nip: string; postalCode: string; city: string; street: string; streetNumber: string; }
 export interface UserProfile extends ProfileDetails { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }
 export interface StripePurchase {
   planCode: string; maxNumberOfSearches: number; maxNumberOfCSVExportsPerSearch: number | null;
@@ -86,7 +86,7 @@ export interface Me { id: number; googleEmail: string; usesGmail?: boolean; disa
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string | null; descriptionHtml?: string; }
 export interface PlanDefinitionOption { id: number; code: string; descriptionHtml: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; isEnabled?: boolean;
-  firstName?: string | null; lastName?: string | null; companyName?: string | null; postalCode?: string | null;
+  firstName?: string | null; lastName?: string | null; companyName?: string | null; nip?: string | null; postalCode?: string | null;
   isAdmin?: boolean;
   city?: string | null; street?: string | null; streetNumber?: string | null;
 }
@@ -239,7 +239,7 @@ export class ApiService {
   registrationEmailExists(email: string) {
     return this.accountPost<{ exists: boolean }>('email-exists', { email });
   }
-  registerLocal(details: { firstName: string; lastName: string; companyName: string; postalCode: string; city: string; street: string; streetNumber: string }, email: string, password: string, turnstileToken: string) {
+  registerLocal(details: ProfileDetails, email: string, password: string, turnstileToken: string) {
     return this.accountPost<{ message: string }>('register', { ...details, email, password, turnstileToken });
   }
   loginLocal(email: string, password: string) {
@@ -454,6 +454,9 @@ export class ApiService {
   }
   deleteUserCsvExports(id: number): Observable<{ deleted: number }> {
     return this.http.delete<{ deleted: number }>(this.url('/api/admin/users/' + id + '/csv-exports'), this.headers());
+  }
+  deleteUserAccount(id: number): Observable<void> {
+    return this.http.delete<void>(this.url('/api/admin/users/' + id), this.headers());
   }
   grantPlan(userId: number, planCode: string) { return this.http.post(this.url('/api/admin/users/grant-plan'), { userId, planCode }, this.headers()); }
 }

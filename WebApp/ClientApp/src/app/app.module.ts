@@ -9,6 +9,9 @@ import { AppComponent } from './app.component';
 import { NavMenuComponent } from './nav-menu/nav-menu.component';
 import { LoginComponent } from './login/login.component';
 import { TurnstileComponent } from './login/turnstile.component';
+import { LandingMenuComponent } from './login/landing-menu.component';
+import { PublicPageComponent } from './login/public-page.component';
+import { PublicPageGuard } from './public-page.guard';
 import { MaintenanceComponent } from './maintenance/maintenance.component';
 import { MaintenanceGuard } from './maintenance/maintenance.guard';
 import { UserDashboardComponent } from './user-dashboard/user-dashboard.component';
@@ -32,6 +35,8 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
     NavMenuComponent,
     LoginComponent,
     TurnstileComponent,
+    LandingMenuComponent,
+    PublicPageComponent,
     MaintenanceComponent,
     UserDashboardComponent,
     AddressListboxComponent,
@@ -52,6 +57,10 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
     FormsModule,
     RouterModule.forRoot([
       { path: '', component: LoginComponent, pathMatch: 'full', canActivate: [LandingGuard] },
+      { path: 'kontakt/informacja', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Feedback' } },
+      { path: 'kontakt/wsparcie-techniczne', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Wsparcie techniczne' } },
+      { path: 'kontakt/rodo', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'RODO' } },
+      { path: 'regulamin', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Regulamin' } },
       { path: 'maintenance', component: MaintenanceComponent, canActivate: [MaintenanceGuard] },
       { path: 'dashboard', component: UserDashboardComponent, canActivate: [AuthGuard] },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [AuthGuard] },

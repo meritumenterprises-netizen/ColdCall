@@ -1,7 +1,8 @@
 <main class="workspace plans-page">
+  <p *ngIf="hasHighestPlan">Masz ju&#380; najwy&#380;szy plan</p>
+  <ng-container *ngIf="!hasHighestPlan">
   <header class="workspace-head">
     <div>
-      <span class="eyebrow">Miesieczny dostep</span>
       <h1>Wybierz plan</h1>
     </div>
     <button *ngIf="canReturnToDashboard" class="ghost-button" routerLink="/dashboard">Wróć</button>
@@ -21,4 +22,5 @@
       <button *ngIf="!plan.activeUntil" class="primary-button" [disabled]="!plan.canPurchase || buying" (click)="buy(plan)">Kup</button>
     </article>
   </section>
+  </ng-container>
 </main>

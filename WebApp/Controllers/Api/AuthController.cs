@@ -171,6 +171,6 @@ public partial class AuthController : ControllerBase
             IsExpired = plan.ExpiresAtUtc <= DateTime.UtcNow
         };
         return Ok(new { user.DisplayName, user.GoogleEmail, user.IsAdmin, user.FirstName, user.LastName,
-            user.CompanyName, user.PostalCode, user.City, user.Street, user.StreetNumber, plan = profilePlan });
+            user.CompanyName, user.Nip, user.PostalCode, user.City, user.Street, user.StreetNumber, plan = profilePlan });
     }
 }
