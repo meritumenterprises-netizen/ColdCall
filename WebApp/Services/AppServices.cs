@@ -115,19 +115,9 @@ public class SmtpEmailSender : IEmailSender
             return;
         }
 
-        using var client = new SmtpClient(host, int.Parse(_configuration["Smtp:Port"] ?? "587"))
-        {
-            EnableSsl = bool.Parse(_configuration["Smtp:EnableSsl"] ?? "true"),
-            Credentials = new NetworkCredential(_configuration["Smtp:User"], _configuration["Smtp:Password"])
-        };
-
-        var from = _configuration["Smtp:From"] ?? "noreply@coldcall.local";
-        var message = new MailMessage(from, user.GoogleEmail)
-        {
-            Subject = "Przyznano plan ColdCall",
-            Body = $"Przyznano plan {userPlan.PlanDefinition.Code}. Wazny do {userPlan.ExpiresAtUtc:yyyy-MM-dd HH:mm} UTC."
-        };
-        await client.SendMailAsync(message);
+        await SmtpMailSender.SendAsync(_configuration, user.GoogleEmail, "Przyznano plan ColdCall",
+            $"Przyznano plan {userPlan.PlanDefinition.Code}. Wazny do {userPlan.ExpiresAtUtc:yyyy-MM-dd HH:mm} UTC.",
+            CancellationToken.None);
     }
 }
 
