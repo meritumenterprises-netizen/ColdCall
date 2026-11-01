@@ -3,7 +3,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ColdCall.Services;
 
-public record CsvExportQuota(int Used, int? Limit, int? Remaining);
+public record CsvExportQuota(int Used, int? Limit, int? Remaining)
+{
+    public DateTime? ExportBlockedUntilUtc { get; set; }
+}
 
 public static class CsvExportLimits
 {
@@ -16,6 +19,10 @@ public static class CsvExportLimits
             .Select(p => new { Limit = p.PlanDefinition.MaxNumberOfCSVExportsPerSearch }).FirstOrDefaultAsync(token);
         var limit = plan == null ? 0 : plan.Limit;
         var used = await db.CsvExports.CountAsync(e => e.SearchProfileId == searchId, token);
-        return new CsvExportQuota(used, limit, limit.HasValue ? Math.Max(0, limit.Value - used) : null);
+        var deletionQuota = await CsvDeletionQuota.GetAsync(db, userId, token);
+        return new CsvExportQuota(used, limit, limit.HasValue ? Math.Max(0, limit.Value - used) : null)
+        {
+            ExportBlockedUntilUtc = deletionQuota.ExportBlockedUntilUtc
+        };
     }
 }

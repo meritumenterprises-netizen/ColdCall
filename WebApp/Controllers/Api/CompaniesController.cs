@@ -10,7 +10,7 @@ namespace ColdCall.Controllers.Api;
 [ApiController]
 [Route("api/companies")]
 [Authorize]
-public class CompaniesController : ControllerBase
+public partial class CompaniesController : ControllerBase
 {
     private readonly ColdCallDbContext _db;
     private readonly ICurrentUserService _currentUserService;
@@ -172,12 +172,19 @@ public class CompaniesController : ControllerBase
         try
         {
             await using var transaction = await _db.Database.BeginTransactionAsync(cancellationToken);
+            var userLock = "UserExports:" + user.Id;
+            await _db.Database.ExecuteSqlInterpolatedAsync($@"
+                DECLARE @result int;
+                EXEC @result = sys.sp_getapplock @Resource={userLock}, @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
+                IF @result < 0 THROW 50001, 'CSV user lock unavailable', 1;", cancellationToken);
             var lockName = "CSVExport:" + profile.Id;
             await _db.Database.ExecuteSqlInterpolatedAsync($@"
                 DECLARE @result int;
                 EXEC @result = sys.sp_getapplock @Resource={lockName}, @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
                 IF @result < 0 THROW 50001, 'CSV export lock unavailable', 1;", cancellationToken);
             var quota = await CsvExportLimits.ForSearchAsync(_db, user.Id, profile.Id, cancellationToken);
+            if (quota.ExportBlockedUntilUtc.HasValue)
+                return StatusCode(429, new { code = "CsvExportCooldown", message = "Po usuni\u0119ciu 3 plik\u00f3w CSV eksport jest zablokowany na 24 godziny.", quota.ExportBlockedUntilUtc });
             if (quota.Remaining == 0)
                 return StatusCode(409, new { message = "Osiagnieto limit eksportow CSV dla tego wyszukiwania." });
             var query = await new CompanySearchQuery(_db).BuildAsync(profile.Criteria ?? new SearchProfileCriteria(),
@@ -267,6 +274,10 @@ public class CompaniesController : ControllerBase
             HttpContext.RequestServices.GetRequiredService<ILogger<CompaniesController>>()
                 .LogError(ex, "CSV deletion failed for user {UserId}, export {ExportId}", user.Id, id);
             return StatusCode(500, new { message = "Nie udalo sie usunac pliku CSV." });
+        }
+        catch (CsvDailyDeletionLimitException ex)
+        {
+            return StatusCode(429, new { code = "DailyCsvDeletionLimit", message = ex.Message, remaining = ex.Remaining });
         }
     }
 

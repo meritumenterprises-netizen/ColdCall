@@ -35,9 +35,9 @@
       <strong [title]="sidebarSearchName(search)">{{ shortSidebarSearchName(search) }}</strong>
       <span>{{ searchRecordLabel(search) }}</span>
     </button>
-    <button type="button" class="delete-search" title="usu&#324; wyszukiwanie" aria-label="usu&#324; wyszukiwanie"
+    <button type="button" class="delete-search" [title]="canDeleteSearches ? 'Usu&#324; wyszukiwanie' : 'Plan PX0 nie pozwala na usuwanie wyszukiwa&#324;'" aria-label="usu&#324; wyszukiwanie"
             (click)="deleteSearch(search)"
-            [disabled]="savingSearch || restoringSearch || classifyingPkd || exportingCsv">
+            [disabled]="!canDeleteSearches || savingSearch || restoringSearch || classifyingPkd || exportingCsv">
       <img src="assets/icons/trash-2.svg" width="16" height="16" alt="">
     </button>
     <div *ngIf="search.id > 0 && search.hasCsvExports" class="search-csv-action">
@@ -334,7 +334,8 @@
 
     <ng-template #resultsPager>
     <footer class="pager">
-      <button type="button" class="export-csv" [disabled]="loading || total <= 0 || exportingCsv || csvQuotaLoading || csvExportsRemaining === 0" (click)="exportCsv()">Eksport do CSV</button>
+      <button type="button" class="export-csv" [disabled]="loading || total <= 0 || exportingCsv || csvQuotaLoading || csvExportsRemaining === 0 || csvExportBlocked" (click)="exportCsv()">Eksport do CSV</button>
+      <span *ngIf="csvExportBlocked" role="status">Eksport CSV zablokowany do {{ csvExportBlockedUntilUtc | date:'dd.MM.yyyy HH:mm' }}.</span>
       <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
       <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>
       <button (click)="next()" [disabled]="loading || page >= totalPages()">Nast&#281;pna</button>
@@ -382,7 +383,7 @@
             <td class="export-delete">
               <button *ngIf="canDeleteCsvExports" type="button" class="csv-delete-button" title="Usu&#324; plik CSV"
                       [attr.aria-label]="'Usu&#324; plik CSV: ' + row.csvFileName"
-                      [disabled]="deletingExportId !== null || downloadingExportId !== null"
+                      [disabled]="deletingExportId !== null || downloadingExportId !== null || csvDeletionQuotaLoading || csvDeletionLimitReached"
                       [attr.aria-busy]="deletingExportId === row.id" (click)="deleteCsvExport(row)">
                 <span aria-hidden="true">&times;</span>
               </button>
@@ -398,6 +399,12 @@
     <ng-container *ngIf="csvQuotaLoading">Wczytywanie...</ng-container>
     <ng-container *ngIf="!csvQuotaLoading && csvQuotaLoaded">{{ csvExportsRemaining === null ? 'Bez limitu' : formatNumber(csvExportsRemaining) }}</ng-container>
     <ng-container *ngIf="!csvQuotaLoading && !csvQuotaLoaded">Nie uda&#322;o si&#281; pobra&#263; limitu.</ng-container>
+  </p>
+  <p *ngIf="canDeleteCsvExports && csvDeletionLimit !== null" class="csv-quota-summary" role="status" aria-live="polite">
+    Pozosta&#322;o usuni&#281;&#263; CSV dzisiaj:
+    <ng-container *ngIf="!csvDeletionQuotaLoading && !csvDeletionQuotaError">{{ csvDeletionsRemaining }} z {{ csvDeletionLimit }}</ng-container>
+    <ng-container *ngIf="csvDeletionQuotaLoading">Wczytywanie...</ng-container>
+    <button *ngIf="csvDeletionQuotaError" type="button" (click)="loadCsvDeletionQuota()">Pon&#243;w</button>
   </p>
 </section>
     <div *ngIf="csvToast" class="csv-toast" role="status" aria-live="polite">{{ csvToast }}</div>

@@ -199,6 +199,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   deleteSearch(search: SearchProfile) {
+    if (!this.canDeleteSearches) { return; }
     if (this.savingSearch || this.restoringSearch || this.classifyingPkd || this.exportingCsv) { return; }
     if (!window.confirm('Usunac wyszukiwanie "' + this.sidebarSearchName(search) + '" oraz wszystkie jego eksporty CSV?')) { return; }
     const remove = () => {
@@ -217,8 +218,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.error = '';
     this.savingSearch = true;
     this.deleteSearchRequest = this.api.deleteSearch(search.id).pipe(finalize(() => this.savingSearch = false))
-      .subscribe(remove, () => {
-        this.error = 'Nie udalo sie usunac wyszukiwania.';
+      .subscribe(remove, err => {
+        this.error = err.error && err.error.message ? err.error.message : 'Nie udalo sie usunac wyszukiwania.';
         if (this.activeDashboardTab === 'export') { this.exportsError = this.error; }
       });
   }
@@ -370,6 +371,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.exportsLoading = false;
       return;
     }
+    this.loadCsvDeletionQuota();
     this.exportsLoading = true;
     this.exportsRequest = this.api.csvExports(this.currentSearchId, this.exportsSortBy, this.exportsDirection)
       .pipe(timeout(15000), take(1), finalize(() => this.exportsLoading = false)).subscribe(rows => {
@@ -401,6 +403,27 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.downloadRequest = this.api.downloadCsv(row).pipe(finalize(() => this.downloadingExportId = null))
       .subscribe(blob => this.saveCsvFile(blob, row.csvFileName),
         err => this.exportsError = err.status === 404 ? 'Nie znaleziono pliku CSV.' : 'Nie udało się pobrać pliku CSV.');
+  }
+
+  csvDeletionsRemaining: number | null = null;
+  csvDeletionLimit: number | null = null;
+  csvDeletionQuotaLoading = false;
+  csvDeletionQuotaError = false;
+  private deletionQuotaRequest: Subscription | null = null;
+
+  loadCsvDeletionQuota() {
+    if (this.deletionQuotaRequest) { this.deletionQuotaRequest.unsubscribe(); }
+    this.csvDeletionQuotaLoading = true; this.csvDeletionQuotaError = false;
+    this.deletionQuotaRequest = this.api.csvDeletionQuota().pipe(timeout(15000),
+      finalize(() => this.csvDeletionQuotaLoading = false)).subscribe(quota => {
+        this.csvDeletionLimit = quota.limit; this.csvDeletionsRemaining = quota.remaining;
+      }, () => this.csvDeletionQuotaError = true);
+  }
+  get csvDeletionLimitReached() { return this.csvDeletionLimit !== null && this.csvDeletionsRemaining === 0; }
+
+  get canDeleteSearches() {
+    const user = this.api.user();
+    return !!user && (user.isAdmin || !user.plan || user.plan.code.toUpperCase() !== 'PX0');
   }
 
   get canDeleteCsvExports() {
@@ -440,6 +463,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       }, err => {
         this.exportsError = err.error && err.error.message ? err.error.message
           : err.status === 404 ? 'Nie znaleziono pliku CSV.' : 'Nie udalo sie usunac pliku CSV.';
+        if (err.status === 429) { this.loadCsvDeletionQuota(); }
       });
   }
 
@@ -604,6 +628,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.deletionQuotaRequest) { this.deletionQuotaRequest.unsubscribe(); }
     this.cancelCsvDeletion();
     if (this.deleteExportRequest) { this.deleteExportRequest.unsubscribe(); }
     if (this.companyStatusesRequest) { this.companyStatusesRequest.unsubscribe(); }
@@ -1037,6 +1062,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   last() { if (!this.loading) { this.page = this.totalPages(); this.loadCompanies(false); } }
 
   exportingCsv = false;
+  csvExportBlockedUntilUtc: string | null = null;
+  get csvExportBlocked() { return !!this.csvExportBlockedUntilUtc && Date.parse(this.csvExportBlockedUntilUtc) > Date.now(); }
   csvExportsRemaining: number | null = null;
   csvQuotaLoading = false;
   csvQuotaLoaded = false;
@@ -1065,6 +1092,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       .pipe(timeout(15000), take(1), finalize(() => this.csvQuotaLoading = false)).subscribe(quota => {
         this.csvQuotaLoading = false;
         this.csvExportsRemaining = quota.remaining;
+        this.csvExportBlockedUntilUtc = quota.exportBlockedUntilUtc || null;
         this.csvQuotaLoaded = true;
         if (this.quotaToastPending) {
           this.quotaToastPending = false;
@@ -1096,7 +1124,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   exportCsv() {
     if (this.searchPlanExpired) { return; }
-    if (this.loading || this.total <= 0 || this.exportingCsv || this.csvQuotaLoading || this.csvExportsRemaining === 0) { return; }
+    if (this.loading || this.total <= 0 || this.exportingCsv || this.csvQuotaLoading || this.csvExportsRemaining === 0 || this.csvExportBlocked) { return; }
     if (!this.validateFilters()) { return; }
     if (this.currentSearchId === null || this.currentSearchId <= 0) {
       this.error = 'Zapisz wyszukiwanie przed eksportem do CSV.';
@@ -1151,7 +1179,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.loadCsvExportQuota(true);
     }, err => {
       this.loadCsvExportQuota();
-      this.error = err.status === 409 ? 'Osiagnieto limit eksportow CSV dla tego wyszukiwania.'
+      this.error = err.status === 429 && err.error && err.error.message ? err.error.message
+        : err.status === 409 ? 'Osiagnieto limit eksportow CSV dla tego wyszukiwania.'
         : 'Nie udalo sie zapisac lub pobrac eksportu CSV.';
     });
   }

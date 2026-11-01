@@ -12,6 +12,7 @@ public partial class ColdCallDbContext
     public DbSet<CompanyXml> CompanyXml => Set<CompanyXml>();
     public DbSet<CompanyUserNote> CompanyUserNotes => Set<CompanyUserNote>();
     public DbSet<CsvExport> CsvExports => Set<CsvExport>();
+    public DbSet<CsvDeletionHistory> CsvDeletionHistory => Set<CsvDeletionHistory>();
     public DbSet<CompanyAddress> CompanyAddresses => Set<CompanyAddress>();
     public DbSet<AdresView> AddressView => Set<AdresView>();
     public DbSet<CompanyAddressView> CompanyAddressesView => Set<CompanyAddressView>();
@@ -31,6 +32,15 @@ public partial class ColdCallDbContext
 
     private static void ConfigureDatabaseSchema(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<CsvDeletionHistory>(entity =>
+        {
+            entity.ToTable("CsvDeletionHistory", "ColdCall");
+            entity.HasKey(row => row.Id).HasName("PK_CsvDeletionHistory");
+            entity.Property(row => row.Id).UseIdentityColumn();
+            entity.Property(row => row.DeletedAtUtc).HasColumnType("datetime2(7)");
+            entity.Property(row => row.QuotaDate).HasColumnType("date");
+            entity.HasIndex(row => new { row.UserId, row.QuotaDate }).HasDatabaseName("IX_CsvDeletionHistory_UserId_QuotaDate");
+        });
         modelBuilder.Entity<UserLogin>(entity =>
         {
             entity.ToTable("UserLogin", "ColdCall");
