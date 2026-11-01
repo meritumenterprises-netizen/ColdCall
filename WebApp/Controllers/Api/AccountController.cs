@@ -20,7 +20,7 @@ namespace ColdCall.Controllers.Api;
 [EnableRateLimiting("local-auth")]
 [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public class AccountController(ColdCallDbContext db, LocalAuthDbContext credentials, UserManager<LocalAccount> manager,
-    IAuthEmailSender emailSender, TrialPlanService trials, IConfiguration configuration) : ControllerBase
+    IAuthEmailSender emailSender, TrialPlanService trials, IConfiguration configuration, TurnstileVerifier turnstile) : ControllerBase
 {
     private const string MailMessage = "Sprawdz skrzynke email, aby kontynuowac. Jesli konto istnieje, otrzymasz odpowiednia wiadomosc.";
     private static readonly LocalAccount DummyAccount = new();
@@ -47,6 +47,17 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
         return Ok(new { sessionExpiresAtUtc = expires });
     }
 
+    [AllowAnonymous, HttpGet("registration-config"), DisableRateLimiting]
+    public IActionResult RegistrationConfig() => Ok(new { siteKey = turnstile.SiteKey, configured = turnstile.IsConfigured });
+
+    [AllowAnonymous, HttpPost("email-exists")]
+    public async Task<IActionResult> EmailExists(EmailRequest request)
+    {
+        var email = Normalize(request.Email);
+        var exists = await db.Users.AsNoTracking().AnyAsync(user => user.GoogleEmail == email, HttpContext.RequestAborted);
+        return Ok(new { exists });
+    }
+
     [AllowAnonymous, HttpPost("register")]
     public async Task<IActionResult> Register(RegistrationRequest request)
     {
@@ -57,6 +68,18 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
             {
                 code = "SystemMaintenance", message = "System w trybie konserwacji. Spr\u00f3buj za kilka minut"
             });
+        try
+        {
+            if (!turnstile.IsConfigured)
+                return StatusCode(503, new { message = "Weryfikacja rejestracji jest chwilowo niedostepna." });
+            if (!await turnstile.VerifyAsync(request.TurnstileToken, HttpContext.Connection.RemoteIpAddress, HttpContext.RequestAborted))
+                return BadRequest(new { message = "Potwierdz weryfikacje antybotowa ponownie." });
+        }
+        catch (Exception exception) when (exception is HttpRequestException or System.Text.Json.JsonException
+            || (exception is OperationCanceledException && !HttpContext.RequestAborted.IsCancellationRequested))
+        {
+            return StatusCode(503, new { message = "Weryfikacja rejestracji jest chwilowo niedostepna. Sprobuj ponownie." });
+        }
         var email = Normalize(request.Email);
         if (await RequiresGoogle(email)) return GoogleRequired();
         if (new[] { request.FirstName, request.LastName, request.PostalCode, request.City, request.Street, request.StreetNumber }
@@ -69,7 +92,8 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
             DECLARE @result int;
             EXEC @result = sys.sp_getapplock @Resource={resource}, @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
             IF @result < 0 THROW 50001, 'Registration lock unavailable', 1;");
-        if (await db.Users.AnyAsync(u => u.GoogleEmail == email)) return Ok(new { message = MailMessage });
+        if (await db.Users.AnyAsync(u => u.GoogleEmail == email))
+            return Conflict(new { code = "EmailAlreadyExists", message = "Email ju\u017c istnieje" });
         var user = new AppUser
         {
             GoogleEmail = email, GoogleSubject = "local:" + Guid.NewGuid().ToString("N"),
@@ -84,7 +108,7 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
         await db.SaveChangesAsync();
         var account = new LocalAccount { Id = user.Id, UserName = email, Email = email, LockoutEnabled = true };
         var result = await manager.CreateAsync(account, request.Password);
-        if (!result.Succeeded) return BadRequest(new { message = "Haslo musi miec co najmniej 12 znakow. " + string.Join(" ", result.Errors.Select(e => e.Description)) });
+        if (!result.Succeeded) return BadRequest(new { message = "Haslo musi miec co najmniej 10 znakow. " + string.Join(" ", result.Errors.Select(e => e.Description)) });
         await transaction.CommitAsync();
         await credentials.Database.UseTransactionAsync(null);
         await SendConfirmation(account);
@@ -169,7 +193,7 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
         if (account == null && await RequiresGoogle(Normalize(request.Email))) return GoogleRequired();
         var token = DecodeToken(request.Token);
         if (account == null || token == null || !account.EmailConfirmed || !(await manager.ResetPasswordAsync(account, token, request.Password)).Succeeded)
-            return BadRequest(new { message = "Link jest nieprawidlowy lub wygasl albo haslo ma mniej niz 12 znakow." });
+            return BadRequest(new { message = "Link jest nieprawidlowy lub wygasl albo haslo ma mniej niz 10 znakow." });
         return Ok(new { message = "Haslo zmienione. Zaloguj sie nowym haslem." });
     }
 

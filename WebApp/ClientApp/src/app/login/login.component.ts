@@ -3,6 +3,7 @@ import { Subscription } from 'rxjs';
 import { finalize, retry, switchMap, tap, timeout } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, Me, TrialOffer } from '../services/api.service';
+import { TurnstileComponent } from './turnstile.component';
 
 declare const google: any;
 
@@ -11,12 +12,38 @@ declare const google: any;
   templateUrl: './login.component.html'
 })
 export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
+  @ViewChild(TurnstileComponent, { static: false }) turnstile: TurnstileComponent;
+  registrationToken = '';
   @ViewChild('googleRequiredDialog', { static: true }) googleRequiredDialog: ElementRef;
   @ViewChild('registrationMaintenanceDialog', { static: true }) registrationMaintenanceDialog: ElementRef;
   checkingRegistration = false;
   private registrationStatusRequest: Subscription | null = null;
   localMode: 'login' | 'register' | 'forgot' | 'reset' = 'login';
   localEmail = '';
+  registrationEmailError = '';
+  checkingEmail = false;
+  private emailCheckRequest: Subscription | null = null;
+
+  resetEmailCheck() {
+    if (this.emailCheckRequest) { this.emailCheckRequest.unsubscribe(); this.emailCheckRequest = null; }
+    this.checkingEmail = false;
+    this.registrationEmailError = '';
+  }
+
+  checkRegistrationEmail() {
+    this.resetEmailCheck();
+    const email = this.localEmail.trim().toLowerCase();
+    if (this.localMode !== 'register' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { return; }
+    this.checkingEmail = true;
+    this.emailCheckRequest = this.api.registrationEmailExists(email).pipe(timeout(10000),
+      finalize(() => this.checkingEmail = false)).subscribe(result => {
+        if (this.localMode === 'register' && this.localEmail.trim().toLowerCase() === email) {
+          this.registrationEmailError = result.exists ? 'Email ju\u017c istnieje' : '';
+        }
+      }, () => {
+        this.registrationEmailError = 'Nie udalo sie sprawdzic adresu email. Wyjdz z pola ponownie, aby sprobowac jeszcze raz.';
+      });
+  }
   registration = { firstName: '', lastName: '', companyName: '', postalCode: '', city: '', street: '', streetNumber: '' };
   localPassword = '';
   localPasswordConfirmation = '';
@@ -48,7 +75,9 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private applyLocalMode(mode: 'login' | 'register' | 'forgot' | 'reset') {
+    this.resetEmailCheck();
     this.localMode = mode; this.localError = ''; this.localMessage = '';
+    this.registrationToken = '';
     this.localPassword = ''; this.localPasswordConfirmation = '';
   }
 
@@ -71,7 +100,11 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
 
   submitLocalAuth() {
     if (this.localBusy || this.checkingRegistration) { return; }
+    if (this.localMode === 'register' && (this.checkingEmail || this.registrationEmailError)) { return; }
     this.localError = ''; this.localMessage = '';
+    if ((this.localMode === 'register' || this.localMode === 'reset') && this.localPassword.length < 10) {
+      this.localError = 'Haslo musi miec co najmniej 10 znakow.'; return;
+    }
     const email = this.localEmail.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
       this.localError = 'Podaj poprawny adres email.'; return;
@@ -96,11 +129,21 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
       ).subscribe(() => this.localPassword = '', err => this.handleLocalError(err));
       return;
     }
-    const request = this.localMode === 'register' ? this.api.registerLocal(this.registration, email, this.localPassword)
+    if (this.localMode === 'register' && !this.registrationToken) {
+      this.localError = 'Potwierdz weryfikacje antybotowa.'; return;
+    }
+    const wasRegistration = this.localMode === 'register';
+    const request = this.localMode === 'register' ? this.api.registerLocal(this.registration, email, this.localPassword, this.registrationToken)
       : this.localMode === 'forgot' ? this.api.forgotPassword(email) : this.api.resetPassword(email, this.resetToken, this.localPassword);
     const wasReset = this.localMode === 'reset';
     this.localBusy = true;
-    this.localRequest = request.pipe(finalize(() => this.localBusy = false)).subscribe(result => {
+    this.localRequest = request.pipe(finalize(() => {
+      this.localBusy = false;
+      if (wasRegistration) {
+        this.registrationToken = '';
+        if (this.turnstile) { this.turnstile.reset(); }
+      }
+    })).subscribe(result => {
       this.localMessage = result.message;
       this.localPassword = ''; this.localPasswordConfirmation = '';
       if (wasReset) { this.localMode = 'login'; this.resetToken = ''; }
@@ -181,6 +224,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.resetEmailCheck();
     if (this.registrationStatusRequest) { this.registrationStatusRequest.unsubscribe(); }
     if (this.localRequest) { this.localRequest.unsubscribe(); }
     if (this.trialRequest) { this.trialRequest.unsubscribe(); }

@@ -554,7 +554,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.error = '';
     this.loading = true;
     this.refreshingSearchCount = refreshSearchCount;
-    if (refreshSearchCount && this.activeResultTab.key !== 'all' && this.page === 1 && this.currentSearchId !== null) {
+    if (refreshSearchCount && this.activeResultTab.key !== 'all' && this.currentSearchId !== null) {
       this.allResultsCountRequest = this.api.companies(1, this.sortBy, this.direction,
         this.selectedPkds.map(x => x.id), this.appliedFilters).subscribe(
         result => { if (this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = result.total; } },
@@ -971,6 +971,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         this.loadCsvExports();
         this.savedSearchState = savedState;
         this.searchSaved = true;
+        this.loadCompanies();
       }, err => {
         if (persistedId === null && err.status === 409 && err.error && err.error.code === 'DuplicateSearchCriteria') {
           this.duplicateSearchDialog.nativeElement.showModal();

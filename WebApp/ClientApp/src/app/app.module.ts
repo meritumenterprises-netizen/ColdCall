@@ -8,6 +8,7 @@ import { RouterModule } from '@angular/router';
 import { AppComponent } from './app.component';
 import { NavMenuComponent } from './nav-menu/nav-menu.component';
 import { LoginComponent } from './login/login.component';
+import { TurnstileComponent } from './login/turnstile.component';
 import { MaintenanceComponent } from './maintenance/maintenance.component';
 import { MaintenanceGuard } from './maintenance/maintenance.guard';
 import { UserDashboardComponent } from './user-dashboard/user-dashboard.component';
@@ -30,6 +31,7 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
     AppComponent,
     NavMenuComponent,
     LoginComponent,
+    TurnstileComponent,
     MaintenanceComponent,
     UserDashboardComponent,
     AddressListboxComponent,

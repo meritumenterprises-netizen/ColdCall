@@ -232,8 +232,14 @@ export class ApiService {
     const token = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
     return token.pipe(switchMap(() => this.http.post<T>(this.url('/api/account/' + path), body, this.headers())));
   }
-  registerLocal(details: { firstName: string; lastName: string; companyName: string; postalCode: string; city: string; street: string; streetNumber: string }, email: string, password: string) {
-    return this.accountPost<{ message: string }>('register', { ...details, email, password });
+  registrationConfig() {
+    return this.http.get<{ siteKey: string; configured: boolean }>(this.url('/api/account/registration-config'));
+  }
+  registrationEmailExists(email: string) {
+    return this.accountPost<{ exists: boolean }>('email-exists', { email });
+  }
+  registerLocal(details: { firstName: string; lastName: string; companyName: string; postalCode: string; city: string; street: string; streetNumber: string }, email: string, password: string, turnstileToken: string) {
+    return this.accountPost<{ message: string }>('register', { ...details, email, password, turnstileToken });
   }
   loginLocal(email: string, password: string) {
     this.purchasedPlan = null;

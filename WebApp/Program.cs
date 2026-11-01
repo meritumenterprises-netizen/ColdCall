@@ -27,7 +27,7 @@ builder.Services.AddDbContext<LocalAuthDbContext>((services, options) =>
 builder.Services.AddIdentityCore<LocalAccount>(options =>
 {
     options.User.RequireUniqueEmail = true;
-    options.Password.RequiredLength = 12;
+    options.Password.RequiredLength = 10;
     options.Password.RequireUppercase = false;
     options.Password.RequireLowercase = false;
     options.Password.RequireDigit = false;
@@ -64,6 +64,7 @@ builder.Services.AddDataProtection();
 builder.Services.AddScoped<TrialPlanService>();
 builder.Services.AddScoped<IStripeCheckoutGateway, StripeCheckoutGateway>();
 builder.Services.AddScoped<StripePaymentService>();
+builder.Services.AddHttpClient<TurnstileVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient<PkdClassifier>(client => client.Timeout = TimeSpan.FromMinutes(2));
 builder.Services.AddSpaStaticFiles(configuration => configuration.RootPath = "ClientApp/dist");
 builder.Services.AddCors(options =>
