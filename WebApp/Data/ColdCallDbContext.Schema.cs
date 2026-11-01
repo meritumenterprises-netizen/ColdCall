@@ -122,7 +122,6 @@ public partial class ColdCallDbContext
             .HasDefaultValue(true).HasSentinel(true);
         modelBuilder.Entity<AppUser>().Property(x => x.DisablePlanPurchase).HasColumnType("bit").IsRequired()
             .HasDefaultValue(false);
-        modelBuilder.Entity<AdminEmail>().Property(x => x.Email).HasMaxLength(450);
         modelBuilder.Entity<BusinessType>().Property(x => x.TypDzialalnosciId).ValueGeneratedNever();
         modelBuilder.Entity<BusinessType>().Property(x => x.TypDzialalnosciSkrot).HasMaxLength(128);
         modelBuilder.Entity<Company>(entity =>

@@ -10,7 +10,6 @@ public partial class ColdCallDbContext : DbContext
     }
 
     public DbSet<AppUser> Users => Set<AppUser>();
-    public DbSet<AdminEmail> AdminEmails => Set<AdminEmail>();
     public DbSet<ImportByDate> ImportByDates => Set<ImportByDate>();
     public DbSet<BusinessType> BusinessTypes => Set<BusinessType>();
     public DbSet<Company> Companies => Set<Company>();
@@ -65,7 +64,6 @@ public partial class ColdCallDbContext : DbContext
         modelBuilder.Entity<CompanyShortView>().HasNoKey().ToView("viewCompaniesShort", "ColdCall");
 
         modelBuilder.Entity<AppUser>().HasIndex(x => x.GoogleEmail).IsUnique();
-        modelBuilder.Entity<AdminEmail>().HasIndex(x => x.Email).IsUnique();
         modelBuilder.Entity<BusinessType>(entity =>
         {
             entity.ToTable("BusinessType");
@@ -196,11 +194,6 @@ public static class DbSeeder
                 TypDzialalnosciId = 1,
                 TypDzialalnosci = "Jednoosobowa działalność gospodarcza"
             });
-        }
-
-        if (!db.AdminEmails.Any(x => x.Email == "pluczak99@gmail.com"))
-        {
-            db.AdminEmails.Add(new AdminEmail { Email = "pluczak99@gmail.com", AddedByEmail = "system" });
         }
 
         if (!db.PkdCodes.Any())

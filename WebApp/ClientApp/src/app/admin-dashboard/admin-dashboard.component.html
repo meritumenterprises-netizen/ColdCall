@@ -185,7 +185,9 @@
         <tbody>
           <tr *ngIf="usersLoading"><td [attr.colspan]="userColumns.length + 1" role="status">Wczytywanie...</td></tr>
           <ng-container *ngIf="!usersLoading">
-            <tr *ngFor="let row of pagedUserRows; trackBy: trackUser">
+            <tr *ngFor="let row of pagedUserRows; trackBy: trackUser" class="selectable-user"
+                [class.selected]="selectedUserId === row.id" tabindex="0" [attr.aria-selected]="selectedUserId === row.id"
+                (click)="selectUser(row.id)" (keydown.enter)="selectUser(row.id, $event)" (keydown.space)="selectUser(row.id, $event)">
               <td>{{ row.displayName || '-' }}</td>
               <td>{{ row.googleEmail }}</td>
               <td><span *ngIf="row.planCode; else noUserPlan" tabindex="0" class="admin-plan-label"
@@ -202,9 +204,17 @@
               </td>
               <td class="admin-plan-purchase-cell">
                 <input type="checkbox" [checked]="row.isEnabled"
-                       [disabled]="busyUserIds.has(row.id)"
+                       [disabled]="row.isAdmin || busyUserIds.has(row.id)"
+                       [attr.aria-readonly]="row.isAdmin ? 'true' : null"
                        [attr.aria-label]="'Aktywny: ' + row.googleEmail"
                        (change)="updateUserEnabled(row.id, $event.target.checked)">
+              </td>
+              <td class="admin-plan-purchase-cell">
+                <input type="checkbox" [checked]="row.isAdmin"
+                       [disabled]="currentUserId === null || row.id === currentUserId || busyUserIds.has(row.id)"
+                       [attr.aria-readonly]="row.id === currentUserId ? 'true' : null"
+                       [attr.aria-label]="'Admin: ' + row.googleEmail"
+                       (change)="updateUserAdmin(row.id, $event.target.checked)">
               </td>
               <td class="admin-user-actions">
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="requestChangePlan(row)">Zmie&#324; plan</button>
@@ -223,6 +233,21 @@
       <span>Strona {{ usersPage }} z {{ usersTotalPages }}</span>
       <button type="button" (click)="changeUsersPage(usersPage + 1)" [disabled]="usersLoading || usersPage >= usersTotalPages">Nast&#281;pna</button>
     </footer>
+    <ng-container *ngIf="tab === 'users'">
+      <section *ngIf="selectedUser as user" class="admin-user-details" aria-labelledby="admin-user-details-title">
+        <h2 id="admin-user-details-title">Dane u&#380;ytkownika</h2>
+        <div class="admin-user-details-fields">
+          <label>Imi&#281;<input type="text" readonly [value]="user.firstName || ''"></label>
+          <label>Nazwisko<input type="text" readonly [value]="user.lastName || ''"></label>
+          <label *ngIf="user.companyName && user.companyName.trim()">Nazwa firmy<input type="text" readonly [value]="user.companyName"></label>
+          <label>Kod pocztowy<input type="text" readonly [value]="user.postalCode || ''"></label>
+          <label>Miasto<input type="text" readonly [value]="user.city || ''"></label>
+          <label>Ulica<input type="text" readonly [value]="user.street || ''"></label>
+          <label>Nr ulicy/lokalu<input type="text" readonly [value]="user.streetNumber || ''"></label>
+        </div>
+        <app-admin-user-payments [userId]="user.id"></app-admin-user-payments>
+      </section>
+    </ng-container>
     <div *ngIf="tab === 'users' && planHint" id="admin-plan-tooltip" role="tooltip" class="admin-plan-tooltip"
          [style.left.px]="planHint.left" [style.top.px]="planHint.top" [innerHTML]="planHint.html"></div>
     <dialog #createUserDialog class="delete-csv-dialog create-user-dialog" aria-labelledby="create-user-title"

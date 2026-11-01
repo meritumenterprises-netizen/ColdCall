@@ -50,6 +50,13 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
     [AllowAnonymous, HttpPost("register")]
     public async Task<IActionResult> Register(RegistrationRequest request)
     {
+        var maintenance = await db.GlobalSettings.AsNoTracking().OrderByDescending(settings => settings.GlobalSettingsId)
+            .Select(settings => settings.ApplicationInService).FirstOrDefaultAsync(HttpContext.RequestAborted);
+        if (maintenance)
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                code = "SystemMaintenance", message = "System w trybie konserwacji. Spr\u00f3buj za kilka minut"
+            });
         var email = Normalize(request.Email);
         if (await RequiresGoogle(email)) return GoogleRequired();
         if (new[] { request.FirstName, request.LastName, request.PostalCode, request.City, request.Street, request.StreetNumber }

@@ -96,7 +96,9 @@ public record PlanDto(string Code, int SearchLimit, string DescriptionHtml, deci
 
 public record UserPlanDto(string PlanCode, DateTime PurchasedAtUtc, DateTime ExpiresAtUtc, string? Source, string DescriptionHtml = "");
 
-public record UserDto(int Id, string GoogleEmail, string? DisplayName, IReadOnlyList<UserPlanDto> Plans, DateTime CreatedAtUtc = default, bool DisablePlanPurchase = false, bool IsEnabled = true);
+public record UserDto(int Id, string GoogleEmail, string? DisplayName, IReadOnlyList<UserPlanDto> Plans, DateTime CreatedAtUtc = default, bool DisablePlanPurchase = false, bool IsEnabled = true,
+    string? FirstName = null, string? LastName = null, string? CompanyName = null, string? PostalCode = null,
+    string? City = null, string? Street = null, string? StreetNumber = null, bool IsAdmin = false);
 
 public record GrantPlanDto(int UserId, string PlanCode);
 

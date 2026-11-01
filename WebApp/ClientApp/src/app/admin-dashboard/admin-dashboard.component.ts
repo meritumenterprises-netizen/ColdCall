@@ -82,7 +82,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
   updateUserEnabled(userId: number, enabled: boolean) {
     const user = this.users.find(item => item.id === userId);
-    if (!user || this.busyUserIds.has(userId)) { return; }
+    if (!user || user.isAdmin || this.busyUserIds.has(userId)) { return; }
     const previous = !!user.isEnabled;
     user.isEnabled = enabled;
     this.busyUserIds.add(userId);
@@ -92,6 +92,25 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       }, () => {
         user.isEnabled = previous;
         this.message = 'Nie udalo sie zapisac statusu uzytkownika.';
+      });
+    this.userActionRequests.add(request);
+  }
+  get currentUserId(): number | null {
+    const user = this.api.user();
+    return user ? user.id : null;
+  }
+  updateUserAdmin(userId: number, isAdmin: boolean) {
+    const user = this.users.find(item => item.id === userId);
+    if (!user || this.currentUserId === null || userId === this.currentUserId || this.busyUserIds.has(userId)) { return; }
+    const previous = !!user.isAdmin;
+    user.isAdmin = isAdmin;
+    this.busyUserIds.add(userId);
+    const request = this.api.updateUserAdmin(userId, isAdmin)
+      .pipe(finalize(() => this.busyUserIds.delete(userId))).subscribe(result => {
+        user.isAdmin = result.isAdmin;
+      }, () => {
+        user.isAdmin = previous;
+        this.message = 'Nie udalo sie zapisac uprawnien administratora.';
       });
     this.userActionRequests.add(request);
   }
@@ -305,6 +324,17 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   tab: 'companies' | 'users' | 'plans' | 'imports' | 'global-settings' = 'companies';
   companies: Company[] = [];
   users: AppUser[] = [];
+  selectedUserId: number | null = null;
+  get selectedUser(): AppUser | null {
+    return this.pagedUserRows.some(row => row.id === this.selectedUserId)
+      ? this.users.find(user => user.id === this.selectedUserId) || null : null;
+  }
+  selectUser(id: number, event?: KeyboardEvent) {
+    if (event && event.target !== event.currentTarget) { return; }
+    if (event) { event.preventDefault(); }
+    this.selectedUserId = id;
+    this.planHint = null;
+  }
   usersLoading = false;
   usersPage = 1;
   readonly usersPageSize = 10;
@@ -324,7 +354,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { key: 'planCode', label: 'Aktualny plan' }, { key: 'expiresAtUtc', label: 'Data wyga\u015bni\u0119cia' },
     { key: 'createdAtUtc', label: 'Login utworzony' },
     { key: 'disablePlanPurchase', label: 'Nie pozw\u00f3l na zakup planu' },
-    { key: 'isEnabled', label: 'Aktywny' }
+    { key: 'isEnabled', label: 'Aktywny' },
+    { key: 'isAdmin', label: 'Admin' }
   ];
   private dateUtc(value: string) { return /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + 'Z'; }
   get userRows() {
@@ -336,6 +367,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       return { id: user.id, displayName: user.displayName || '', googleEmail: user.googleEmail,
         disablePlanPurchase: !!user.disablePlanPurchase,
         isEnabled: !!user.isEnabled,
+        isAdmin: !!user.isAdmin,
         createdAtUtc: user.createdAtUtc ? this.dateUtc(user.createdAtUtc) : '',
         planCode: plan ? plan.planCode : '', descriptionHtml: plan ? plan.descriptionHtml || '' : '', expiresAtUtc, expired: !!plan && new Date(expiresAtUtc).getTime() <= now };
     });

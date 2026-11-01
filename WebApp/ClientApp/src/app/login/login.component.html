@@ -21,12 +21,12 @@
 
   <section class="login-card">
     <div class="local-auth-tabs">
-      <button type="button" [class.active]="localMode === 'login'" [disabled]="localBusy" (click)="setLocalMode('login')">Logowanie</button>
-      <button type="button" [class.active]="localMode === 'register'" [disabled]="localBusy" (click)="setLocalMode('register')">Rejestracja</button>
+      <button type="button" [class.active]="localMode === 'login'" [disabled]="localBusy || checkingRegistration" (click)="setLocalMode('login')">Logowanie</button>
+      <button type="button" [class.active]="localMode === 'register'" [disabled]="localBusy || checkingRegistration" [attr.aria-busy]="checkingRegistration" (click)="setLocalMode('register')">Rejestracja</button>
     </div>
     <h2>{{ localMode === 'register' ? 'Utwórz konto' : localMode === 'forgot' ? 'Odzyskaj hasło' : localMode === 'reset' ? 'Ustaw nowe hasło' : 'Zaloguj się' }}</h2>
     <form #localForm="ngForm" (ngSubmit)="submitLocalAuth()">
-      <fieldset class="local-auth-fields" [class.registration-fields]="localMode === 'register'" [class.login-fields]="localMode === 'login'" [disabled]="localBusy">
+      <fieldset class="local-auth-fields" [class.registration-fields]="localMode === 'register'" [class.login-fields]="localMode === 'login'" [disabled]="localBusy || checkingRegistration">
         <ng-container *ngIf="localMode === 'register'">
           <label for="register-firstName">Imi&#281;</label>
           <input id="register-firstName" name="firstName" [(ngModel)]="registration.firstName" required pattern=".*\S.*" maxlength="100" autocomplete="given-name">
@@ -88,4 +88,8 @@
   <h2 id="google-required-title">Logowanie Google</h2>
   <p>zaloguj si&#281; przez Google</p>
   <div class="trial-actions"><button type="button" class="primary-button" (click)="googleRequiredDialog.close()">OK</button></div>
+</dialog>
+<dialog #registrationMaintenanceDialog class="trial-dialog" aria-labelledby="registration-maintenance-message">
+  <p id="registration-maintenance-message">System w trybie konserwacji. Spr&#243;buj za kilka minut</p>
+  <div class="trial-actions"><button type="button" class="primary-button" (click)="registrationMaintenanceDialog.close()">OK</button></div>
 </dialog>

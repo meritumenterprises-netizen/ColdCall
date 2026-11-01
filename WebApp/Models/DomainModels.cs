@@ -16,14 +16,6 @@ public partial class AppUser
     public ICollection<SearchProfile> SearchProfiles { get; set; } = new List<SearchProfile>();
 }
 
-public class AdminEmail
-{
-    public int Id { get; set; }
-    public string Email { get; set; } = "";
-    public string AddedByEmail { get; set; } = "";
-    public DateTime AddedAtUtc { get; set; } = DateTime.UtcNow;
-}
-
 public class Company
 {
     public byte StatusDzialalnosciId { get; set; } = 1;

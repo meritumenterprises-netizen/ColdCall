@@ -12,6 +12,9 @@ declare const google: any;
 })
 export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild('googleRequiredDialog', { static: true }) googleRequiredDialog: ElementRef;
+  @ViewChild('registrationMaintenanceDialog', { static: true }) registrationMaintenanceDialog: ElementRef;
+  checkingRegistration = false;
+  private registrationStatusRequest: Subscription | null = null;
   localMode: 'login' | 'register' | 'forgot' | 'reset' = 'login';
   localEmail = '';
   registration = { firstName: '', lastName: '', companyName: '', postalCode: '', city: '', street: '', streetNumber: '' };
@@ -24,7 +27,27 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   private localRequest: Subscription | null = null;
 
   setLocalMode(mode: 'login' | 'register' | 'forgot' | 'reset') {
-    if (this.localBusy) { return; }
+    if (this.localBusy || this.checkingRegistration) { return; }
+    if (mode === 'register') {
+      this.checkingRegistration = true;
+      this.localError = '';
+      this.registrationStatusRequest = this.api.maintenanceStatus().pipe(timeout(10000),
+        finalize(() => this.checkingRegistration = false)).subscribe(status => {
+          if (status.applicationInService) { this.showRegistrationMaintenance(); }
+          else { this.applyLocalMode(mode); }
+        }, () => this.localError = 'Nie udalo sie sprawdzic dostepnosci rejestracji. Sprobuj ponownie.');
+      return;
+    }
+    this.applyLocalMode(mode);
+  }
+
+  private showRegistrationMaintenance() {
+    this.applyLocalMode('login');
+    const dialog = this.registrationMaintenanceDialog.nativeElement as HTMLDialogElement;
+    if (!dialog.open) { dialog.showModal(); }
+  }
+
+  private applyLocalMode(mode: 'login' | 'register' | 'forgot' | 'reset') {
     this.localMode = mode; this.localError = ''; this.localMessage = '';
     this.localPassword = ''; this.localPasswordConfirmation = '';
   }
@@ -47,7 +70,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   submitLocalAuth() {
-    if (this.localBusy) { return; }
+    if (this.localBusy || this.checkingRegistration) { return; }
     this.localError = ''; this.localMessage = '';
     const email = this.localEmail.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
@@ -92,6 +115,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private handleLocalError(err: any) {
+    if (err.error && err.error.code === 'SystemMaintenance') { this.showRegistrationMaintenance(); return; }
     if (err.error && err.error.code === 'GoogleSignInRequired') { this.googleRequiredDialog.nativeElement.showModal(); return; }
     this.localError = err.status === 429 ? 'Zbyt wiele prob. Sprobuj ponownie za minute.'
       : err.error && err.error.message ? err.error.message : 'Nie udalo sie wykonac operacji. Sprobuj ponownie.';
@@ -157,6 +181,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.registrationStatusRequest) { this.registrationStatusRequest.unsubscribe(); }
     if (this.localRequest) { this.localRequest.unsubscribe(); }
     if (this.trialRequest) { this.trialRequest.unsubscribe(); }
     if (this.countRequest) { this.countRequest.unsubscribe(); }

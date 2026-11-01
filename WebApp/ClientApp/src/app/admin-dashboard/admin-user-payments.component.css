@@ -1,0 +1,9 @@
+:host { display: block; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+h2 { margin: 0 0 16px; font-size: 18px; }
+.payments-table { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 5px 12px; border-bottom: 1px solid var(--border); text-align: left; }
+th { background: var(--surface-muted); }
+th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.payment-amount { white-space: nowrap; }
+.error { margin-top: 12px; color: #b91c1c; }

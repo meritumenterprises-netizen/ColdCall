@@ -203,7 +203,6 @@ public partial class AdminController : ControllerBase
         }
 
         return await _db.Users
-            .Where(x => !x.IsAdmin)
             .Include(x => x.Plans)
             .ThenInclude(x => x.PlanDefinition)
             .OrderBy(x => x.GoogleEmail)
@@ -213,7 +212,8 @@ public partial class AdminController : ControllerBase
                 x.DisplayName,
                 x.Plans.OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
                     .Select(p => new UserPlanDto(p.PlanDefinition.Code, p.PurchasedAtUtc, p.ExpiresAtUtc, p.Source, p.PlanDefinition.DescriptionHtml))
-                    .ToList(), DateTime.SpecifyKind(x.CreatedAtUtc, DateTimeKind.Utc), x.DisablePlanPurchase, x.IsEnabled))
+                    .ToList(), DateTime.SpecifyKind(x.CreatedAtUtc, DateTimeKind.Utc), x.DisablePlanPurchase, x.IsEnabled,
+                x.FirstName, x.LastName, x.CompanyName, x.PostalCode, x.City, x.Street, x.StreetNumber, x.IsAdmin))
             .ToListAsync();
     }
 

@@ -38,6 +38,7 @@ export interface Company {
   wojewodztwoId?: number | null; miejscowoscId?: number | null; gminaId?: number | null; powiatId?: number | null;
 }
 export interface AdminGlobalSetting { globalSettingsId: number; globalDegreeOfParallelismImportByDate: number; applicationInService: boolean; }
+export interface AdminUserPayment { planCode: string; paidAtUtc: string; amountPaid: number; }
 export interface CompanyAddress { companyAdresId: number; companyId: number; addressId: number; }
 export interface CompanyAddressDetails extends CompanyAddress {
   wojewodztwoId: number; powiatId: number; gminaId: number; miejscowoscId: number;
@@ -83,7 +84,11 @@ export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUt
 export interface Me { id: number; googleEmail: string; usesGmail?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; applicationInService?: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string | null; descriptionHtml?: string; }
 export interface PlanDefinitionOption { id: number; code: string; descriptionHtml: string; }
-export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; isEnabled?: boolean; }
+export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; isEnabled?: boolean;
+  firstName?: string | null; lastName?: string | null; companyName?: string | null; postalCode?: string | null;
+  isAdmin?: boolean;
+  city?: string | null; street?: string | null; streetNumber?: string | null;
+}
 export interface AuthConfig { googleClientId: string; }
 export interface CsvExportRow { id: number; userId: number; searchProfileId: number; csvFileName: string; createdOn: string; numberOfRecords: number | null; }
 
@@ -249,6 +254,9 @@ export class ApiService {
   logoutSession() { return this.accountPost<any>('logout', {}).pipe(tap(() => this.logout())); }
 
   authConfig(): Observable<AuthConfig> { return this.http.get<AuthConfig>(this.url('/auth-config.json')); }
+  maintenanceStatus(): Observable<{ applicationInService: boolean }> {
+    return this.http.get<{ applicationInService: boolean }>(this.url('/api/system/status'));
+  }
   profile(): Observable<UserProfile> { return this.http.get<UserProfile>(this.url('/api/auth/profile'), this.headers()); }
   purchases(sortBy = 'paidAtUtc', direction = 'desc'): Observable<StripePurchase[]> {
     return this.http.get<StripePurchase[]>(this.url('/api/auth/purchases'), { ...this.headers(), params: { sortBy, direction } });
@@ -390,6 +398,12 @@ export class ApiService {
   }
   businessTypes(): Observable<BusinessType[]> { return this.http.get<BusinessType[]>(this.url('/api/admin/business-types'), this.headers()); }
   users(): Observable<AppUser[]> { return this.http.get<AppUser[]>(this.url('/api/admin/users'), this.headers()); }
+  adminUserPayments(id: number): Observable<AdminUserPayment[]> {
+    return this.http.get<AdminUserPayment[]>(this.url('/api/admin/users/' + id + '/payments'), this.headers());
+  }
+  updateUserAdmin(id: number, isAdmin: boolean): Observable<{ isAdmin: boolean }> {
+    return this.http.put<{ isAdmin: boolean }>(this.url('/api/admin/users/' + id + '/admin'), { isAdmin }, this.headers());
+  }
   createAdminUser(request: { email: string; password: string; disablePlanPurchase: boolean; planDefinitionId: number }): Observable<{ id: number; email: string }> {
     return this.http.post<{ id: number; email: string }>(this.url('/api/admin/users'), request, this.headers());
   }
