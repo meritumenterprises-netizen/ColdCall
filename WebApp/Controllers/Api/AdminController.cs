@@ -244,16 +244,35 @@ public partial class AdminController : ControllerBase
     {
         if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
         if (!await _db.Users.AnyAsync(u => u.Id == id && !u.IsAdmin, token)) return NotFound();
-        if (!await _db.PlanDefinitions.AnyAsync(p => p.Id == request.PlanDefinitionId, token))
+        var definition = await _db.PlanDefinitions.AsNoTracking().Where(p => p.Id == request.PlanDefinitionId)
+            .Select(p => new { p.ExpiresAfterDays }).SingleOrDefaultAsync(token);
+        if (definition == null)
             return BadRequest(new { message = "Wybrany plan nie istnieje." });
-        var planId = await _db.UserPlans.Where(p => p.AppUserId == id)
+        var currentPlan = await _db.UserPlans.AsNoTracking().Where(p => p.AppUserId == id)
             .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
-            .Select(p => (int?)p.Id).FirstOrDefaultAsync(token);
-        if (!planId.HasValue)
+            .Select(p => new { p.Id, p.ExpiresAtUtc }).FirstOrDefaultAsync(token);
+        if (currentPlan == null)
             return BadRequest(new { message = "Uzytkownik nie ma planu do zmiany." });
-        var updated = await _db.UserPlans.Where(p => p.Id == planId.Value && p.AppUserId == id)
-            .ExecuteUpdateAsync(setters => setters.SetProperty(p => p.PlanDefinitionId, request.PlanDefinitionId), token);
-        return updated == 1 ? NoContent() : NotFound();
+        var now = DateTime.UtcNow;
+        var expired = currentPlan.ExpiresAtUtc <= now;
+        var expiration = currentPlan.ExpiresAtUtc;
+        if (expired)
+        {
+            if (definition.ExpiresAfterDays is not > 0)
+                return BadRequest(new { message = "Wybrany plan musi miec dodatnia liczbe dni waznosci." });
+            try { expiration = now.AddDays(definition.ExpiresAfterDays.Value); }
+            catch (ArgumentOutOfRangeException)
+            {
+                return BadRequest(new { message = "Niepoprawna liczba dni waznosci planu." });
+            }
+        }
+        var updated = await _db.UserPlans.Where(p => p.Id == currentPlan.Id && p.AppUserId == id
+                && p.ExpiresAtUtc == currentPlan.ExpiresAtUtc)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(p => p.PlanDefinitionId, request.PlanDefinitionId)
+                .SetProperty(p => p.ExpiresAtUtc, expiration)
+                .SetProperty(p => p.IsActive, p => expired ? (bool?)true : p.IsActive), token);
+        return updated == 1 ? NoContent() : Conflict(new { message = "Plan zostal zmieniony. Odswiez dane i sprobuj ponownie." });
     }
 
     [HttpPost("users/{id:int}/extend-plan")]

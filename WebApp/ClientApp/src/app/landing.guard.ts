@@ -12,7 +12,7 @@ export class LandingGuard implements CanActivate {
     if (route.queryParams.mode === 'confirm-email' || route.queryParams.mode === 'reset-password') { return true; }
     return this.api.restoreSession().pipe(
       map(user => this.router.parseUrl(user.isAdmin ? '/admin' : user.applicationInService ? '/maintenance'
-        : user.hasActivePlan ? '/dashboard' : '/plans')),
+        : user.requiresProfileCompletion ? '/profile/data' : user.hasActivePlan ? '/dashboard' : '/plans')),
       catchError(() => {
         this.api.logout();
         return of(true);

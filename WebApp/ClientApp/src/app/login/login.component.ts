@@ -84,6 +84,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   private handleAuthenticated(me: Me, offer?: TrialOffer) {
     if (me.isAdmin) { this.router.navigateByUrl('/admin'); return; }
     if (me.applicationInService) { this.router.navigateByUrl('/maintenance'); return; }
+    if (me.requiresProfileCompletion) { this.router.navigateByUrl('/profile/data'); return; }
     if (!me.hasActivePlan && (me.hasExpiredPlan || me.hasExpiredTrial)) {
       return;
     }

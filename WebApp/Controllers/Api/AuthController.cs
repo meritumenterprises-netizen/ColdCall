@@ -57,6 +57,7 @@ public partial class AuthController : ControllerBase
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         var isAdmin = user.IsAdmin;
+        var requiresProfileCompletion = UserProfileCompletion.IsRequired(user);
         if (!user.IsAdmin && user.TermsOfServiceAccepted != true)
             return Ok(new { user.Id, user.GoogleEmail, user.DisplayName, user.IsAdmin, user.TermsOfServiceAccepted,
                 hasActivePlan = false, maxNumberOfExportedRecords = 0, maxNumberOfSearches = 0 });
@@ -64,7 +65,7 @@ public partial class AuthController : ControllerBase
             .OrderByDescending(settings => settings.GlobalSettingsId)
             .Select(settings => settings.ApplicationInService).FirstOrDefaultAsync(HttpContext.RequestAborted);
         await _csvCleanup.DeleteOrphanedAsync(HttpContext.RequestAborted);
-        if (!isAdmin)
+        if (!isAdmin && !requiresProfileCompletion)
         {
             await _trialPlans.DeactivateExpiredAsync(user.Id, HttpContext.RequestAborted);
             await _trialPlans.EnsureAssignedAsync(user.Id, HttpContext.RequestAborted);
@@ -90,6 +91,7 @@ public partial class AuthController : ControllerBase
             user.GoogleEmail,
             user.UsesGmail,
             user.TermsOfServiceAccepted,
+            requiresProfileCompletion,
             user.DisablePlanPurchase,
             DisplayName = user.DisplayName ?? User.FindFirstValue("name"),
             PictureUrl = User.FindFirstValue("picture"),

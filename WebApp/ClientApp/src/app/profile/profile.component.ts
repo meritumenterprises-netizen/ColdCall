@@ -1,6 +1,6 @@
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import { finalize, switchMap } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, CurrentPlan, StripePurchase, UserProfile, ProfileDetails } from '../services/api.service';
 
@@ -40,9 +40,11 @@ export class ProfileComponent implements OnInit, OnDestroy {
     }
     const details = { ...this.details };
     this.saving = true;
-    this.saveRequest = this.api.updateProfile(details).pipe(finalize(() => this.saving = false)).subscribe(() => {
+    const completingProfile = !!(this.api.user() && this.api.user().requiresProfileCompletion);
+    this.saveRequest = this.api.updateProfile(details).pipe(switchMap(() => this.api.me(false)), finalize(() => this.saving = false)).subscribe(user => {
       if (this.profile) { Object.assign(this.profile, details, { displayName: details.firstName.trim() + ' ' + details.lastName.trim() }); }
       this.saveMessage = 'Dane zostaly zapisane.';
+      if (completingProfile && !user.requiresProfileCompletion) { this.router.navigateByUrl(user.hasActivePlan ? '/dashboard' : '/plans'); }
     }, () => this.saveError = 'Nie udalo sie zapisac danych. Sprobuj ponownie.');
   }
   loading = true;
@@ -96,8 +98,9 @@ export class ProfileComponent implements OnInit, OnDestroy {
 
   get canSearch(): boolean {
     const user = this.api.user();
-    return !!this.profile && !this.profile.isAdmin && !!user && user.hasActivePlan;
+    return !!this.profile && !this.profile.isAdmin && !!user && user.hasActivePlan && !user.requiresProfileCompletion;
   }
+  get requiresProfileCompletion() { const user = this.api.user(); return !!user && !!user.requiresProfileCompletion; }
 
   ngOnInit() { this.loadPlan(); }
 
