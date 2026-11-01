@@ -10,7 +10,7 @@
     <button class="search-item" [class.active]="tab === 'regulamin' && !publicPageTitle" (click)="publicPageTitle ? openAdminTab('regulamin') : tab = 'regulamin'">Regulamin</button>
   </aside>
 
-  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1></main>
+  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><app-public-regulamin *ngIf="publicPageTitle === 'Regulamin'"></app-public-regulamin></main>
   <main class="workspace" [style.display]="publicPageTitle ? 'none' : null">
     <div *ngIf="maintenanceMode" class="message" role="status">Jest ustawiony tryb konserwarcji systemu. Zmie&#324; to w Ustawieniach Globalnych</div>
     <header class="workspace-head" *ngIf="tab !== 'users'">

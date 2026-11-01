@@ -52,7 +52,7 @@
     </div>
   </aside>
 
-  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><p *ngIf="filterError" class="error" role="alert">{{ filterError }}</p></main>
+  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><app-public-regulamin *ngIf="publicPageTitle === 'Regulamin'"></app-public-regulamin><p *ngIf="filterError" class="error" role="alert">{{ filterError }}</p></main>
   <main class="workspace" [style.display]="publicPageTitle ? 'none' : null">
     <section id="dashboard-search-panel" class="dashboard-panel" role="region" aria-label="Wyszukiwanie"
              [hidden]="activeDashboardTab !== 'search'">

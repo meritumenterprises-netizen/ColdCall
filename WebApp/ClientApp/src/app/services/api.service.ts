@@ -303,6 +303,9 @@ export class ApiService {
   termsOfService(): Observable<{ regulamin: string | null }> {
     return this.http.get<{ regulamin: string | null }>(this.url('/api/auth/terms'), this.headers());
   }
+  publicRegulamin(): Observable<{ regulamin: string | null }> {
+    return this.http.get<{ regulamin: string | null }>(this.url('/api/public/regulamin'));
+  }
   decideTermsOfService(accepted: boolean): Observable<{ accepted: boolean }> {
     return this.http.post<{ accepted: boolean }>(this.url('/api/auth/terms'), { accepted }, this.headers());
   }
