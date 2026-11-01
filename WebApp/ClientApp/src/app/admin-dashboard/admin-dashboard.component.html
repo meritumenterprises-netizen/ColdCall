@@ -6,6 +6,7 @@
     <button class="search-item" [class.active]="tab === 'plans'" (click)="publicPageTitle ? openAdminTab('plans') : tab = 'plans'">Plany</button>
     <button class="search-item" [class.active]="tab === 'imports'" (click)="publicPageTitle ? openAdminTab('imports') : tab = 'imports'">Importy</button>
     <button class="search-item" [class.active]="tab === 'global-settings'" (click)="publicPageTitle ? openAdminTab('global-settings') : tab = 'global-settings'">Ustawienia globalne</button>
+    <button class="search-item" [class.active]="tab === 'regulamin' && !publicPageTitle" (click)="publicPageTitle ? openAdminTab('regulamin') : tab = 'regulamin'">Regulamin</button>
   </aside>
 
   <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1></main>
@@ -17,11 +18,13 @@
         <h1 *ngIf="tab === 'plans'">Plany</h1>
         <h1 *ngIf="tab === 'imports'">Importy</h1>
         <h1 *ngIf="tab === 'global-settings'">Ustawienia globalne</h1>
+        <h1 *ngIf="tab === 'regulamin'">Regulamin</h1>
       </div>
     </header>
 
     <div class="message" *ngIf="message">{{ message }}</div>
     <app-admin-plans *ngIf="tab === 'plans'"></app-admin-plans>
+    <app-admin-regulamin *ngIf="tab === 'regulamin' && !publicPageTitle"></app-admin-regulamin>
     <app-admin-imports *ngIf="tab === 'imports'"></app-admin-imports>
     <app-admin-global-settings *ngIf="tab === 'global-settings'" (settingsSaved)="maintenanceMode = false"></app-admin-global-settings>
 

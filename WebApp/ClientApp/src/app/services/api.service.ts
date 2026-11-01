@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { catchError, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import { TermsConsentService } from './terms-consent.service';
 
 export interface SortableColumn { key: string; label: string; }
 export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; totalWithoutLimit?: number; hasNotes?: boolean; }
@@ -82,7 +83,7 @@ export interface StripePurchase {
   maxNumberOfExportedRecords: number | null; amountPaid: number; paidAtUtc: string;
 }
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
-export interface Me { id: number; googleEmail: string; usesGmail?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; applicationInService?: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
+export interface Me { id: number; googleEmail: string; usesGmail?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; termsOfServiceAccepted?: boolean | null; applicationInService?: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string | null; descriptionHtml?: string; }
 export interface PlanDefinitionOption { id: number; code: string; descriptionHtml: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; isEnabled?: boolean;
@@ -123,7 +124,7 @@ export class ApiService {
   private csrfToken = '';
   private csrfRequest: Observable<string> | null = null;
 
-  constructor(private http: HttpClient) {
+  constructor(private http: HttpClient, private termsConsent: TermsConsentService) {
     localStorage.removeItem('google_id_token');
     sessionStorage.removeItem('coldcall_local_session');
   }
@@ -265,6 +266,12 @@ export class ApiService {
     return this.http.get<{ applicationInService: boolean }>(this.url('/api/system/status'));
   }
   profile(): Observable<UserProfile> { return this.http.get<UserProfile>(this.url('/api/auth/profile'), this.headers()); }
+  adminRegulamin(): Observable<{ globalSettingsId: number; regulamin: string | null }> {
+    return this.http.get<{ globalSettingsId: number; regulamin: string | null }>(this.url('/api/admin/regulamin'), this.headers());
+  }
+  saveAdminRegulamin(globalSettingsId: number, regulamin: string): Observable<void> {
+    return this.http.put<void>(this.url('/api/admin/regulamin/' + globalSettingsId), { globalSettingsId, regulamin }, this.headers());
+  }
   updateProfile(details: ProfileDetails) { return this.http.put<void>(this.url('/api/auth/profile'), details, this.headers()); }
   purchases(sortBy = 'paidAtUtc', direction = 'desc'): Observable<StripePurchase[]> {
     return this.http.get<StripePurchase[]>(this.url('/api/auth/purchases'), { ...this.headers(), params: { sortBy, direction } });
@@ -272,6 +279,8 @@ export class ApiService {
   me(notifyExpiredTrial = true): Observable<Me> {
     const csrf = this.localSession && !this.csrfToken ? this.refreshCsrf() : of(this.csrfToken);
     return csrf.pipe(switchMap(() => this.http.get<Me>(this.url('/api/auth/me'), this.headers())),
+      switchMap(user => user.isAdmin || user.termsOfServiceAccepted === true ? of(user)
+        : this.termsConsent.requireConsent().pipe(switchMap(() => this.me(notifyExpiredTrial)))),
       tap(user => {
         if (!this.authenticated) {
           this.adminMaintenanceNotice = user.isAdmin && !!user.applicationInService;
@@ -286,6 +295,12 @@ export class ApiService {
     );
   }
   pkd(term: string = ''): Observable<Pkd[]> { return this.http.get<Pkd[]>(this.url('/api/pkd'), { ...this.headers(), params: { term } }); }
+  termsOfService(): Observable<{ regulamin: string | null }> {
+    return this.http.get<{ regulamin: string | null }>(this.url('/api/auth/terms'), this.headers());
+  }
+  decideTermsOfService(accepted: boolean): Observable<{ accepted: boolean }> {
+    return this.http.post<{ accepted: boolean }>(this.url('/api/auth/terms'), { accepted }, this.headers());
+  }
   classifyPkd(description: string): Observable<PkdClassification> {
     return this.http.post<PkdClassification>(this.url('/api/pkd/classify'), { description }, this.headers());
   }

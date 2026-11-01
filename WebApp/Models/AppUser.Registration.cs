@@ -6,6 +6,7 @@ public partial class AppUser
     public string? LastName { get; set; }
     public string? CompanyName { get; set; }
     public string? Nip { get; set; }
+    public bool? TermsOfServiceAccepted { get; set; }
     public string? PostalCode { get; set; }
     public string? City { get; set; }
     public string? Street { get; set; }

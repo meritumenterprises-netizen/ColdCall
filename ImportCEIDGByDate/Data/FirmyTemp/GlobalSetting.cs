@@ -5,4 +5,5 @@ public class GlobalSetting
     public int GlobalSettingsId { get; set; }
     public int GlobalDegreeOfParallelismImportByDate { get; set; }
     public bool ApplicationInService { get; set; }
+    public string? Regulamin { get; set; }
 }

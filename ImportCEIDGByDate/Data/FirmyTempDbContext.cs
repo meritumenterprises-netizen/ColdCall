@@ -45,6 +45,7 @@ public partial class FirmyTempDbContext : DbContext
             entity.HasKey(e => e.GlobalSettingsId).HasName("PK_GlobalSettings");
             entity.Property(e => e.GlobalSettingsId).UseIdentityColumn();
             entity.Property(e => e.ApplicationInService).HasColumnType("bit").HasDefaultValue(false);
+            entity.Property(e => e.Regulamin).HasColumnType("nvarchar(max)").IsRequired(false);
         });
         modelBuilder.Entity<ImportByDate>(entity =>
         {

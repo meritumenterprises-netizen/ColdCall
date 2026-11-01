@@ -36,6 +36,7 @@ public partial class ColdCallDbContext
             entity.HasKey(e => e.GlobalSettingsId).HasName("PK_GlobalSettings");
             entity.Property(e => e.GlobalSettingsId).UseIdentityColumn();
             entity.Property(e => e.ApplicationInService).HasColumnType("bit").HasDefaultValue(false);
+            entity.Property(e => e.Regulamin).HasColumnType("nvarchar(max)").IsRequired(false);
         });
         modelBuilder.Entity<CompanyXml>(entity =>
         {
@@ -107,6 +108,7 @@ public partial class ColdCallDbContext
             entity.Property(x => x.LastName).HasMaxLength(100).IsRequired(false);
             entity.Property(x => x.CompanyName).HasMaxLength(200).IsRequired(false);
             entity.Property(x => x.Nip).HasMaxLength(10).IsRequired(false);
+            entity.Property(x => x.TermsOfServiceAccepted).HasColumnType("bit").IsRequired(false);
             entity.Property(x => x.PostalCode).HasMaxLength(20).IsRequired(false);
             entity.Property(x => x.City).HasMaxLength(100).IsRequired(false);
             entity.Property(x => x.Street).HasMaxLength(200).IsRequired(false);
