@@ -63,7 +63,7 @@ namespace ImportCEIDGByDate
                 Console.WriteLine($"Importing new files {Statistics.NewDate:yyyy-MM-dd}...");
                 var swGlobal = Stopwatch.StartNew();
                 var globalRecordCounter = 0;
-                var globalMd5s = new HashSet<string>(this.ContentXmlMd5s, StringComparer.OrdinalIgnoreCase);
+                var globalMd5s = this.ContentXmlMd5s;
                 var globalNips = this.FirmyTempDbContext.Companies.Select((c) => c.Nip).Distinct().ToHashSet<string>();
                 var newNips = new List<string>();
                 var stagedNips = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -87,8 +87,7 @@ namespace ImportCEIDGByDate
 
 
                     var culture = CultureInfo.GetCultureInfo("pl-PL");
-                    var xmlDocument = new XmlDocument();
-                    var flushTableEveryRecordCount = 10000;
+                    var flushTableEveryRecordCount = 100;
 
                     Console.WriteLine($"Processing XML files");
 
@@ -147,12 +146,8 @@ namespace ImportCEIDGByDate
                                 using var subtree = reader.ReadSubtree();
                                 var detail = XElement.Load(subtree);
 
-                                string? GetValue(string name) => detail.Elements()
-                                        .FirstOrDefault(element => element.Name.LocalName == name)
-                                        ?.Value.Trim();
-
-                                xmlDocument.LoadXml(detail.ToString());
-                                var nip = xmlDocument.SelectSingleNode("Detail/Nip")?.InnerText.Trim() ?? "";
+                                var nip = detail.Elements()
+                                    .FirstOrDefault(element => element.Name.LocalName == "Nip")?.Value.Trim() ?? "";
 
                                 if (!string.IsNullOrEmpty(nip) && !globalNips.Contains(nip))
                                 {
@@ -174,6 +169,7 @@ namespace ImportCEIDGByDate
                                         {
                                             ImportDbContext.ImportTargets.Remove(superseded);
                                             await ImportDbContext.SaveChangesAsync();
+                                            ImportDbContext.Entry(superseded).State = EntityState.Detached;
                                         }
                                     }
                                     skippedRecordCounter++;
@@ -199,6 +195,7 @@ namespace ImportCEIDGByDate
                                     importTarget.IsUpdated = false;
 
                                     await this.ImportDbContext.SaveChangesAsync();
+                                    this.ImportDbContext.Entry(importTarget).State = EntityState.Detached;
                                 }
                                 else
                                 {
@@ -214,6 +211,7 @@ namespace ImportCEIDGByDate
 
                                     this.ImportDbContext.ImportTargets.Add(target);
                                     await this.ImportDbContext.SaveChangesAsync();
+                                    this.ImportDbContext.Entry(target).State = EntityState.Detached;
                                 }
 
                                 stagedNips.Add(nip);
