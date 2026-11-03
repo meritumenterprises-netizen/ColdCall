@@ -36,5 +36,6 @@ namespace ImportCEIDGByDate.Utils
         public bool SkipProcessingAddresses { get; set; }
 
         public bool UpdateSQLStatistics { get; set; } = true;
+        public bool ShrinkDatabase { get; set; } = true;
     }
 }

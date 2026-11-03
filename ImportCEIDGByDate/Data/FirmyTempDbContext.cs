@@ -55,6 +55,7 @@ public partial class FirmyTempDbContext : DbContext
             entity.Property(e => e.ApplicationInService).HasColumnType("bit").HasDefaultValue(false);
             entity.Property(e => e.RegistrationSuspended).HasColumnType("bit").HasDefaultValue(false);
             entity.Property(e => e.Regulamin).HasColumnType("nvarchar(max)").IsRequired(false);
+            entity.Property(e => e.RegulaminBeta).HasColumnType("nvarchar(max)").IsRequired(false);
         });
         modelBuilder.Entity<ImportByDate>(entity =>
         {
