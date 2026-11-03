@@ -7,4 +7,5 @@ public class GlobalSetting
     public bool ApplicationInService { get; set; }
     public bool RegistrationSuspended { get; set; }
     public string? Regulamin { get; set; }
+    public string? RegulaminBeta { get; set; }
 }

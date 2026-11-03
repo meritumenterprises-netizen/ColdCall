@@ -155,6 +155,9 @@ await ceidgCompanyXmlUpdater.UpdateCompaniesXml();
 var ceidgUpdateSQLStatistics = new CeidgUpdateSQLStatistics(statistics, globalSettings, firmyTempDbContext);
 await ceidgUpdateSQLStatistics.UpdateSQLStatistics();
 
+var ceidgShrinkDatabase = new CeidgShrinkDatabase(statistics, globalSettings, firmyTempDbContext);
+await ceidgShrinkDatabase.ShrinkDatabase();
+
 summary:
 
 statistics.Finish(exitCode == 0 ? "Finished" : "Failed");

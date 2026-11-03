@@ -12,11 +12,11 @@ public static class RepositoryRegistration
     {
         services.AddDbContext<FirmyTempDbContext>(options => options.UseSqlServer(
             configuration.GetConnectionString("FirmyTemp")
-                ?? "Server=localhost;Database=Firmy_temp;Integrated Security=True;TrustServerCertificate=True;",
+                ?? "Server=localhost\\SQLEXPRESS;Database=Firmy_temp;User ID=sa;Password=REDACTED_SECRET;TrustServerCertificate=True;",
             sql => sql.UseNetTopologySuite()));
         services.AddDbContext<FirmyImportDbContext>(options => options.UseSqlServer(
             configuration.GetConnectionString("FirmyImport")
-                ?? "Server=localhost;Database=Firmy_import;Integrated Security=True;TrustServerCertificate=True;"));
+                ?? "Server=localhost\\SQLEXPRESS;Database=Firmy_import;User ID=sa;Password=REDACTED_SECRET;TrustServerCertificate=True;"));
         services.AddScoped<FirmyTempRepository>();
         services.AddScoped<FirmyImportRepository>();
         services.AddScoped<CeidgDatabaseUtils>();
