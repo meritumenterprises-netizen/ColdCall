@@ -1,7 +1,11 @@
 table { width: 100%; table-layout: fixed; }
+.login-filters { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.login-filters input { width: 320px; max-width: 100%; min-width: 0; }
 .admin-list-pager { margin-top: 10px; }
 th:first-child { width: 80px; }
 th:nth-child(2) { width: 220px; }
+th:last-child { width: 90px; }
+.delete-login { color: #b91c1c; }
 td { overflow-wrap: anywhere; }
 td:nth-child(2) { white-space: nowrap; }
 .sort-button { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }

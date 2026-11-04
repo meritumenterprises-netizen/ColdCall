@@ -1,5 +1,5 @@
 <dialog #dialog aria-labelledby="terms-dialog-title" (cancel)="$event.preventDefault()">
-  <h2 id="terms-dialog-title">Regulamin</h2>
+  <h2 id="terms-dialog-title">{{ isBetaUser ? 'Regulamin beta' : 'Regulamin' }}</h2>
   <p *ngIf="loading" role="status">Wczytywanie...</p>
   <div *ngIf="error" class="error" role="alert">{{ error }} <button *ngIf="!saving" type="button" (click)="load()">Pon&#243;w</button></div>
   <div #content class="terms-content" tabindex="0" role="region" aria-label="Tre&#347;&#263; regulaminu" (scroll)="checkScroll()" [innerHTML]="html"></div>

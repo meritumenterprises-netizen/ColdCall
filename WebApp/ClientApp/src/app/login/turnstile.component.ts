@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, EventEmitter, NgZone, OnDestroy, Output, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, EventEmitter, Input, NgZone, OnDestroy, Output, ViewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { timeout } from 'rxjs/operators';
 import { ApiService } from '../services/api.service';
@@ -44,6 +44,7 @@ function loadTurnstile(): Promise<TurnstileApi> {
 })
 export class TurnstileComponent implements AfterViewInit, OnDestroy {
   @ViewChild('widget', { static: true }) widget: ElementRef;
+  @Input() action = 'register';
   @Output() tokenChange = new EventEmitter<string>();
   error = '';
   private destroyed = false;
@@ -62,7 +63,7 @@ export class TurnstileComponent implements AfterViewInit, OnDestroy {
         if (this.destroyed) { return; }
         this.api = api;
         this.widgetId = api.render(this.widget.nativeElement, {
-          sitekey: config.siteKey, action: 'register', theme: 'light', language: 'pl',
+          sitekey: config.siteKey, action: this.action, theme: 'light', language: 'pl',
           size: this.widget.nativeElement.clientWidth < 300 ? 'compact' : 'flexible',
           callback: (token: string) => this.zone.run(() => { if (!this.destroyed) { this.error = ''; this.tokenChange.emit(token); } }),
           'expired-callback': () => this.zone.run(() => this.reset()),

@@ -47,6 +47,7 @@ export class NavMenuComponent {
 
   constructor(public api: ApiService, private router: Router) {}
   get isHomePage() { return this.router.url.split(/[?#]/)[0] === '/'; }
+  get isPublicPlansPage() { return this.router.url.split(/[?#]/)[0] === '/plany'; }
   get isMaintenancePage() { return this.router.url.split(/[?#]/)[0] === '/maintenance'; }
   get isPublicPage() {
     const path = this.router.url.split(/[?#]/)[0];
@@ -74,7 +75,7 @@ export class NavMenuComponent {
 
   get showPlansLink() {
     const user = this.api.user();
-    return this.api.isAuthenticated() && !!user && !user.isAdmin && !user.requiresProfileCompletion && !user.disablePlanPurchase;
+    return this.api.isAuthenticated() && !!user && !user.isAdmin && !user.isBetaUser && !user.requiresProfileCompletion && !user.disablePlanPurchase;
   }
 
   collapse() {

@@ -7,6 +7,7 @@ import { Component, ElementRef, HostListener, Input, ViewChild } from '@angular/
 })
 export class LandingMenuComponent {
   @Input() embedded = false;
+  @Input() showBrand = true;
   contactOpen = false;
   @ViewChild('contactButton', { static: true }) contactButton: ElementRef;
   constructor(private element: ElementRef) {}

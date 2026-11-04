@@ -11,8 +11,12 @@ public partial class AuthController
     [HttpGet("terms")]
     public async Task<IActionResult> Terms(CancellationToken token)
     {
+        var user = await _currentUserService.GetOrCreateAsync(User);
         var row = await _db.GlobalSettings.AsNoTracking().OrderByDescending(settings => settings.GlobalSettingsId)
-            .Select(settings => new { settings.Regulamin }).FirstOrDefaultAsync(token);
+            .Select(settings => new { Regulamin = user.IsBetaUser ? settings.RegulaminBeta : settings.Regulamin,
+                IsBetaUser = user.IsBetaUser }).FirstOrDefaultAsync(token);
+        if (user.IsBetaUser && string.IsNullOrWhiteSpace(row?.Regulamin))
+            return StatusCode(503, new { message = "Regulamin beta jest chwilowo niedostepny." });
         return row == null ? StatusCode(503, new { message = "Regulamin jest chwilowo niedostepny." }) : Ok(row);
     }
 
@@ -24,6 +28,14 @@ public partial class AuthController
         await using var transaction = await _db.Database.BeginTransactionAsync(token);
         var current = await _db.Users.FromSqlInterpolated($"SELECT * FROM ColdCall.Users WITH (UPDLOCK, HOLDLOCK) WHERE Id = {user.Id}")
             .AsNoTracking().SingleAsync(token);
+        if (request.Accepted.Value && !current.IsAdmin && current.IsBetaUser)
+        {
+            var betaTerms = await _db.GlobalSettings.AsNoTracking()
+                .OrderByDescending(settings => settings.GlobalSettingsId)
+                .Select(settings => settings.RegulaminBeta).FirstOrDefaultAsync(token);
+            if (string.IsNullOrWhiteSpace(betaTerms))
+                return StatusCode(503, new { message = "Regulamin beta jest chwilowo niedostepny." });
+        }
         var completingLogin = request.Accepted.Value && !current.IsAdmin && current.TermsOfServiceAccepted != true;
         user.TermsOfServiceAccepted = request.Accepted.Value;
         if (completingLogin) UserLoginHistory.Add(_db, user);

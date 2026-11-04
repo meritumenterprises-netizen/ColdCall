@@ -10,6 +10,7 @@ public partial class AuthController
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         user.Nip = string.IsNullOrWhiteSpace(request.Nip) ? null : request.Nip.Trim();
+        user.Phone = request.Phone.Trim();
         user.FirstName = request.FirstName.Trim();
         user.LastName = request.LastName.Trim();
         user.CompanyName = string.IsNullOrWhiteSpace(request.CompanyName) ? null : request.CompanyName.Trim();

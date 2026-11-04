@@ -16,7 +16,8 @@ public partial class AdminController
             {
                 GlobalSettingsId = row.GlobalSettingsId,
                 GlobalDegreeOfParallelismImportByDate = row.GlobalDegreeOfParallelismImportByDate,
-                ApplicationInService = row.ApplicationInService
+                ApplicationInService = row.ApplicationInService,
+                RegistrationSuspended = row.RegistrationSuspended
             }).ToListAsync(token));
     }
 
@@ -29,6 +30,7 @@ public partial class AdminController
         if (row == null) return NotFound();
         row.GlobalDegreeOfParallelismImportByDate = request.GlobalDegreeOfParallelismImportByDate;
         row.ApplicationInService = request.ApplicationInService;
+        row.RegistrationSuspended = request.RegistrationSuspended;
         await _db.SaveChangesAsync(token);
         return NoContent();
     }

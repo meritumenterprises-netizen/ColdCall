@@ -484,7 +484,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   navigateFilterTabs(event: KeyboardEvent) {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) === -1) { return; }
     event.preventDefault();
-    const tabs: ('pkd' | 'criteria' | 'contact' | 'address')[] = ['criteria', 'contact', 'address', 'pkd'];
+    const tabs: ('pkd' | 'criteria' | 'contact' | 'address')[] = ['criteria', 'pkd', 'address', 'contact'];
     const index = tabs.indexOf(this.activeFilterTab);
     const tab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] :
       tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];

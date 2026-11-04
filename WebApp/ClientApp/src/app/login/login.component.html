@@ -1,4 +1,4 @@
-<app-landing-menu *ngIf="!api.isAuthenticated()"></app-landing-menu>
+<app-landing-menu *ngIf="!api.isAuthenticated()" [showBrand]="false"></app-landing-menu>
 <section class="login-shell" [class.registration-shell]="localMode === 'register'" [class.login-bottom-shell]="localMode === 'login' || localMode === 'forgot'">
   <div class="login-art">
     <h1>FindMyClient</h1>
@@ -9,6 +9,14 @@
       <button *ngIf="companyCountError" type="button" class="company-count-retry" (click)="loadCompanyCount()">Pon&#243;w</button>
     </article>
     <article class="company-count-card" aria-live="polite">
+      <div class="company-count-value">{{ formatStatistic(companiesWithPhoneCount) }}</div>
+      <div class="company-count-label">Firm z telefonami</div>
+    </article>
+    <article class="company-count-card" aria-live="polite">
+      <div class="company-count-value">{{ formatStatistic(companiesWithEmailCount) }}</div>
+      <div class="company-count-label">Firm z emailami</div>
+    </article>
+    <article class="company-count-card" aria-live="polite">
       <div class="company-count-value">{{ formatStatistic(geoAddressCount) }}</div>
       <div class="company-count-label">Liczba adres&#243;w</div>
     </article>
@@ -16,14 +24,38 @@
       <div class="company-count-value">{{ formatStatistic(recentlyImportedCount) }}</div>
       <div class="company-count-label">JDG zmienione w ost. 7 dniach</div>
     </article>
+    <article class="company-count-card" aria-live="polite">
+      <div class="company-count-value">{{ latestImportDate ? (latestImportDate | date:'dd.MM.yyyy') : (companyCountError || latestImportDate === null ? '-' : '...') }}</div>
+      <div class="company-count-label">Dane z dnia</div>
+    </article>
     </div>
     <p>Platforma B2B do wyszukiwania i pozyskiwania klientów biznesowych (Sales Intelligence & Lead Generation), umożliwiająca precyzyjne identyfikowanie potencjalnych klientów na podstawie danych rejestrowych jednoosobowych działalności gospodarczych, branży (PKD), lokalizacji geograficznej i odległości.</p>
+    <section class="landing-steps" aria-labelledby="landing-steps-title">
+      <h2 id="landing-steps-title">Od zdefiniowania wyszukiwania do wysyłki kampanii w kilka minut</h2>
+      <ol class="landing-steps-grid">
+        <li class="landing-step">
+          <span class="landing-step-number" aria-hidden="true">01</span>
+          <h3>Wybierz wyszukiwanie</h3>
+          <p>Filtruj firmy po branży (PKD), regionie i dostępnych danych kontaktowych</p>
+        </li>
+        <li class="landing-step">
+          <span class="landing-step-number" aria-hidden="true">02</span>
+          <h3>Eksportuj wyniki do CSV</h3>
+          <p>Otrzymujesz plik CSV gotowy do importu do CRM-a lub narzędzia do kampanii: e-maile, telefony, adresy, NIP, PKD</p>
+        </li>
+        <li class="landing-step">
+          <span class="landing-step-number" aria-hidden="true">03</span>
+          <h3>Wyślij kampanię</h3>
+          <p>Dane pochodzą z publicznych rejestrów (CEIDG, KRS, REGON). Przy każdym rekordzie wiesz, skąd pochodzi i kiedy był aktualizowany.</p>
+        </li>
+      </ol>
+    </section>
   </div>
 
   <section class="login-card">
     <div class="local-auth-tabs">
       <button type="button" [class.active]="localMode === 'login'" [disabled]="localBusy || checkingRegistration" (click)="setLocalMode('login')">Logowanie</button>
-      <button type="button" [class.active]="localMode === 'register'" [disabled]="localBusy || checkingRegistration" [attr.aria-busy]="checkingRegistration" (click)="setLocalMode('register')">Rejestracja</button>
+      <button *ngIf="!registrationSuspended" type="button" [class.active]="localMode === 'register'" [disabled]="localBusy || checkingRegistration" [attr.aria-busy]="checkingRegistration" (click)="setLocalMode('register')">Rejestracja</button>
     </div>
     <h2>{{ localMode === 'register' ? 'Utwórz konto' : localMode === 'forgot' ? 'Odzyskaj hasło' : localMode === 'reset' ? 'Ustaw nowe hasło' : 'Zaloguj się' }}</h2>
     <form #localForm="ngForm" (ngSubmit)="submitLocalAuth()">
@@ -44,6 +76,8 @@
           <input id="register-city" name="city" [(ngModel)]="registration.city" required pattern=".*\S.*" maxlength="100" autocomplete="address-level2">
           <label for="register-street">Ulica</label>
           <input id="register-street" name="street" [(ngModel)]="registration.street" required pattern=".*\S.*" maxlength="200" autocomplete="address-line1">
+          <label for="register-phone">Telefon</label>
+          <input id="register-phone" name="phone" type="tel" [(ngModel)]="registration.phone" required pattern=".*\S.*" maxlength="32" autocomplete="tel">
           <label for="register-streetNumber">Nr ulicy/lokalu</label>
           <input id="register-streetNumber" name="streetNumber" [(ngModel)]="registration.streetNumber" required pattern=".*\S.*" maxlength="50" autocomplete="address-line2">
         </ng-container>
@@ -59,11 +93,12 @@
           <label for="local-password-confirm">Powt&#243;rz has&#322;o</label>
           <input id="local-password-confirm" name="confirmPassword" type="password" [(ngModel)]="localPasswordConfirmation" required minlength="10" maxlength="128" autocomplete="new-password">
         </ng-container>
-        <app-turnstile *ngIf="localMode === 'register'" (tokenChange)="registrationToken = $event"></app-turnstile>
+        <app-turnstile *ngIf="localMode === 'register'" (tokenChange)="turnstileToken = $event"></app-turnstile>
+        <app-turnstile *ngIf="localMode === 'forgot'" action="forgot-password" (tokenChange)="turnstileToken = $event"></app-turnstile>
         <span *ngIf="(localMode === 'register' || localMode === 'reset') && localPassword.length > 0 && localPassword.length < 10" class="error" role="alert">Has&#322;o musi mie&#263; co najmniej 10 znak&#243;w (wpisano {{ localPassword.length }}).</span>
         <span *ngIf="(localMode === 'register' || localMode === 'reset') && localPasswordConfirmation.length > 0 && localPassword !== localPasswordConfirmation" class="error" role="alert">Has&#322;a musz&#261; by&#263; takie same.</span>
         <span *ngIf="localMode === 'register' && checkingEmail" class="error" role="status">Sprawdzanie adresu email...</span>
-        <button type="submit" class="primary-button local-auth-submit" [disabled]="localBusy || localForm.invalid || (localMode === 'register' && (!registrationToken || checkingEmail || !!registrationEmailError))">{{ localBusy ? 'Proszę czekać...' : localMode === 'register' ? 'Zarejestruj się' : localMode === 'forgot' ? 'Wyślij link' : localMode === 'reset' ? 'Zapisz hasło' : 'Zaloguj się' }}</button>
+        <button type="submit" class="primary-button local-auth-submit" [disabled]="localBusy || localForm.invalid || ((localMode === 'register' || localMode === 'forgot') && !turnstileToken) || (localMode === 'register' && (checkingEmail || !!registrationEmailError))">{{ localBusy ? 'Proszę czekać...' : localMode === 'register' ? 'Zarejestruj się' : localMode === 'forgot' ? 'Wyślij link' : localMode === 'reset' ? 'Zapisz hasło' : 'Zaloguj się' }}</button>
       </fieldset>
     </form>
     <div *ngIf="localError" class="error" role="alert">{{ localError }}</div>
@@ -80,6 +115,7 @@
     <div class="error" *ngIf="error">{{ error }}</div>
   </section>
 </section>
+
 <dialog #trialDialog class="trial-dialog" aria-labelledby="trial-title" (cancel)="$event.preventDefault(); declineTrial()">
   <ng-container *ngIf="trialOffer">
     <h2 id="trial-title">Plan pr&#243;bny {{ trialOffer.code }}</h2>

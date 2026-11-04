@@ -8,6 +8,8 @@ public sealed class AdminCreateUserRequest : EmailRequest
     public string Password { get; set; } = "";
 
     public bool DisablePlanPurchase { get; set; }
+    public bool IsBetaUser { get; set; }
+    public bool SendCredentialsEmail { get; set; }
 
     [Range(1, int.MaxValue)]
     public int PlanDefinitionId { get; set; }

@@ -9,14 +9,17 @@ declare const google: any;
 
 @Component({
   selector: 'app-login',
-  templateUrl: './login.component.html'
+  templateUrl: './login.component.html',
+  styleUrls: ['./login.component.css']
 })
 export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild(TurnstileComponent, { static: false }) turnstile: TurnstileComponent;
-  registrationToken = '';
+  turnstileToken = '';
   @ViewChild('googleRequiredDialog', { static: true }) googleRequiredDialog: ElementRef;
   @ViewChild('registrationMaintenanceDialog', { static: true }) registrationMaintenanceDialog: ElementRef;
   checkingRegistration = false;
+  registrationSuspended = true;
+  private registrationAvailabilityRequest: Subscription | null = null;
   private registrationStatusRequest: Subscription | null = null;
   localMode: 'login' | 'register' | 'forgot' | 'reset' = 'login';
   localEmail = '';
@@ -44,7 +47,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
         this.registrationEmailError = 'Nie udalo sie sprawdzic adresu email. Wyjdz z pola ponownie, aby sprobowac jeszcze raz.';
       });
   }
-  registration = { firstName: '', lastName: '', companyName: '', nip: '', postalCode: '', city: '', street: '', streetNumber: '' };
+  registration = { firstName: '', lastName: '', companyName: '', nip: '', phone: '', postalCode: '', city: '', street: '', streetNumber: '' };
   localPassword = '';
   localPasswordConfirmation = '';
   localBusy = false;
@@ -60,7 +63,9 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
       this.localError = '';
       this.registrationStatusRequest = this.api.maintenanceStatus().pipe(timeout(10000),
         finalize(() => this.checkingRegistration = false)).subscribe(status => {
-          if (status.applicationInService) { this.showRegistrationMaintenance(); }
+          this.registrationSuspended = status.registrationSuspended;
+          if (this.registrationSuspended) { this.applyLocalMode('login'); }
+          else if (status.applicationInService) { this.showRegistrationMaintenance(); }
           else { this.applyLocalMode(mode); }
         }, () => this.localError = 'Nie udalo sie sprawdzic dostepnosci rejestracji. Sprobuj ponownie.');
       return;
@@ -77,7 +82,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   private applyLocalMode(mode: 'login' | 'register' | 'forgot' | 'reset') {
     this.resetEmailCheck();
     this.localMode = mode; this.localError = ''; this.localMessage = '';
-    this.registrationToken = '';
+    this.turnstileToken = '';
     this.localPassword = ''; this.localPasswordConfirmation = '';
   }
 
@@ -111,7 +116,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
       this.localError = 'Podaj poprawny adres email.'; return;
     }
     if (this.localMode === 'register' && [this.registration.firstName, this.registration.lastName,
-        this.registration.postalCode, this.registration.city, this.registration.street, this.registration.streetNumber]
+        this.registration.postalCode, this.registration.city, this.registration.street, this.registration.streetNumber, this.registration.phone]
         .some(value => !value.trim())) {
       this.localError = 'Uzupelnij wymagane dane osobowe i adresowe.'; return;
     }
@@ -133,18 +138,18 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
       ).subscribe(() => this.localPassword = '', err => this.handleLocalError(err));
       return;
     }
-    if (this.localMode === 'register' && !this.registrationToken) {
+    if ((this.localMode === 'register' || this.localMode === 'forgot') && !this.turnstileToken) {
       this.localError = 'Potwierdz weryfikacje antybotowa.'; return;
     }
-    const wasRegistration = this.localMode === 'register';
-    const request = this.localMode === 'register' ? this.api.registerLocal(this.registration, email, this.localPassword, this.registrationToken)
-      : this.localMode === 'forgot' ? this.api.forgotPassword(email) : this.api.resetPassword(email, this.resetToken, this.localPassword);
+    const usedTurnstile = this.localMode === 'register' || this.localMode === 'forgot';
+    const request = this.localMode === 'register' ? this.api.registerLocal(this.registration, email, this.localPassword, this.turnstileToken)
+      : this.localMode === 'forgot' ? this.api.forgotPassword(email, this.turnstileToken) : this.api.resetPassword(email, this.resetToken, this.localPassword);
     const wasReset = this.localMode === 'reset';
     this.localBusy = true;
     this.localRequest = request.pipe(finalize(() => {
       this.localBusy = false;
-      if (wasRegistration) {
-        this.registrationToken = '';
+      if (usedTurnstile) {
+        this.turnstileToken = '';
         if (this.turnstile) { this.turnstile.reset(); }
       }
     })).subscribe(result => {
@@ -164,8 +169,9 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   private handleLocalError(err: any) {
     if (err.error && err.error.code === 'SystemMaintenance') { this.showRegistrationMaintenance(); return; }
     if (err.error && err.error.code === 'GoogleSignInRequired') { this.googleRequiredDialog.nativeElement.showModal(); return; }
-    this.localError = err.status === 429 ? 'Zbyt wiele prob. Sprobuj ponownie za minute.'
-      : err.error && err.error.message ? err.error.message : 'Nie udalo sie wykonac operacji. Sprobuj ponownie.';
+    this.localError = err.error && err.error.message ? err.error.message
+      : err.status === 429 ? 'Zbyt wiele prob. Sprobuj ponownie za minute.'
+      : 'Nie udalo sie wykonac operacji. Sprobuj ponownie.';
   }
   @ViewChild('trialDialog', { static: true }) trialDialog: ElementRef;
   trialOffer: TrialOffer | null = null;
@@ -193,13 +199,18 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
   companyCount: number | null = null;
   geoAddressCount: number | null = null;
+  companiesWithPhoneCount: number | null = null;
+  companiesWithEmailCount: number | null = null;
   recentlyImportedCount: number | null = null;
+  latestImportDate: string | null | undefined = undefined;
   companyCountError = false;
   private countRequest: Subscription | null = null;
   private countFormatter = new Intl.NumberFormat('pl-PL');
 
   ngOnInit() {
     this.loadCompanyCount();
+    this.registrationAvailabilityRequest = this.api.maintenanceStatus().pipe(timeout(10000), retry(1))
+      .subscribe(status => this.registrationSuspended = status.registrationSuspended, () => {});
     const query = this.route.snapshot.queryParams;
     if (query.email && query.token && (query.mode === 'confirm-email' || query.mode === 'reset-password')) {
       this.localEmail = query.email;
@@ -221,7 +232,10 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
       this.zone.run(() => {
         this.companyCount = result.count;
         this.geoAddressCount = result.geoAddressCount;
+        this.companiesWithPhoneCount = result.companiesWithPhoneCount;
+        this.companiesWithEmailCount = result.companiesWithEmailCount;
         this.recentlyImportedCount = result.recentlyImportedCount;
+        this.latestImportDate = result.latestImportDate == null ? null : result.latestImportDate;
         this.companyCountError = false;
       });
     }, () => this.zone.run(() => this.companyCountError = true));
@@ -229,6 +243,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.resetEmailCheck();
+    if (this.registrationAvailabilityRequest) { this.registrationAvailabilityRequest.unsubscribe(); }
     if (this.registrationStatusRequest) { this.registrationStatusRequest.unsubscribe(); }
     if (this.localRequest) { this.localRequest.unsubscribe(); }
     if (this.trialRequest) { this.trialRequest.unsubscribe(); }

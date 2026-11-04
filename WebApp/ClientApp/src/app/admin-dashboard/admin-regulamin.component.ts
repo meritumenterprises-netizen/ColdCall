@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ApiService } from '../services/api.service';
@@ -9,6 +9,8 @@ import { ApiService } from '../services/api.service';
   styleUrls: ['./admin-regulamin.component.css']
 })
 export class AdminRegulaminComponent implements OnInit, OnDestroy {
+  @Input() beta = false;
+  get title() { return this.beta ? 'Regulamin Beta' : 'Regulamin'; }
   activeTab: 'preview' | 'html' = 'preview';
   loading = false;
   saving = false;
@@ -25,7 +27,8 @@ export class AdminRegulaminComponent implements OnInit, OnDestroy {
   load() {
     if (this.loadRequest) { this.loadRequest.unsubscribe(); }
     this.loading = true; this.error = ''; this.message = '';
-    this.loadRequest = this.api.adminRegulamin().pipe(finalize(() => this.loading = false)).subscribe(row => {
+    const request = this.beta ? this.api.adminRegulaminBeta() : this.api.adminRegulamin();
+    this.loadRequest = request.pipe(finalize(() => this.loading = false)).subscribe(row => {
       this.settingsId = row.globalSettingsId;
       this.text = this.savedText = row.regulamin || '';
     }, () => this.error = 'Nie udalo sie pobrac regulaminu.');
@@ -34,7 +37,9 @@ export class AdminRegulaminComponent implements OnInit, OnDestroy {
     if (!this.dirty || this.saving || this.settingsId === null) { return; }
     const text = this.text;
     this.saving = true; this.error = ''; this.message = '';
-    this.saveRequest = this.api.saveAdminRegulamin(this.settingsId, text).pipe(finalize(() => this.saving = false)).subscribe(() => {
+    const request = this.beta ? this.api.saveAdminRegulaminBeta(this.settingsId, text)
+      : this.api.saveAdminRegulamin(this.settingsId, text);
+    this.saveRequest = request.pipe(finalize(() => this.saving = false)).subscribe(() => {
       this.savedText = text; this.message = 'Regulamin zostal zapisany.';
     }, () => this.error = 'Nie udalo sie zapisac regulaminu. Sprobuj ponownie.');
   }

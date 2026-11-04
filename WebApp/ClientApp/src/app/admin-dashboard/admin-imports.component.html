@@ -1,7 +1,11 @@
 <div class="imports-panel">
   <div class="imports-table" [attr.aria-busy]="loading">
     <table>
-      <thead><tr><th>ID</th>
+      <thead><tr><th [attr.aria-sort]="sortBy === 'importId' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+          <button type="button" class="sort-button" (click)="sort('importId')" [disabled]="loading">ID
+            <span *ngIf="sortBy === 'importId'">{{ sortDirection === 'asc' ? '&#9650;' : '&#9660;' }}</span>
+          </button>
+        </th>
         <th *ngFor="let column of columns" [attr.aria-sort]="sortBy === column.key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
           <button type="button" class="sort-button" (click)="sort(column.key)" [disabled]="loading">{{ column.label }}
             <span *ngIf="sortBy === column.key">{{ sortDirection === 'asc' ? '&#9650;' : '&#9660;' }}</span>
@@ -29,6 +33,7 @@
   </div>
   <footer class="admin-list-pager" aria-label="Paginacja importow">
     <span>{{ imports.length }} import&#243;w</span>
+    <button type="button" (click)="load()" [disabled]="loading">Od&#347;wie&#380;</button>
     <button type="button" (click)="changePage(page - 1)" [disabled]="loading || page === 1">Poprzednia</button>
     <span>Strona {{ page }} z {{ totalPages }}</span>
     <button type="button" (click)="changePage(page + 1)" [disabled]="loading || page >= totalPages">Nast&#281;pna</button>

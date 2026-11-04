@@ -14,9 +14,14 @@ public class SystemStatusController(ColdCallDbContext db) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> Get(CancellationToken token)
     {
-        var applicationInService = await db.GlobalSettings.AsNoTracking()
+        var settings = await db.GlobalSettings.AsNoTracking()
             .OrderByDescending(settings => settings.GlobalSettingsId)
-            .Select(settings => settings.ApplicationInService).FirstOrDefaultAsync(token);
-        return Ok(new { applicationInService });
+            .Select(settings => new { settings.ApplicationInService, settings.RegistrationSuspended })
+            .FirstOrDefaultAsync(token);
+        return Ok(new
+        {
+            applicationInService = settings?.ApplicationInService ?? false,
+            registrationSuspended = settings?.RegistrationSuspended ?? false
+        });
     }
 }

@@ -6,6 +6,8 @@ import { environment } from '../../environments/environment';
 import { TermsConsentService } from './terms-consent.service';
 
 export interface SortableColumn { key: string; label: string; }
+export interface FeedbackRequest { firstName: string; lastName: string; email: string; comment: string; turnstileToken: string; nip?: string; }
+export interface PublicPlan { id: number; code: string; descriptionHtml: string; price: number; currency: string; }
 export interface AdminUserLogin { userLoginId: number; userId: number; userName: string | null; email: string | null; loginDate: string; }
 export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; totalWithoutLimit?: number; hasNotes?: boolean; }
 export interface Pkd { id: number; code: string; name: string; }
@@ -39,7 +41,7 @@ export interface Company {
   addressIsMissing: boolean | null; blockedByRODO: boolean;
   wojewodztwoId?: number | null; miejscowoscId?: number | null; gminaId?: number | null; powiatId?: number | null;
 }
-export interface AdminGlobalSetting { globalSettingsId: number; globalDegreeOfParallelismImportByDate: number; applicationInService: boolean; }
+export interface AdminGlobalSetting { globalSettingsId: number; globalDegreeOfParallelismImportByDate: number; applicationInService: boolean; registrationSuspended: boolean; }
 export interface AdminUserPayment { planCode: string; paidAtUtc: string; amountPaid: number; }
 export interface CompanyAddress { companyAdresId: number; companyId: number; addressId: number; }
 export interface CompanyAddressDetails extends CompanyAddress {
@@ -77,20 +79,21 @@ export interface SearchCriteria {
 export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; hasCsvExports?: boolean; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; order: number; canPurchase: boolean; }
 export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; enableCSVDeleting: boolean; expiresAtUtc: string; isExpired?: boolean; }
-export interface ProfileDetails { firstName: string; lastName: string; companyName: string; nip: string; postalCode: string; city: string; street: string; streetNumber: string; }
-export interface UserProfile extends ProfileDetails { displayName: string | null; googleEmail: string; isAdmin: boolean; plan: CurrentPlan | null; }
+export interface ProfileDetails { firstName: string; lastName: string; companyName: string; nip: string; phone: string; postalCode: string; city: string; street: string; streetNumber: string; }
+export interface UserProfile extends ProfileDetails { displayName: string | null; googleEmail: string; isAdmin: boolean; isBetaUser: boolean; plan: CurrentPlan | null; }
 export interface StripePurchase {
   planCode: string; maxNumberOfSearches: number; maxNumberOfCSVExportsPerSearch: number | null;
   maxNumberOfExportedRecords: number | null; amountPaid: number; paidAtUtc: string;
 }
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
-export interface Me { id: number; googleEmail: string; usesGmail?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; termsOfServiceAccepted?: boolean | null; requiresProfileCompletion?: boolean; applicationInService?: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
+export interface Me { id: number; googleEmail: string; usesGmail?: boolean; isBetaUser?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; termsOfServiceAccepted?: boolean | null; requiresProfileCompletion?: boolean; applicationInService?: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
 export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string | null; descriptionHtml?: string; }
 export interface PlanDefinitionOption { id: number; code: string; descriptionHtml: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; isEnabled?: boolean;
   firstName?: string | null; lastName?: string | null; companyName?: string | null; nip?: string | null; postalCode?: string | null;
   isAdmin?: boolean;
-  city?: string | null; street?: string | null; streetNumber?: string | null;
+  isBetaUser?: boolean;
+  city?: string | null; street?: string | null; streetNumber?: string | null; phone?: string | null;
 }
 export interface AuthConfig { googleClientId: string; }
 export interface CsvExportRow { id: number; userId: number; searchProfileId: number; csvFileName: string; createdOn: string; numberOfRecords: number | null; }
@@ -183,10 +186,10 @@ export class ApiService {
   acceptTrial(token: string, termsAccepted: boolean) {
     return this.http.post(this.url('/api/auth/accept-trial'), { token, termsAccepted }, this.headers());
   }
-  companyCount(): Observable<{ count: number; geoAddressCount: number; recentlyImportedCount: number }> {
-    return this.http.get<{ count: number; geoAddressCount: number; recentlyImportedCount: number }>(
-      this.url('/api/statistics/companies'), { params: new HttpParams().set('v', '2') }).pipe(tap(result => {
-        if (!result || ![result.count, result.geoAddressCount, result.recentlyImportedCount]
+  companyCount(): Observable<{ count: number; geoAddressCount: number; companiesWithPhoneCount: number; companiesWithEmailCount: number; recentlyImportedCount: number; latestImportDate: string | null }> {
+    return this.http.get<{ count: number; geoAddressCount: number; companiesWithPhoneCount: number; companiesWithEmailCount: number; recentlyImportedCount: number; latestImportDate: string | null }>(
+      this.url('/api/statistics/companies'), { params: new HttpParams().set('v', '4') }).pipe(tap(result => {
+        if (!result || ![result.count, result.geoAddressCount, result.companiesWithPhoneCount, result.companiesWithEmailCount, result.recentlyImportedCount]
             .every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0)) {
           throw new Error('Incomplete home statistics response.');
         }
@@ -256,23 +259,36 @@ export class ApiService {
       switchMap(result => this.refreshCsrf().pipe(map(() => result)))
     );
   }
-  forgotPassword(email: string) { return this.accountPost<{ message: string }>('forgot-password', { email }); }
+  forgotPassword(email: string, turnstileToken: string) { return this.accountPost<{ message: string }>('forgot-password', { email, turnstileToken }); }
   resendConfirmation(email: string) { return this.accountPost<{ message: string }>('resend-confirmation', { email }); }
   confirmEmail(email: string, token: string) { return this.accountPost<{ message: string }>('confirm-email', { email, token }); }
   resetPassword(email: string, token: string, password: string) { return this.accountPost<{ message: string }>('reset-password', { email, token, password }); }
   logoutSession() { return this.accountPost<any>('logout', {}).pipe(tap(() => this.logout())); }
 
   authConfig(): Observable<AuthConfig> { return this.http.get<AuthConfig>(this.url('/auth-config.json')); }
-  maintenanceStatus(): Observable<{ applicationInService: boolean }> {
-    return this.http.get<{ applicationInService: boolean }>(this.url('/api/system/status'));
+  maintenanceStatus(): Observable<{ applicationInService: boolean; registrationSuspended: boolean }> {
+    return this.http.get<{ applicationInService: boolean; registrationSuspended: boolean }>(this.url('/api/system/status'));
   }
   profile(): Observable<UserProfile> { return this.http.get<UserProfile>(this.url('/api/auth/profile'), this.headers()); }
   adminRegulamin(): Observable<{ globalSettingsId: number; regulamin: string | null }> {
     return this.http.get<{ globalSettingsId: number; regulamin: string | null }>(this.url('/api/admin/regulamin'), this.headers());
   }
-  adminLogins(page: number, sortBy: string, direction: string): Observable<{ items: AdminUserLogin[]; total: number; page: number; pageSize: number }> {
+  adminRegulaminBeta(): Observable<{ globalSettingsId: number; regulamin: string | null }> {
+    return this.http.get<{ globalSettingsId: number; regulaminBeta: string | null }>(
+      this.url('/api/admin/regulamin-beta'), this.headers()).pipe(
+        map(row => ({ globalSettingsId: row.globalSettingsId, regulamin: row.regulaminBeta })));
+  }
+  saveAdminRegulaminBeta(globalSettingsId: number, regulaminBeta: string): Observable<void> {
+    const csrf = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
+    return csrf.pipe(switchMap(() => this.http.put<void>(this.url('/api/admin/regulamin-beta/' + globalSettingsId),
+      { globalSettingsId, regulaminBeta }, this.headers())));
+  }
+  deleteAdminLogin(id: number): Observable<void> {
+    return this.http.delete<void>(this.url('/api/admin/logins/' + id), this.headers());
+  }
+  adminLogins(page: number, sortBy: string, direction: string, email = ''): Observable<{ items: AdminUserLogin[]; total: number; page: number; pageSize: number }> {
     return this.http.get<{ items: AdminUserLogin[]; total: number; page: number; pageSize: number }>(this.url('/api/admin/logins'),
-      { ...this.headers(), params: { page: String(page), sortBy, direction } });
+      { ...this.headers(), params: { page: String(page), sortBy, direction, email } });
   }
   saveAdminRegulamin(globalSettingsId: number, regulamin: string): Observable<void> {
     return this.http.put<void>(this.url('/api/admin/regulamin/' + globalSettingsId), { globalSettingsId, regulamin }, this.headers());
@@ -300,8 +316,26 @@ export class ApiService {
     );
   }
   pkd(term: string = ''): Observable<Pkd[]> { return this.http.get<Pkd[]>(this.url('/api/pkd'), { ...this.headers(), params: { term } }); }
-  termsOfService(): Observable<{ regulamin: string | null }> {
-    return this.http.get<{ regulamin: string | null }>(this.url('/api/auth/terms'), this.headers());
+  termsOfService(): Observable<{ regulamin: string | null; isBetaUser: boolean }> {
+    return this.http.get<{ regulamin: string | null; isBetaUser: boolean }>(this.url('/api/auth/terms'), this.headers());
+  }
+  sendFeedback(details: FeedbackRequest): Observable<{ message: string }> {
+    const csrf = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
+    return csrf.pipe(switchMap(() => this.http.post<{ message: string }>(
+      this.url('/api/public/feedback'), details, this.headers())));
+  }
+  sendSupport(details: FeedbackRequest): Observable<{ message: string }> {
+    const csrf = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
+    return csrf.pipe(switchMap(() => this.http.post<{ message: string }>(
+      this.url('/api/public/support'), details, this.headers())));
+  }
+  sendRodo(details: FeedbackRequest): Observable<{ message: string }> {
+    const csrf = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
+    return csrf.pipe(switchMap(() => this.http.post<{ message: string }>(
+      this.url('/api/public/rodo'), details, this.headers())));
+  }
+  publicPlans(): Observable<PublicPlan[]> {
+    return this.http.get<PublicPlan[]>(this.url('/api/public/plans'));
   }
   publicRegulamin(): Observable<{ regulamin: string | null }> {
     return this.http.get<{ regulamin: string | null }>(this.url('/api/public/regulamin'));
@@ -432,11 +466,19 @@ export class ApiService {
   adminUserPayments(id: number): Observable<AdminUserPayment[]> {
     return this.http.get<AdminUserPayment[]>(this.url('/api/admin/users/' + id + '/payments'), this.headers());
   }
+  updateUserBeta(id: number, isBetaUser: boolean): Observable<{ isBetaUser: boolean }> {
+    return this.http.put<{ isBetaUser: boolean }>(this.url('/api/admin/users/' + id + '/beta'), { isBetaUser }, this.headers());
+  }
   updateUserAdmin(id: number, isAdmin: boolean): Observable<{ isAdmin: boolean }> {
     return this.http.put<{ isAdmin: boolean }>(this.url('/api/admin/users/' + id + '/admin'), { isAdmin }, this.headers());
   }
-  createAdminUser(request: { email: string; password: string; disablePlanPurchase: boolean; planDefinitionId: number }): Observable<{ id: number; email: string }> {
-    return this.http.post<{ id: number; email: string }>(this.url('/api/admin/users'), request, this.headers());
+  createAdminUser(request: { email: string; password: string; disablePlanPurchase: boolean; planDefinitionId: number; isBetaUser?: boolean; sendCredentialsEmail?: boolean }): Observable<{ id: number; email: string; credentialsEmailSent: boolean | null }> {
+    return this.http.post<{ id: number; email: string; credentialsEmailSent: boolean | null }>(this.url('/api/admin/users'), request, this.headers());
+  }
+  setAdminUserPassword(id: number, password: string): Observable<{ message: string }> {
+    const csrf = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
+    return csrf.pipe(switchMap(() => this.http.post<{ message: string }>(
+      this.url('/api/admin/users/' + id + '/password'), { password }, this.headers())));
   }
   extendUserPlan(id: number) { return this.http.post(this.url('/api/admin/users/' + id + '/extend-plan'), {}, this.headers()); }
   adminImports(): Observable<AdminImport[]> {

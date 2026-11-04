@@ -26,6 +26,7 @@
           <ng-container *ngFor="let field of detailFields">
             <label [for]="'profile-' + field.key">{{ field.label }}</label>
             <input [id]="'profile-' + field.key" [name]="field.key" [(ngModel)]="details[field.key]" #detailInput="ngModel"
+              [type]="field.key === 'phone' ? 'tel' : 'text'"
               [required]="field.key !== 'companyName' && field.key !== 'nip'" [maxlength]="field.max" [attr.autocomplete]="field.autocomplete"
               [pattern]="field.key === 'nip' ? '[0-9]{10}' : field.key === 'postalCode' ? '[0-9]{2}-[0-9]{3}' : field.key === 'companyName' ? '.*' : '.*\\S.*'">
             <span *ngIf="field.key === 'nip' && detailInput.invalid && detailInput.touched" class="error" role="alert">NIP musi zawiera&#263; 10 cyfr.</span>
@@ -37,6 +38,9 @@
           </div>
         </fieldset>
       </form>
+      <label class="admin-status" *ngIf="isDataPanel && profile">
+        <input type="checkbox" [checked]="profile.isBetaUser" disabled>Beta user
+      </label>
       <label class="admin-status" *ngIf="isDataPanel && profile && profile.isAdmin">
         <input type="checkbox" checked disabled>Administrator
       </label>
@@ -85,7 +89,7 @@
       <ng-template #noPlan>
         <p>Brak aktywnego planu.</p>
       </ng-template>
-      <button *ngIf="!canSearch" type="button" class="primary-button choose-plan-button" routerLink="/plans">Wybierz plan</button>
+      <button *ngIf="!canSearch && profile && !profile.isBetaUser" type="button" class="primary-button choose-plan-button" routerLink="/plans">Wybierz plan</button>
       </ng-container>
       </ng-container>
     </ng-container>

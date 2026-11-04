@@ -13,6 +13,10 @@
       <input id="application-in-service" name="applicationInService" type="checkbox" [(ngModel)]="row.applicationInService" (ngModelChange)="row.saved = false">
       System w trybie konserwacji
     </label>
+    <label class="maintenance-field" for="registration-suspended">
+      <input id="registration-suspended" name="registrationSuspended" type="checkbox" [(ngModel)]="row.registrationSuspended" (ngModelChange)="row.saved = false">
+      Rejestracja wstrzymana
+    </label>
     <div class="settings-actions">
       <button type="submit" class="primary-button" [disabled]="row.saving || !changed(row) || !valid(row)">{{ row.saving ? 'Zapisywanie...' : 'Zapisz' }}</button>
       <button type="button" class="ghost-button" [disabled]="row.saving || !changed(row)" (click)="cancel(row)">Anuluj</button>

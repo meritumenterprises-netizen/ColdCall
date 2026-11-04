@@ -82,7 +82,7 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
         }
         var email = Normalize(request.Email);
         if (await RequiresGoogle(email)) return GoogleRequired();
-        if (new[] { request.FirstName, request.LastName, request.PostalCode, request.City, request.Street, request.StreetNumber }
+        if (new[] { request.FirstName, request.LastName, request.PostalCode, request.City, request.Street, request.StreetNumber, request.Phone }
             .Any(string.IsNullOrWhiteSpace))
             return BadRequest(new { message = "Uzupelnij wymagane dane osobowe i adresowe." });
         await using var transaction = await db.Database.BeginTransactionAsync();
@@ -98,6 +98,7 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
         {
             GoogleEmail = email, GoogleSubject = "local:" + Guid.NewGuid().ToString("N"),
             DisplayName = request.FirstName.Trim() + " " + request.LastName.Trim(),
+            Phone = request.Phone.Trim(),
             FirstName = request.FirstName.Trim(), LastName = request.LastName.Trim(),
             CompanyName = string.IsNullOrWhiteSpace(request.CompanyName) ? null : request.CompanyName.Trim(),
             Nip = string.IsNullOrWhiteSpace(request.Nip) ? null : request.Nip.Trim(),
@@ -175,9 +176,35 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
     }
 
     [AllowAnonymous, HttpPost("forgot-password")]
-    public async Task<IActionResult> ForgotPassword(EmailRequest request)
+    public async Task<IActionResult> ForgotPassword(ForgotPasswordRequest request,
+        [FromServices] PasswordResetAttemptLimiter attempts)
     {
+        try
+        {
+            if (!turnstile.IsConfigured)
+                return StatusCode(503, new { message = "Weryfikacja antybotowa jest chwilowo niedostepna." });
+            if (!await turnstile.VerifyAsync(request.TurnstileToken, HttpContext.Connection.RemoteIpAddress,
+                HttpContext.RequestAborted, expectedAction: "forgot-password"))
+                return BadRequest(new { message = "Potwierdz weryfikacje antybotowa ponownie." });
+        }
+        catch (Exception exception) when (exception is HttpRequestException or System.Text.Json.JsonException
+            || (exception is OperationCanceledException && !HttpContext.RequestAborted.IsCancellationRequested))
+        {
+            return StatusCode(503, new { message = "Weryfikacja antybotowa jest chwilowo niedostepna. Sprobuj ponownie." });
+        }
         var email = Normalize(request.Email);
+        var retryAfter = attempts.TryAcquire(email);
+        if (retryAfter.HasValue)
+        {
+            var retryAfterSeconds = Math.Max(1, (int)Math.Ceiling(retryAfter.Value.TotalSeconds));
+            Response.Headers.RetryAfter = retryAfterSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return StatusCode(StatusCodes.Status429TooManyRequests, new
+            {
+                code = "PasswordResetLimitExceeded",
+                message = $"Wykorzystano dwie proby odzyskania hasla dla tego adresu email. Sprobuj ponownie za {(int)Math.Ceiling(retryAfterSeconds / 60.0)} min.",
+                retryAfterSeconds
+            });
+        }
         var account = await manager.FindByEmailAsync(email);
         if (account == null && await RequiresGoogle(email)) return GoogleRequired();
         if (account != null && account.EmailConfirmed && await db.Users.AnyAsync(u => u.Id == account.Id && u.IsEnabled))

@@ -9,7 +9,7 @@ public class TurnstileVerifier(HttpClient client, IConfiguration configuration, 
     public bool IsConfigured => !string.IsNullOrWhiteSpace(SiteKey)
         && !string.IsNullOrWhiteSpace(configuration["Turnstile:SecretKey"]);
 
-    public async Task<bool> VerifyAsync(string token, IPAddress? remoteIp, CancellationToken cancellationToken)
+    public async Task<bool> VerifyAsync(string token, IPAddress? remoteIp, CancellationToken cancellationToken, string expectedAction = "register")
     {
         if (!IsConfigured || string.IsNullOrWhiteSpace(token) || token.Length > 2048) return false;
         var fields = new Dictionary<string, string>
@@ -22,7 +22,7 @@ public class TurnstileVerifier(HttpClient client, IConfiguration configuration, 
         response.EnsureSuccessStatusCode();
         var result = await response.Content.ReadFromJsonAsync<TurnstileResponse>(cancellationToken);
         var hosts = configuration.GetSection("Turnstile:AllowedHostnames").Get<string[]>() ?? [];
-        return result is { Success: true, Action: "register" }
+        return result is { Success: true } && result.Action == expectedAction
             && (hosts.Contains(result.Hostname, StringComparer.OrdinalIgnoreCase)
                 || (environment.IsDevelopment() && result.Hostname == "localhost"));
     }

@@ -1,6 +1,7 @@
 <header class="landing-header" [class.embedded]="embedded">
-  <a *ngIf="!embedded" routerLink="/" class="landing-brand">FindMyClient</a>
+  <a *ngIf="!embedded && showBrand" routerLink="/" class="landing-brand">FindMyClient</a>
   <nav aria-label="Menu strony">
+    <a routerLink="/plany" class="menu-trigger" (click)="contactOpen = false">Plany</a>
     <div class="contact-menu">
       <button #contactButton type="button" class="menu-trigger" [attr.aria-expanded]="contactOpen"
               aria-controls="landing-contact-options" (click)="contactOpen = !contactOpen">Kontakt <span aria-hidden="true">&#9662;</span></button>
