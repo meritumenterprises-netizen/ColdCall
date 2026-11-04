@@ -4,5 +4,5 @@
 .regulamin-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .regulamin-preview { min-height: 360px; overflow-wrap: anywhere; overflow-x: auto; }
 .regulamin-preview ::ng-deep img { max-width: 100%; height: auto; }
-textarea { display: block; width: 100%; min-height: 360px; height: 55vh; resize: vertical; font-family: Consolas, monospace; box-sizing: border-box; }
+textarea { padding: 5px; display: block; width: 100%; min-height: 360px; height: 55vh; resize: vertical; font-family: Consolas, monospace; box-sizing: border-box; }
 .regulamin-actions { display: flex; gap: 12px; margin-top: 16px; }

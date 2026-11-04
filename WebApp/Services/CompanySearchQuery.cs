@@ -46,7 +46,14 @@ public class CompanySearchQuery
         {
             var now = DateTime.Now;
             var since = now.AddDays(-modifiedWithinDays.Value);
-            companies = companies.Where(company => company.DataModifiedOn >= since && company.DataModifiedOn <= now);
+            companies = companies.Where(company => company.ImportedOn >= since && company.ImportedOn <= now);
+        }
+        if (!radiusKm.HasValue && !addressLocality)
+        {
+            if (wojewodztwoId.HasValue) companies = companies.Where(c => c.WojewodztwoId == wojewodztwoId);
+            if (powiatId.HasValue) companies = companies.Where(c => c.PowiatId == powiatId);
+            if (gminaId.HasValue) companies = companies.Where(c => c.GminaId == gminaId);
+            if (miejscowoscId.HasValue) companies = companies.Where(c => c.MiejscowoscId == miejscowoscId);
         }
         var query = ApplyDetailFilters(ApplyPkdFilter(BaseCompanyQuery(companies, includeAllCompanies), pkdIds),
             radiusKm.HasValue ? null : address, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
@@ -61,11 +68,25 @@ public class CompanySearchQuery
             query = query.Where(company => _db.CompanyAddresses.Any(link => link.CompanyId == company.Id
                 && link.Address.MiejscowoscId == miejscowoscId
                 && (!gminaId.HasValue || link.Address.GminaId == gminaId)));
-        else
-            query = ApplyAdministrativeFilter(query, wojewodztwoId, powiatId, gminaId, miejscowoscId);
         if (!string.IsNullOrWhiteSpace(companyName) && companyName.Trim().Length >= 3)
             query = query.Where(x => x.Name.Contains(companyName.Trim()));
         return query;
+    }
+
+    // Sort indexed address/name keys before materializing the formatted view.
+    // The view's FullAddress is calculated from several columns and cannot use
+    // the existing AddressSort/Id indexes.
+    public IQueryable<int> OrderedIds(IQueryable<CompanyShortDto> query, string? sortBy, string? direction)
+    {
+        if (string.Equals(sortBy, "fullAddress", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(sortBy, "name", StringComparison.OrdinalIgnoreCase))
+        {
+            var matchingIds = query.Select(row => row.Id);
+            return _db.Companies.AsNoTracking().Where(company => matchingIds.Contains(company.Id))
+                .ApplyCompanySort(sortBy, direction).ThenBy(company => company.Id)
+                .Select(company => company.Id);
+        }
+        return query.ApplyCompanyShortSort(sortBy, direction).Select(row => row.Id);
     }
 
     public IQueryable<CompanyShortDto> WithUserNotes(IQueryable<CompanyShortDto> query, int userId) =>
@@ -83,21 +104,16 @@ public class CompanySearchQuery
                 + (c.BuildingNumber ?? "") + (c.ApartmentNumber == null ? "" : "/" + c.ApartmentNumber)
         })
         :
-        from row in _db.CompaniesShort
-        join company in companies on row.Id equals company.Id
-        select new CompanyShortDto
+        // Keep matching/counting on Companies. Resolve presentation fields only
+        // when rows are materialized, rather than joining the view for every match.
+        companies.Select(c => new CompanyShortDto
         {
-            Id = row.Id,
-            Name = row.Name,
-            Nip = row.Nip,
-            FullAddress = row.FullAddress,
-            Phone = row.Phone,
-            Email = row.Email,
-            Www = row.Www,
-            DataAktywnosci = company.StartedAt,
-            DataModifiedOn = company.DataModifiedOn,
-            TypyDzialalnosci = row.TypDzialalnosci
-        };
+            Id = c.Id, Name = c.Name, Nip = c.Nip, Phone = c.Phone, Email = c.Email,
+            Www = c.Website, DataAktywnosci = c.StartedAt, DataModifiedOn = c.DataModifiedOn,
+            FullAddress = _db.CompaniesShort.Where(row => row.Id == c.Id)
+                .Select(row => row.FullAddress).FirstOrDefault()!,
+            TypyDzialalnosci = c.BusinessType!.TypDzialalnosci
+        });
 
     private IQueryable<CompanyShortDto> ApplyPkdFilter(IQueryable<CompanyShortDto> query, int[]? pkdIds)
     {
@@ -106,18 +122,6 @@ public class CompanySearchQuery
             ? query
             : query.Where(company => _db.CompanyPkds.Any(companyPkd =>
                 companyPkd.CompanyId == company.Id && selectedPkdIds.Contains(companyPkd.PkdCodeId)));
-    }
-
-    private IQueryable<CompanyShortDto> ApplyAdministrativeFilter(IQueryable<CompanyShortDto> query,
-        int? wojewodztwoId, int? powiatId, int? gminaId, int? miejscowoscId)
-    {
-        if (!wojewodztwoId.HasValue && !powiatId.HasValue && !gminaId.HasValue && !miejscowoscId.HasValue)
-            return query;
-        return query.Where(row => _db.Companies.Any(company => company.Id == row.Id
-            && (!wojewodztwoId.HasValue || company.WojewodztwoId == wojewodztwoId)
-            && (!powiatId.HasValue || company.PowiatId == powiatId)
-            && (!gminaId.HasValue || company.GminaId == gminaId)
-            && (!miejscowoscId.HasValue || company.MiejscowoscId == miejscowoscId)));
     }
 
     private async Task<Point?> LocalityCenter(int? wojewodztwoId, int? powiatId, int? gminaId, int miejscowoscId)
@@ -164,13 +168,13 @@ public class CompanySearchQuery
         if (startedFrom.HasValue && startedTo.HasValue)
         {
             var from = startedFrom.Value.ToDateTime(TimeOnly.MinValue);
-            query = query.Where(x => _db.Companies.Any(c => c.Id == x.Id && c.StartedAt >= from));
+            query = query.Where(x => x.DataAktywnosci >= from);
             if (startedTo.Value == DateOnly.MaxValue)
-                query = query.Where(x => _db.Companies.Any(c => c.Id == x.Id && c.StartedAt <= DateTime.MaxValue));
+                query = query.Where(x => x.DataAktywnosci <= DateTime.MaxValue);
             else
             {
                 var until = startedTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue);
-                query = query.Where(x => _db.Companies.Any(c => c.Id == x.Id && c.StartedAt < until));
+                query = query.Where(x => x.DataAktywnosci < until);
             }
         }
         return query;

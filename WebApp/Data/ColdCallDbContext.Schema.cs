@@ -161,7 +161,11 @@ public partial class ColdCallDbContext
             entity.Property(x => x.SuspendedOn).HasColumnType("datetime").IsRequired(false);
             entity.Property(x => x.ResumedOn).HasColumnType("datetime").IsRequired(false);
             entity.Property(x => x.ImportedOn).HasColumnType("datetime").IsRequired(false);
+            entity.HasIndex(x => new { x.WojewodztwoId, x.PowiatId, x.GminaId, x.MiejscowoscId, x.StatusDzialalnosciId })
+                .HasDatabaseName("IX_Companies_Location_Status").IncludeProperties(nameof(Company.StartedAt));
             entity.HasIndex(x => x.ImportedOn).HasDatabaseName("IX_Companies_ImportedOn");
+            entity.HasIndex(x => new { x.StatusDzialalnosciId, x.ImportedOn, x.Id })
+                .HasDatabaseName("IX_Companies_Status_ImportedOn_Id").IncludeProperties(nameof(Company.StartedAt));
             entity.HasIndex(x => new { x.StatusDzialalnosciId, x.DataModifiedOn, x.Id })
                 .HasDatabaseName("IX_Companies_Status_DataModifiedOn_Id").IncludeProperties(nameof(Company.StartedAt));
             entity.Property<string>("AddressSort").HasMaxLength(800);
@@ -183,10 +187,16 @@ public partial class ColdCallDbContext
             entity.Property(x => x.Phone).HasMaxLength(32);
             entity.Property(x => x.Email).HasMaxLength(256);
             entity.HasIndex(x => x.Phone).HasDatabaseName("IX_Companies_Phone").IsUnique(false).IsClustered(false);
+            entity.HasIndex(x => new { x.Phone, x.Id }).HasDatabaseName("IX_Companies_PhoneDesc_Id")
+                .IsDescending(true, false).IncludeProperties(nameof(Company.StatusDzialalnosciId)).IsClustered(false);
             entity.HasIndex(x => x.Email).HasDatabaseName("IX_Companies_Email").IsUnique(false).IsClustered(false);
+            entity.HasIndex(x => new { x.Email, x.Id }).HasDatabaseName("IX_Companies_EmailDesc_Id")
+                .IsDescending(true, false).IncludeProperties(nameof(Company.StatusDzialalnosciId)).IsClustered(false);
             entity.Property(x => x.GoogleEmail).HasMaxLength(256);
             entity.Property(x => x.Website).HasMaxLength(512);
             entity.HasIndex(x => x.Website).HasDatabaseName("IX_Companies_Website").IsUnique(false).IsClustered(false);
+            entity.HasIndex(x => new { x.Website, x.Id }).HasDatabaseName("IX_Companies_WebsiteDesc_Id")
+                .IsDescending(true, false).IncludeProperties(nameof(Company.StatusDzialalnosciId)).IsClustered(false);
             entity.Property(x => x.InstagramAccount).HasMaxLength(512);
             entity.Property(x => x.FacebookAccount).HasMaxLength(512);
             entity.Property(x => x.StartedAt).HasColumnType("datetime2");

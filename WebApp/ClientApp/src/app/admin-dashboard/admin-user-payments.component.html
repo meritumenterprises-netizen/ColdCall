@@ -1,5 +1,5 @@
 <section aria-labelledby="admin-user-payments-title" [attr.aria-busy]="loading">
-  <h2 id="admin-user-payments-title">P&#322;atno&#347;ci</h2>
+  <h2 id="admin-user-payments-title">Płatności Stripe</h2>
   <div class="payments-table">
     <table>
       <thead><tr>
@@ -12,8 +12,8 @@
       <tbody>
         <tr *ngIf="loading"><td colspan="3" role="status">Wczytywanie...</td></tr>
         <tr *ngFor="let payment of sortedPayments">
-          <td>{{ payment.planCode }}</td>
           <td>{{ payment.paidAtUtc | date:'dd.MM.yyyy HH:mm' }}</td>
+          <td>{{ payment.planCode }}</td>
           <td class="payment-amount">{{ payment.amountPaid | number:'1.2-2' }} PLN</td>
         </tr>
         <tr *ngIf="!loading && !error && !payments.length"><td colspan="3">Brak p&#322;atno&#347;ci.</td></tr>

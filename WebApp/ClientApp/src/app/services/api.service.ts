@@ -87,7 +87,7 @@ export interface StripePurchase {
 }
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
 export interface Me { id: number; googleEmail: string; usesGmail?: boolean; isBetaUser?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; termsOfServiceAccepted?: boolean | null; requiresProfileCompletion?: boolean; applicationInService?: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
-export interface UserPlan { planCode: string; purchasedAtUtc: string; expiresAtUtc: string; source: string | null; descriptionHtml?: string; }
+export interface UserPlan { planCode: string; amountPaid?: number | null; paidAtUtc?: string | null; purchasedAtUtc: string; expiresAtUtc: string; source: string | null; descriptionHtml?: string; }
 export interface PlanDefinitionOption { id: number; code: string; descriptionHtml: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; isEnabled?: boolean;
   firstName?: string | null; lastName?: string | null; companyName?: string | null; nip?: string | null; postalCode?: string | null;
@@ -367,8 +367,9 @@ export class ApiService {
     return this.http.post<SearchProfile>(this.url('/api/searches'), { name, pkdCodeIds, criteria, confirmDuplicateCriteria }, this.headers());
   }
 
-  companies(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters, modifiedWithinDays?: number, notesOnly = false): Observable<PagedResult<CompanyShort>> {
-    const params = this.companyParams(page, sortBy, direction, pkdIds, filters, modifiedWithinDays);
+  companies(page: number, sortBy: string, direction: string, pkdIds: number[], filters?: CompanyFilters, modifiedWithinDays?: number, notesOnly = false, refreshCount = true): Observable<PagedResult<CompanyShort>> {
+    const params = this.companyParams(page, sortBy, direction, pkdIds, filters, modifiedWithinDays)
+      .set('refreshCount', String(refreshCount));
     return this.http.get<PagedResult<CompanyShort>>(this.url('/api/companies'), { ...this.headers(), params: notesOnly ? params.set('notesOnly', 'true') : params });
   }
 
@@ -452,8 +453,9 @@ export class ApiService {
     return csrf.pipe(switchMap(() => this.http.post<{ paid: boolean }>(this.url('/api/plans/confirm-checkout'), { sessionId }, this.headers())));
   }
 
-  adminCompanies(page: number, sortBy: string, direction: string, filter: string, pkdIds: number[] = [], filters?: CompanyFilters, nip = '', blockedByRODO: boolean | null = null): Observable<PagedResult<Company>> {
-    let params = this.companyParams(page, sortBy, direction, pkdIds, filters).set('filter', filter).set('nip', nip);
+  adminCompanies(page: number, sortBy: string, direction: string, filter: string, pkdIds: number[] = [], filters?: CompanyFilters, nip = '', blockedByRODO: boolean | null = null, refreshCount = true): Observable<PagedResult<Company>> {
+    let params = this.companyParams(page, sortBy, direction, pkdIds, filters).set('filter', filter).set('nip', nip)
+      .set('refreshCount', String(refreshCount));
     if (blockedByRODO !== null) { params = params.set('blockedByRODO', String(blockedByRODO)); }
     return this.http.get<PagedResult<Company>>(this.url('/api/admin/companies'), { ...this.headers(), params });
   }

@@ -109,7 +109,7 @@
 .presence-criterion label { display: flex; align-items: center; gap: 10px; flex: 0 1 auto; width: auto; min-width: 0; }
 .presence-criterion span { flex: 0 0 auto; width: auto; }
 @media (max-width: 600px) { .presence-criteria-row { grid-template-columns: minmax(0, 1fr); } }
-.date-filter { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; gap: 24px; margin: 16px 0; max-width: 100%; overflow-x: auto; padding: 2px 0; }
+.date-filter { display: grid; grid-template-columns: max-content minmax(0, 1fr); align-items: center; gap: 20px; margin: 16px 0; max-width: 100%; overflow-x: auto; padding: 2px 0; }
 .date-filter > .presence-filter { flex: 0 0 auto; margin-bottom: 0; }
 .company-status-filter { display: flex; align-items: center; gap: 20px; padding: 2px 0; margin: 16px 0 0; min-width: 0; overflow-x: auto; }
 .company-status-label { flex: 0 0 auto; font-size: 13px; font-weight: 500; white-space: nowrap; }

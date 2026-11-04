@@ -20,6 +20,7 @@ var builder = WebApplication.CreateBuilder(args.Where(arg =>
     !arg.Equals("--angular-dev-server", StringComparison.OrdinalIgnoreCase)).ToArray());
 
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<LandingStatisticsService>();
 builder.Services.AddHostedService(services => services.GetRequiredService<LandingStatisticsService>());
 builder.Services.AddDbContext<ColdCallDbContext>(options =>
@@ -204,6 +205,8 @@ if (useBuiltFrontend)
                 "ClientApp", "dist", "index.html"), context.RequestAborted);
             if (statistics is not null)
             {
+                statistics = await context.RequestServices.GetRequiredService<LandingStatisticsService>()
+                    .GetAsync(context.RequestAborted);
                 var json = System.Text.Json.JsonSerializer.Serialize(statistics,
                     new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
                 html = html.Replace("</head>", "<script>window.__coldCallLandingStatistics=" + json + ";</script></head>", StringComparison.OrdinalIgnoreCase);

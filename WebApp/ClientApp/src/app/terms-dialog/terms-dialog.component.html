@@ -2,7 +2,7 @@
   <h2 id="terms-dialog-title">{{ isBetaUser ? 'Regulamin beta' : 'Regulamin' }}</h2>
   <p *ngIf="loading" role="status">Wczytywanie...</p>
   <div *ngIf="error" class="error" role="alert">{{ error }} <button *ngIf="!saving" type="button" (click)="load()">Pon&#243;w</button></div>
-  <div #content class="terms-content" tabindex="0" role="region" aria-label="Tre&#347;&#263; regulaminu" (scroll)="checkScroll()" [innerHTML]="html"></div>
+  <div #content class="terms-content" [class.beta-terms-content]="isBetaUser" tabindex="0" role="region" aria-label="Tre&#347;&#263; regulaminu" (scroll)="checkScroll()"><div class="terms-text" [innerHTML]="html"></div></div>
   <div class="terms-actions">
     <button type="button" class="primary-button" [disabled]="!reachedBottom || loading || saving" (click)="decide(true)">Akceptuj</button>
     <button type="button" class="ghost-button" [disabled]="!reachedBottom || loading || saving" (click)="decide(false)">Odm&#243;w</button>

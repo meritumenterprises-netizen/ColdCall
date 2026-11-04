@@ -4,13 +4,14 @@ using ColdCall.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace ColdCall.Controllers.Api;
 
 [ApiController]
 [Authorize]
 [Route("api/companies/{companyId:int}/notes")]
-public class CompanyNotesController(ColdCallDbContext db, ICurrentUserService currentUserService) : ControllerBase
+public class CompanyNotesController(ColdCallDbContext db, ICurrentUserService currentUserService, IMemoryCache searchCache) : ControllerBase
 {
     public record NotesRequest(string Notes);
 
@@ -48,6 +49,7 @@ public class CompanyNotesController(ColdCallDbContext db, ICurrentUserService cu
                 await db.SaveChangesAsync(token);
             }
             await transaction.CommitAsync(token);
+            searchCache.Set("CompanyNotesVersion:" + user.Id, Guid.NewGuid(), TimeSpan.FromMinutes(20));
             return Ok(new { notes = "" });
         }
         if (note == null)
@@ -58,6 +60,7 @@ public class CompanyNotesController(ColdCallDbContext db, ICurrentUserService cu
         note.Notes = request.Notes;
         await db.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
+        searchCache.Set("CompanyNotesVersion:" + user.Id, Guid.NewGuid(), TimeSpan.FromMinutes(20));
         return Ok(new { notes = note.Notes });
     }
 }

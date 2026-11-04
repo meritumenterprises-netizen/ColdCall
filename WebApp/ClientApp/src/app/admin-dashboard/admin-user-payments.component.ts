@@ -14,8 +14,8 @@ export class AdminUserPaymentsComponent implements OnChanges, OnDestroy {
   error = '';
   sortBy = 'paidAtUtc';
   direction = 'desc';
-  columns = [ { key: 'planCode', label: 'Plan' }, { key: 'paidAtUtc', label: 'Kupiono dnia' },
-    { key: 'amountPaid', label: 'Zap\u0142acono' } ];
+  columns = [ { key: 'paidAtUtc', label: 'Data' }, { key: 'planCode', label: 'Plan definition' },
+    { key: 'amountPaid', label: 'Zapłacono' } ];
   private request: Subscription | null = null;
 
   constructor(private api: ApiService) {}
