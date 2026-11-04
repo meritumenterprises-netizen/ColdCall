@@ -33,6 +33,21 @@ public static class LocalAuthentication
 
     public static async Task ValidateCookie(CookieValidatePrincipalContext context)
     {
+        if (context.HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            context.RejectPrincipal();
+            return;
+        }
+        try { await ValidateCookieCore(context); }
+        catch (OperationCanceledException) when (context.HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            // The browser discarded this request; do not turn cancellation into an authentication failure.
+            context.RejectPrincipal();
+        }
+    }
+
+    private static async Task ValidateCookieCore(CookieValidatePrincipalContext context)
+    {
         var db = context.HttpContext.RequestServices.GetRequiredService<ColdCallDbContext>();
         var id = context.Principal?.FindFirstValue(UserIdClaim);
         var googleSubject = context.Principal?.FindFirstValue(GoogleSubjectClaim);

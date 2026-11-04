@@ -168,7 +168,11 @@ public class CsvExportCleanupService(ColdCallDbContext db, IWebHostEnvironment e
             await db.UserPlans.Where(p => p.AppUserId == userId && p.PlanDefinition.IsTrial
                     && p.ExpiresAtUtc <= now && (p.IsActive == null || p.IsActive == true))
                 .ExecuteUpdateAsync(updates => updates.SetProperty(p => p.IsActive, (bool?)false), token);
-            if (await db.UserPlans.AnyAsync(p => p.AppUserId == userId && p.ExpiresAtUtc > now, token))
+            // A past trial must never erase searches belonging to a paid-plan user,
+            // including after that paid plan expires or has been upgraded.
+            if (await db.UserPlans.AnyAsync(p => p.AppUserId == userId
+                    && (p.ExpiresAtUtc > now || !p.PlanDefinition.IsTrial), token)
+                || await db.StripePayments.AnyAsync(payment => payment.AppUserId == userId, token))
             {
                 await transaction.CommitAsync(token);
                 return 0;

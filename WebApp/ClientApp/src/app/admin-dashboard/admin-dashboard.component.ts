@@ -213,10 +213,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.changePlanError = '';
     this.planDefinitionsLoading = true;
     this.changePlanDialog.nativeElement.showModal();
-    this.planDefinitionsRequest = this.api.adminPlanDefinitions()
+    this.planDefinitionsRequest = this.api.adminPlanDefinitions(true)
       .pipe(finalize(() => this.planDefinitionsLoading = false)).subscribe(plans => {
         this.planDefinitions = plans;
-        const current = plans.find(plan => plan.code === row.planCode);
+        const current = plans.find(plan => plan.code.trim().toUpperCase() === row.planCode.trim().toUpperCase());
         this.selectedPlanDefinitionId = current ? current.id : null;
       }, () => this.changePlanError = 'Nie udalo sie pobrac planow.');
   }

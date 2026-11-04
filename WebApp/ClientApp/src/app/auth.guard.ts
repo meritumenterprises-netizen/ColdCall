@@ -36,10 +36,6 @@ export class AuthGuard implements CanActivate {
       this.router.navigateByUrl('/profile/data');
       return false;
     }
-    if (user && !user.isAdmin && user.isBetaUser && url.split(/[?#]/)[0] === '/plans') {
-      this.router.navigateByUrl('/profile/data');
-      return false;
-    }
     return true;
   }
 }

@@ -2,16 +2,25 @@
   <label class="upgrade-filter"><input type="checkbox" [(ngModel)]="upgrade" (ngModelChange)="loadPlans()" [disabled]="saving || loading">Upgrade</label>
   <div class="plans-table">
     <table>
-      <thead><tr><th>Nazwa planu</th><th>Wyszukiwania</th><th>Eksporty CSV / wyszukiwanie</th><th>Rekordy</th><th>Dni</th><th>Cena</th><th>W ofercie</th><th>Trial</th><th>Usuwanie CSV</th></tr></thead>
+      <thead><tr>
+        <th *ngFor="let column of sortableColumns" [attr.aria-sort]="sortBy === column.key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+          <button type="button" class="plan-sort" (click)="sortPlans(column.key)" [disabled]="loading || saving">
+            {{ column.label }} <span *ngIf="sortBy === column.key" aria-hidden="true">{{ sortDirection === 'asc' ? '▲' : '▼' }}</span>
+          </button>
+        </th>
+        <th>W ofercie</th><th>Trial</th><th>Usuwanie CSV</th>
+      </tr></thead>
       <tbody>
         <tr *ngIf="loading"><td colspan="9" role="status">Wczytywanie...</td></tr>
         <ng-container *ngIf="!loading">
-          <tr *ngFor="let plan of plans" [class.selected]="draft && draft.id === plan.id" (click)="selectPlan(plan)">
+          <tr *ngFor="let plan of sortedPlans" [class.selected]="draft && draft.id === plan.id" (click)="selectPlan(plan)">
             <td><button type="button" class="plan-select" [disabled]="saving" (click)="$event.stopPropagation(); selectPlan(plan)" [attr.aria-pressed]="draft && draft.id === plan.id">{{ plan.code }}</button></td>
             <td>{{ plan.maxNumberOfSearches }}</td><td>{{ plan.maxNumberOfCSVExportsPerSearch == null ? '—' : plan.maxNumberOfCSVExportsPerSearch }}</td>
             <td>{{ plan.maxNumberOfExportedRecords == null ? '—' : plan.maxNumberOfExportedRecords }}</td>
             <td>{{ plan.expiresAfterDays == null ? '—' : plan.expiresAfterDays }}</td><td>{{ plan.price | number:'1.2-2' }}</td>
-            <td><input type="checkbox" [checked]="plan.showInOffer" disabled aria-label="W ofercie"></td>
+            <td><input type="checkbox" [checked]="plan.showInOffer" [disabled]="saving || loading"
+                       [attr.aria-label]="'W ofercie: ' + plan.code" (click)="$event.stopPropagation()"
+                       (change)="updateOffer(plan, $event)"></td>
             <td><input type="checkbox" [checked]="plan.isTrial" disabled aria-label="Trial"></td>
             <td><input type="checkbox" [checked]="plan.enableCSVDeleting" disabled aria-label="Usuwanie CSV"></td>
           </tr>

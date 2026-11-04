@@ -33,20 +33,17 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
 {
     public async Task<Session> CreateAsync(AppUser user, string planCode, CancellationToken token)
     {
-        if (user.IsBetaUser)
-            throw new InvalidOperationException("Zakup planow jest niedostepny dla uzytkownikow beta.");
+        if (user.DisablePlanPurchase)
+            throw new InvalidOperationException("Zakup planow jest wylaczony dla tego konta.");
+        if (user.IsBetaUser && UserProfileCompletion.IsRequired(user))
+            throw new InvalidOperationException("Uzupelnij wymagane dane w Profil / Dane przed zakupem planu.");
         var plan = await db.PlanDefinitions.AsNoTracking().SingleOrDefaultAsync(p => p.Code == planCode, token);
         if (user.IsAdmin || !user.IsEnabled || plan == null || !plan.IsActive || plan.IsTrial || !plan.ShowInOffer
             || plan.ExpiresAfterDays is not > 0 || plan.Price <= 0 || !string.Equals(plan.Currency, "PLN", StringComparison.OrdinalIgnoreCase))
             throw new InvalidOperationException("Ten plan nie jest dostepny do zakupu.");
         var current = await db.UserPlans.AsNoTracking().Where(p => p.AppUserId == user.Id && p.ExpiresAtUtc > DateTime.UtcNow)
-            .OrderByDescending(p => p.ExpiresAtUtc).Select(p => p.PlanDefinition).FirstOrDefaultAsync(token);
-        var specificUpgradeCodes = PlanOfferRules.UpgradeCodesFor(current?.Code);
-        var allowed = current == null || current.IsTrial ? !plan.IsUpgrade
-            : plan.IsUpgrade && (specificUpgradeCodes.Length > 0
-                ? specificUpgradeCodes.Contains(plan.Code)
-                : plan.UpgradeFrom == (current.IsUpgrade ? current.UpgradeFrom : current.Id)
-                    && plan.MaxNumberOfSearches > current.MaxNumberOfSearches);
+            .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id).Select(p => p.PlanDefinition).FirstOrDefaultAsync(token);
+        var allowed = PlanOfferRules.CanPurchase(current, plan);
         if (!allowed) throw new InvalidOperationException("Wybrany plan nie jest dostepny dla Twojego aktualnego planu.");
         if (!Uri.TryCreate(configuration["Stripe:FrontendUrl"], UriKind.Absolute, out var frontend)
             || frontend.Scheme != Uri.UriSchemeHttps || !string.IsNullOrEmpty(frontend.Query) || !string.IsNullOrEmpty(frontend.Fragment))

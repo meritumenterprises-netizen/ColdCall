@@ -1,6 +1,8 @@
 <main class="workspace plans-page">
-  <p *ngIf="hasHighestPlan">Masz ju&#380; najwy&#380;szy plan</p>
-  <ng-container *ngIf="!hasHighestPlan">
+  <p *ngIf="planPurchaseDisabled" role="status">Zakup planów jest wyłączony dla tego konta.</p>
+  <button *ngIf="planPurchaseDisabled && canReturnToDashboard" type="button" class="ghost-button" routerLink="/dashboard">Wróć</button>
+  <p *ngIf="!planPurchaseDisabled && hasHighestPlan">Masz ju&#380; najwy&#380;szy plan</p>
+  <ng-container *ngIf="!planPurchaseDisabled && !hasHighestPlan">
   <header class="workspace-head">
     <div>
       <h1>Wybierz plan</h1>

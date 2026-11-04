@@ -15,6 +15,7 @@ import { PublicRegulaminComponent } from './login/public-regulamin.component';
 import { PublicPlansComponent } from './login/public-plans.component';
 import { FeedbackComponent } from './login/feedback.component';
 import { PublicPageGuard } from './public-page.guard';
+import { PublicPlansGuard } from './public-plans.guard';
 import { MaintenanceComponent } from './maintenance/maintenance.component';
 import { MaintenanceGuard } from './maintenance/maintenance.guard';
 import { UserDashboardComponent } from './user-dashboard/user-dashboard.component';
@@ -72,7 +73,7 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
       { path: 'kontakt/informacja', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Feedback' } },
       { path: 'kontakt/wsparcie-techniczne', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Wsparcie techniczne' } },
       { path: 'kontakt/rodo', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'RODO' } },
-      { path: 'plany', component: PublicPlansComponent },
+      { path: 'plany', component: PublicPlansComponent, canActivate: [PublicPlansGuard] },
       { path: 'regulamin', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Regulamin' } },
       { path: 'maintenance', component: MaintenanceComponent, canActivate: [MaintenanceGuard] },
       { path: 'dashboard', component: UserDashboardComponent, canActivate: [AuthGuard] },

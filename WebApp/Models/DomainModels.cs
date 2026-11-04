@@ -95,6 +95,7 @@ public class CompanyPkd
 
 public class SearchProfile
 {
+    public int? RecordCount { get; set; }
     public DateTime? LastSavedAtUtc { get; set; }
     public string? SearchProfileHash { get; set; }
     public int Id { get; set; }
