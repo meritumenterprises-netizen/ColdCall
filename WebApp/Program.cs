@@ -20,6 +20,8 @@ var builder = WebApplication.CreateBuilder(args.Where(arg =>
     !arg.Equals("--angular-dev-server", StringComparison.OrdinalIgnoreCase)).ToArray());
 
 builder.Services.AddControllers();
+builder.Services.AddSingleton<LandingStatisticsService>();
+builder.Services.AddHostedService(services => services.GetRequiredService<LandingStatisticsService>());
 builder.Services.AddDbContext<ColdCallDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Firmy")));
 builder.Services.AddDbContext<LocalAuthDbContext>((services, options) =>
@@ -71,6 +73,7 @@ builder.Services.AddDataProtection();
 builder.Services.AddScoped<TrialPlanService>();
 builder.Services.AddScoped<IStripeCheckoutGateway, StripeCheckoutGateway>();
 builder.Services.AddScoped<StripePaymentService>();
+builder.Services.AddHttpClient<InFaktService>(client => client.Timeout = TimeSpan.FromSeconds(30));
 builder.Services.AddHttpClient<TurnstileVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient<PkdClassifier>(client => client.Timeout = TimeSpan.FromMinutes(2));
 builder.Services.AddSpaStaticFiles(configuration => configuration.RootPath = "ClientApp/dist");
@@ -187,6 +190,32 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseHttpsRedirection();
+// Include the last complete figures in the initial document, before Angular renders
+// the tiles. Reading this snapshot never waits for a database query.
+if (useBuiltFrontend)
+{
+    app.Use(async (context, next) =>
+    {
+        if ((HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method))
+            && (context.Request.Path == "/" || context.Request.Path == "/index.html"))
+        {
+            var statistics = context.RequestServices.GetRequiredService<LandingStatisticsService>().Current;
+            var html = await System.IO.File.ReadAllTextAsync(Path.Combine(app.Environment.ContentRootPath,
+                "ClientApp", "dist", "index.html"), context.RequestAborted);
+            if (statistics is not null)
+            {
+                var json = System.Text.Json.JsonSerializer.Serialize(statistics,
+                    new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+                html = html.Replace("</head>", "<script>window.__coldCallLandingStatistics=" + json + ";</script></head>", StringComparison.OrdinalIgnoreCase);
+            }
+            context.Response.ContentType = "text/html; charset=utf-8";
+            if (!HttpMethods.IsHead(context.Request.Method))
+                await context.Response.WriteAsync(html, context.RequestAborted);
+            return;
+        }
+        await next();
+    });
+}
 app.UseStaticFiles();
 if (useBuiltFrontend)
 {

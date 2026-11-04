@@ -213,6 +213,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   private countFormatter = new Intl.NumberFormat('pl-PL');
 
   ngOnInit() {
+    this.restoreCompanyCount();
     this.loadCompanyCount();
     this.registrationAvailabilityRequest = this.api.maintenanceStatus().pipe(timeout(10000), retry(1))
       .subscribe(status => this.registrationSuspended = status.registrationSuspended, () => {});
@@ -230,11 +231,38 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
+  private readonly statisticsCacheKey = 'coldcall_landing_statistics_v1';
+
+  private restoreCompanyCount() {
+    try {
+      let result = (window as any).__coldCallLandingStatistics;
+      if (!result) {
+        const cached = JSON.parse(localStorage.getItem(this.statisticsCacheKey) || 'null');
+        if (!cached || typeof cached.savedAt !== 'number' || cached.savedAt > Date.now()) { return; }
+        result = cached.result;
+      }
+      if (!result || ![result.count, result.geoAddressCount, result.companiesWithPhoneCount,
+          result.companiesWithEmailCount, result.recentlyImportedCount]
+          .every(value => typeof value === 'number' && Number.isFinite(value) && value >= 0)
+          || !(result.latestImportDate === null || (typeof result.latestImportDate === 'string'
+            && /^\d{4}-\d{2}-\d{2}$/.test(result.latestImportDate)))) { return; }
+      this.companyCount = result.count;
+      this.geoAddressCount = result.geoAddressCount;
+      this.companiesWithPhoneCount = result.companiesWithPhoneCount;
+      this.companiesWithEmailCount = result.companiesWithEmailCount;
+      this.recentlyImportedCount = result.recentlyImportedCount;
+      this.latestImportDate = result.latestImportDate;
+    } catch (_) { /* Storage can be unavailable in a private browser session. */ }
+  }
+
   loadCompanyCount() {
     if (this.countRequest) { this.countRequest.unsubscribe(); }
     this.companyCountError = false;
     this.countRequest = this.api.companyCount().pipe(timeout(15000), retry(1)).subscribe(result => {
       this.zone.run(() => {
+        try {
+          localStorage.setItem(this.statisticsCacheKey, JSON.stringify({ savedAt: Date.now(), result }));
+        } catch (_) { /* Statistics still display when browser storage is unavailable. */ }
         this.companyCount = result.count;
         this.geoAddressCount = result.geoAddressCount;
         this.companiesWithPhoneCount = result.companiesWithPhoneCount;
