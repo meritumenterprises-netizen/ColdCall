@@ -346,3 +346,6 @@ _Pvt_Extensions
 /ImportCEIDGByDate/2026-10-20/Zarejestrowane działalności - województwo łódzkie.xml
 /ImportCEIDGByDate/2026-10-20/Zarejestrowane działalności - województwo śląskie.xml
 /ImportCEIDGByDate/2026-10-20/Zarejestrowane działalności - województwo świętokrzyskie.xml
+
+# Generated public landing statistics snapshot
+/WebApp/App_Data/landing-statistics.json*

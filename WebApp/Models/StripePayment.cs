@@ -9,4 +9,8 @@ public class StripePayment
     public PlanDefinition PlanDefinition { get; set; } = null!;
     public DateTime PaidAtUtc { get; set; }
     public decimal AmountPaid { get; set; }
+    public byte[]? PDFInvoice { get; set; }
+    public string? InvoiceId { get; set; }
+    public int? ClientId { get; set; }
+    public int? InvoiceNumber { get; set; }
 }

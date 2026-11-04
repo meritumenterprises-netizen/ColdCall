@@ -78,6 +78,10 @@ public partial class ColdCallDbContext
             entity.Property(p => p.StripeSessionId).HasMaxLength(255).ValueGeneratedNever();
             entity.Property(p => p.PaidAtUtc).HasColumnType("datetime2");
             entity.Property(p => p.AmountPaid).HasColumnType("decimal(18,2)");
+            entity.Property(p => p.PDFInvoice).HasColumnType("image").IsRequired(false);
+            entity.Property(p => p.InvoiceId).HasColumnType("nvarchar(128)").HasMaxLength(128).IsRequired(false);
+            entity.Property(p => p.ClientId).HasColumnType("int").IsRequired(false);
+            entity.Property(p => p.InvoiceNumber).HasColumnType("int").IsRequired(false);
             entity.HasIndex(p => p.AppUserId).HasDatabaseName("IX_StripePayments_AppUserId");
             entity.HasOne(p => p.AppUser).WithMany().HasForeignKey(p => p.AppUserId)
                 .HasConstraintName("FK_StripePayments_Users").OnDelete(DeleteBehavior.Cascade);
@@ -178,8 +182,11 @@ public partial class ColdCallDbContext
             entity.Property(x => x.ApartmentNumber).HasMaxLength(32);
             entity.Property(x => x.Phone).HasMaxLength(32);
             entity.Property(x => x.Email).HasMaxLength(256);
+            entity.HasIndex(x => x.Phone).HasDatabaseName("IX_Companies_Phone").IsUnique(false).IsClustered(false);
+            entity.HasIndex(x => x.Email).HasDatabaseName("IX_Companies_Email").IsUnique(false).IsClustered(false);
             entity.Property(x => x.GoogleEmail).HasMaxLength(256);
             entity.Property(x => x.Website).HasMaxLength(512);
+            entity.HasIndex(x => x.Website).HasDatabaseName("IX_Companies_Website").IsUnique(false).IsClustered(false);
             entity.Property(x => x.InstagramAccount).HasMaxLength(512);
             entity.Property(x => x.FacebookAccount).HasMaxLength(512);
             entity.Property(x => x.StartedAt).HasColumnType("datetime2");
