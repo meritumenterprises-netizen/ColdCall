@@ -50,10 +50,29 @@ public sealed class LandingStatisticsService(IServiceScopeFactory scopes, ILogge
     }
     private readonly TaskCompletionSource<LandingStatistics> firstSnapshot = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    public Task<LandingStatistics> GetAsync(CancellationToken cancellationToken)
+    public async Task<LandingStatistics> GetAsync(CancellationToken cancellationToken)
     {
-        var current = Volatile.Read(ref snapshot);
-        return current is null ? firstSnapshot.Task.WaitAsync(cancellationToken) : Task.FromResult(current);
+        var current = Volatile.Read(ref snapshot) ?? await firstSnapshot.Task.WaitAsync(cancellationToken);
+        try
+        {
+            using var scope = scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ColdCallDbContext>();
+            var date = await LatestImportDateAsync(db, cancellationToken);
+            return (Volatile.Read(ref snapshot) ?? current) with { LatestImportDate = date };
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
+        catch (Exception exception)
+        {
+            logger.LogWarning(exception, "Could not refresh the latest completed import date.");
+            return Volatile.Read(ref snapshot) ?? current;
+        }
+    }
+
+    private static async Task<string?> LatestImportDateAsync(ColdCallDbContext db, CancellationToken cancellationToken)
+    {
+        var date = await db.ImportByDates.Where(import => import.ImportTargetRecords > 0 && import.FinishedAt != null)
+            .MaxAsync(import => (DateTime?)import.ImportDate, cancellationToken);
+        return date?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -82,9 +101,7 @@ public sealed class LandingStatisticsService(IServiceScopeFactory scopes, ILogge
                 var companiesWithEmailCount = totals?.WithEmail ?? 0;
                 var recentlyImportedCount = totals?.RecentlyImported ?? 0;
                 var geoAddressCount = await db.Adresy.LongCountAsync(cancellationToken);
-                var latestImport = await db.ImportByDates.Where(import => import.ImportTargetRecords > 0)
-                    .MaxAsync(import => (DateTime?)import.ImportDate, cancellationToken);
-                var latestImportDate = latestImport?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+                var latestImportDate = await LatestImportDateAsync(db, cancellationToken);
                 var current = new LandingStatistics(count, geoAddressCount, companiesWithPhoneCount,
                     companiesWithEmailCount, recentlyImportedCount, latestImportDate);
                 Volatile.Write(ref snapshot, current);

@@ -4,6 +4,9 @@ using ColdCall.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace ColdCall.Controllers.Api;
 
@@ -15,12 +18,14 @@ public partial class AdminController : ControllerBase
     private readonly ColdCallDbContext _db;
     private readonly AdminAccessService _adminAccess;
     private readonly IEmailSender _emailSender;
+    private readonly IMemoryCache _companyCounts;
 
-    public AdminController(ColdCallDbContext db, AdminAccessService adminAccess, IEmailSender emailSender)
+    public AdminController(ColdCallDbContext db, AdminAccessService adminAccess, IEmailSender emailSender, IMemoryCache companyCounts)
     {
         _db = db;
         _adminAccess = adminAccess;
         _emailSender = emailSender;
+        _companyCounts = companyCounts;
     }
 
     [HttpGet("companies")]
@@ -37,7 +42,8 @@ public partial class AdminController : ControllerBase
         [FromQuery] int? wojewodztwoId = null, [FromQuery] int? powiatId = null,
         [FromQuery] int? gminaId = null, [FromQuery] int? miejscowoscId = null, [FromQuery] int? radiusKm = null,
         [FromQuery] string? nip = null, [FromQuery] bool? blockedByRODO = null,
-        [FromQuery] string? companyStatusIds = null)
+        [FromQuery] string? companyStatusIds = null,
+        [FromQuery] bool refreshCount = true)
     {
         var admin = await _adminAccess.RequireAdminAsync(User);
         if (admin == null)
@@ -99,9 +105,16 @@ public partial class AdminController : ControllerBase
         catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); }
         }
 
-        var total = await query.CountAsync();
+        var countKey = "AdminCompanyCount:" + admin.Id + ":" + Convert.ToHexString(
+            SHA256.HashData(Encoding.UTF8.GetBytes(query.ToQueryString())));
+        if (refreshCount || !_companyCounts.TryGetValue(countKey, out int total))
+        {
+            total = await query.CountAsync(HttpContext.RequestAborted);
+            _companyCounts.Set(countKey, total, new MemoryCacheEntryOptions()
+                .SetSlidingExpiration(TimeSpan.FromMinutes(2)).SetAbsoluteExpiration(TimeSpan.FromMinutes(10)));
+        }
         var offset = (Math.Max(page, 1) - 1) * pageSize;
-        int[]? addressPageIds = null;
+        int[] addressPageIds;
         IQueryable<Company> pageQuery;
         if (string.Equals(sortBy, "fullAddress", StringComparison.OrdinalIgnoreCase))
         {
@@ -111,7 +124,12 @@ public partial class AdminController : ControllerBase
             pageQuery = query.Where(company => addressPageIds.Contains(company.Id));
         }
         else
-            pageQuery = query.ApplyCompanySort(sortBy, direction).ThenBy(x => x.Id).Skip(offset).Take(pageSize);
+        {
+            // Page over the narrow index keys before loading all display columns and dictionaries.
+            addressPageIds = await query.ApplyCompanySort(sortBy, direction).ThenBy(x => x.Id)
+                .Skip(offset).Take(pageSize).Select(x => x.Id).ToArrayAsync(HttpContext.RequestAborted);
+            pageQuery = query.Where(company => addressPageIds.Contains(company.Id));
+        }
         var items = await pageQuery
             .Select(x => new CompanyDto(
                 x.Id, x.Name, x.BusinessTypeId, x.BusinessType != null ? x.BusinessType.TypDzialalnosci : null, x.FirstName, x.LastName, x.Krs, x.Nip,
@@ -123,7 +141,7 @@ public partial class AdminController : ControllerBase
                 x.Regon, x.StatusDzialalnosciId, x.StatusDzialalnosci!.Nazwa, x.AddressIsMissing, x.BlockedByRODO,
                 x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId, x.DataModifiedOn,
                 null, null, null, EF.Property<string>(x, "AddressSort")))
-            .ToListAsync();
+            .ToListAsync(HttpContext.RequestAborted);
 
         if (addressPageIds != null)
         {
@@ -202,7 +220,7 @@ public partial class AdminController : ControllerBase
             return Forbid();
         }
 
-        return await _db.Users
+        var users = await _db.Users
             .Include(x => x.Plans)
             .ThenInclude(x => x.PlanDefinition)
             .OrderBy(x => x.GoogleEmail)
@@ -211,10 +229,23 @@ public partial class AdminController : ControllerBase
                 x.GoogleEmail,
                 x.DisplayName,
                 x.Plans.OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
-                    .Select(p => new UserPlanDto(p.PlanDefinition.Code, p.PurchasedAtUtc, p.ExpiresAtUtc, p.Source, p.PlanDefinition.DescriptionHtml))
+                    .Select(p => new UserPlanDto(p.PlanDefinition.Code, p.PurchasedAtUtc, p.ExpiresAtUtc, p.Source, p.PlanDefinition.DescriptionHtml,
+                        _db.StripePayments.Where(payment => payment.StripeSessionId == p.StripeSessionId
+                            && payment.AppUserId == x.Id && payment.PlanDefinitionId == p.PlanDefinitionId)
+                            .Select(payment => (DateTime?)payment.PaidAtUtc).FirstOrDefault(),
+                        _db.StripePayments.Where(payment => payment.StripeSessionId == p.StripeSessionId
+                            && payment.AppUserId == x.Id && payment.PlanDefinitionId == p.PlanDefinitionId)
+                            .Select(payment => (decimal?)payment.AmountPaid).FirstOrDefault()))
                     .ToList(), DateTime.SpecifyKind(x.CreatedAtUtc, DateTimeKind.Utc), x.DisablePlanPurchase, x.IsEnabled,
                 x.FirstName, x.LastName, x.CompanyName, x.PostalCode, x.City, x.Street, x.StreetNumber, x.IsAdmin, x.Nip, x.Phone, x.IsBetaUser))
             .ToListAsync();
+        return users.Select(user => user with
+        {
+            Plans = user.Plans.Select(plan => plan with
+            {
+                PaidAtUtc = plan.PaidAtUtc.HasValue ? DateTime.SpecifyKind(plan.PaidAtUtc.Value, DateTimeKind.Utc) : null
+            }).ToArray()
+        }).ToArray();
     }
 
     [HttpPut("users/{id:int}/plan-purchase")]

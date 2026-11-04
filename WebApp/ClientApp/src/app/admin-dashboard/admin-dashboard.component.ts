@@ -147,30 +147,80 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
   updateUserBeta(userId: number, isBetaUser: boolean) {
     const user = this.users.find(item => item.id === userId);
-    if (!user || !user.isBetaUser || isBetaUser || this.busyUserIds.has(userId)) { return; }
-    user.isBetaUser = false;
+    if (!user || !!user.isBetaUser === isBetaUser || this.busyUserIds.has(userId)) { return; }
     this.busyUserIds.add(userId);
-    const request = this.api.updateUserBeta(userId, false)
+    const request = this.api.updateUserBeta(userId, isBetaUser)
       .pipe(finalize(() => this.busyUserIds.delete(userId))).subscribe(result => {
         user.isBetaUser = result.isBetaUser;
+        if (result.isBetaUser && this.usersTab === 'all') {
+          this.selectUsersTab('beta');
+          this.selectedUserId = userId;
+          const position = this.userRows.findIndex(row => row.id === userId);
+          this.changeUsersPage(position < 0 ? 1 : Math.floor(position / this.usersPageSize) + 1);
+        } else {
+          this.changeUsersPage(this.usersPage);
+        }
       }, () => {
-        user.isBetaUser = true;
-        this.message = 'Nie udalo sie wylaczyc statusu beta uzytkownika.';
+        this.message = 'Nie udalo sie zapisac statusu beta uzytkownika.';
       });
     this.userActionRequests.add(request);
   }
-  updateUserAdmin(userId: number, isAdmin: boolean) {
+  @ViewChild('promoteUserAdminDialog', { static: true }) promoteUserAdminDialog: ElementRef;
+  userToPromote: { id: number; googleEmail: string } | null = null;
+  promotingUserAdmin = false;
+  promoteUserAdminError = '';
+
+  requestUserAdmin(userId: number, event: Event) {
+    event.stopPropagation();
+    const input = event.target as HTMLInputElement;
+    const checked = input.checked;
     const user = this.users.find(item => item.id === userId);
-    if (!user || this.currentUserId === null || userId === this.currentUserId || (user.isAdmin && !isAdmin) || this.busyUserIds.has(userId)) { return; }
-    const previous = !!user.isAdmin;
-    user.isAdmin = isAdmin;
-    this.busyUserIds.add(userId);
-    const request = this.api.updateUserAdmin(userId, isAdmin)
-      .pipe(finalize(() => this.busyUserIds.delete(userId))).subscribe(result => {
+    input.checked = !!user && !!user.isAdmin;
+    if (!user || this.currentUserId === null || userId === this.currentUserId
+        || this.busyUserIds.has(userId) || this.promotingUserAdmin) { return; }
+    if (!checked) {
+      if (user.isAdmin) { this.revokeUserAdmin(user); }
+      return;
+    }
+    if (user.isAdmin) { return; }
+    this.userToPromote = { id: user.id, googleEmail: user.googleEmail };
+    this.promoteUserAdminError = '';
+    this.promoteUserAdminDialog.nativeElement.showModal();
+  }
+
+  private revokeUserAdmin(user: AppUser) {
+    this.busyUserIds.add(user.id);
+    const request = this.api.updateUserAdmin(user.id, false)
+      .pipe(finalize(() => this.busyUserIds.delete(user.id))).subscribe(result => {
         user.isAdmin = result.isAdmin;
+        this.changeUsersPage(this.usersPage);
+      }, () => this.message = 'Nie udalo sie odebrac uprawnien administratora. Sprobuj ponownie.');
+    this.userActionRequests.add(request);
+  }
+
+  cancelUserAdmin() {
+    if (this.promotingUserAdmin) { return; }
+    this.promoteUserAdminDialog.nativeElement.close();
+    this.userToPromote = null;
+    this.promoteUserAdminError = '';
+  }
+
+  confirmUserAdmin() {
+    if (!this.userToPromote || this.promotingUserAdmin) { return; }
+    const user = this.users.find(item => item.id === this.userToPromote.id);
+    if (!user || user.isAdmin || this.currentUserId === null || user.id === this.currentUserId
+        || this.busyUserIds.has(user.id)) { return; }
+    this.promotingUserAdmin = true;
+    this.promoteUserAdminError = '';
+    this.busyUserIds.add(user.id);
+    const request = this.api.updateUserAdmin(user.id, true)
+      .pipe(finalize(() => { this.busyUserIds.delete(user.id); this.promotingUserAdmin = false; }))
+      .subscribe(result => {
+        user.isAdmin = result.isAdmin;
+        this.promoteUserAdminDialog.nativeElement.close();
+        this.userToPromote = null;
       }, () => {
-        user.isAdmin = previous;
-        this.message = 'Nie udalo sie zapisac uprawnien administratora.';
+        this.promoteUserAdminError = 'Nie udalo sie zapisac uprawnien administratora. Sprobuj ponownie.';
       });
     this.userActionRequests.add(request);
   }
@@ -258,9 +308,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }, err => this.message = err.error && err.error.message ? err.error.message : 'Nie udalo sie przedluzyc planu.');
     this.userActionRequests.add(request);
   }
+  canSetUserPassword(row: { id: number; googleEmail: string }) {
+    return !this.busyUserIds.has(row.id) && !(this.usersTab === 'admins' && /@gmail\.com$/i.test(row.googleEmail.trim()));
+  }
   requestSetUserPassword(row: { id: number; googleEmail: string }, event: Event) {
     event.stopPropagation();
-    if (this.settingUserPassword || this.busyUserIds.has(row.id)) { return; }
+    if (this.settingUserPassword || !this.canSetUserPassword(row)) { return; }
     this.passwordUser = row;
     this.userPassword = '';
     this.userPasswordError = '';
@@ -411,9 +464,34 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     if (this.classificationRequest) { this.classificationRequest.unsubscribe(); }
     this.addressFields.forEach(field => { if (field.request) { field.request.unsubscribe(); } });
   }
-  tab: 'companies' | 'users' | 'plans' | 'imports' | 'global-settings' | 'regulamin' | 'regulamin-beta' | 'logins' = 'companies';
+  tab: 'companies' | 'users' | 'payments' | 'plans' | 'imports' | 'global-settings' | 'regulamin' | 'regulamin-beta' | 'logins' = 'companies';
   companies: Company[] = [];
   users: AppUser[] = [];
+  usersTab: 'all' | 'beta' | 'admins' = 'all';
+  readonly usersTabs: { key: 'all' | 'beta' | 'admins'; label: string }[] = [
+    { key: 'all', label: 'Wszyscy' },
+    { key: 'beta', label: 'Beta użytkownicy' },
+    { key: 'admins', label: 'Administratorzy' }
+  ];
+  selectUsersTab(tab: 'all' | 'beta' | 'admins') {
+    this.usersTab = tab;
+    this.usersPage = 1;
+    this.selectedUserId = null;
+    this.planHint = null;
+  }
+  navigateUsersTabs(event: KeyboardEvent, tab: 'all' | 'beta' | 'admins') {
+    const keys = this.usersTabs.map(item => item.key);
+    const position = keys.indexOf(tab);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? keys.length - 1
+      : event.key === 'ArrowRight' ? (position + 1) % keys.length
+      : event.key === 'ArrowLeft' ? (position + keys.length - 1) % keys.length : -1;
+    if (next < 0) { return; }
+    event.preventDefault();
+    this.selectUsersTab(keys[next]);
+    const buttons = (event.currentTarget as HTMLElement).parentElement.querySelectorAll<HTMLButtonElement>('[role="tab"]');
+    buttons[next].focus();
+  }
+
   selectedUserId: number | null = null;
   get selectedUser(): AppUser | null {
     return this.pagedUserRows.some(row => row.id === this.selectedUserId)
@@ -441,13 +519,14 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   usersDirection = 'asc';
   userColumns: SortableColumn[] = [
     { key: 'displayName', label: 'Imi\u0119 i nazwisko' }, { key: 'googleEmail', label: 'Email' },
-    { key: 'planCode', label: 'Aktualny plan' }, { key: 'expiresAtUtc', label: 'Data wyga\u015bni\u0119cia' },
-    { key: 'createdAtUtc', label: 'Login utworzony' },
+    { key: 'planCode', label: 'Aktualny plan' }, { key: 'createdAtUtc', label: 'Login utworzony' },
+    { key: 'expiresAtUtc', label: 'Data wyga\u015bni\u0119cia' },
     { key: 'disablePlanPurchase', label: 'Nie pozw\u00f3l na zakup planu' },
     { key: 'isEnabled', label: 'Aktywny' },
     { key: 'isAdmin', label: 'Admin' },
     { key: 'isBetaUser', label: 'Beta user' }
   ];
+  get visibleUserColumns() { return this.usersTab === 'beta' ? this.userColumns.filter(column => column.key !== 'isAdmin') : this.userColumns; }
   private dateUtc(value: string) { return /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + 'Z'; }
   get userRows() {
     const now = Date.now();
@@ -461,10 +540,11 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         isAdmin: !!user.isAdmin,
         isBetaUser: !!user.isBetaUser,
         createdAtUtc: user.createdAtUtc ? this.dateUtc(user.createdAtUtc) : '',
-        planCode: plan ? plan.planCode : '', descriptionHtml: plan ? plan.descriptionHtml || '' : '', expiresAtUtc, expired: !!plan && new Date(expiresAtUtc).getTime() <= now };
+        planCode: plan ? plan.planCode : '', descriptionHtml: plan ? plan.descriptionHtml || '' : '', expiresAtUtc, expired: !!plan && new Date(expiresAtUtc).getTime() < now };
     });
     const email = this.userEmailFilter.trim().toLowerCase();
-    return rows.filter(row => !email || row.googleEmail.toLowerCase().includes(email)).sort((a, b) => {
+    return rows.filter(row => (this.usersTab === 'all' || (this.usersTab === 'beta' ? row.isBetaUser : row.isAdmin))
+      && (!email || row.googleEmail.toLowerCase().includes(email))).sort((a, b) => {
       let comparison = 0;
       if (this.usersSortBy === 'expiresAtUtc' || this.usersSortBy === 'createdAtUtc') {
         const first = a[this.usersSortBy], second = b[this.usersSortBy];
@@ -560,7 +640,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   private isAdminTab(tab: string): tab is AdminDashboardComponent['tab'] {
-    return ['companies', 'users', 'plans', 'imports', 'global-settings', 'regulamin', 'regulamin-beta', 'logins'].includes(tab);
+    return ['companies', 'users', 'payments', 'plans', 'imports', 'global-settings', 'regulamin', 'regulamin-beta', 'logins'].includes(tab);
   }
 
   ngOnInit() {
@@ -580,10 +660,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.loadUsers();
   }
 
-  loadCompanies() {
+  loadCompanies(refreshCount = true) {
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     this.loading = true;
-    this.companiesRequest = this.api.adminCompanies(this.page, this.sortBy, this.direction, '', this.selectedPkds.map(p => p.id), this.filters, this.nipTerm.replace(/[-\s]/g, ''), this.blockedByRodoFilter).pipe(finalize(() => this.loading = false)).subscribe(x => {
+    this.companiesRequest = this.api.adminCompanies(this.page, this.sortBy, this.direction, '', this.selectedPkds.map(p => p.id), this.filters, this.nipTerm.replace(/[-\s]/g, ''), this.blockedByRodoFilter, refreshCount).pipe(finalize(() => this.loading = false)).subscribe(x => {
       this.companies = x.items;
       this.total = x.total;
       this.pageSize = x.pageSize;
@@ -648,7 +728,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.direction = this.sortBy === column && this.direction === 'asc' ? 'desc' : 'asc';
     this.sortBy = column;
     this.page = 1;
-    this.loadCompanies();
+    this.loadCompanies(false);
   }
 
   grant(user: AppUser) {
@@ -659,9 +739,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   totalPages() { return Math.max(1, Math.ceil(this.total / this.pageSize)); }
-  next() { if (!this.loading && this.page < this.totalPages()) { this.page++; this.loadCompanies(); } }
-  prev() { if (!this.loading && this.page > 1) { this.page--; this.loadCompanies(); } }
-  last() { this.page = this.totalPages(); this.loadCompanies(); }
+  next() { if (!this.loading && this.page < this.totalPages()) { this.page++; this.loadCompanies(false); } }
+  prev() { if (!this.loading && this.page > 1) { this.page--; this.loadCompanies(false); } }
+  last() { this.page = this.totalPages(); this.loadCompanies(false); }
 
   private sortPkds(pkds: Pkd[]) {
     return pkds.slice().sort((a, b) => this.pkdLabel(a).localeCompare(this.pkdLabel(b)));

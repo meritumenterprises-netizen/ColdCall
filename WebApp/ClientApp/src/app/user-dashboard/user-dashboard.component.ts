@@ -263,7 +263,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private refreshSearchCounts(profiles: SearchProfile[]) {
     if (this.searchCountsRequest) { this.searchCountsRequest.unsubscribe(); }
     // Sequential background requests avoid blocking the first grid or flooding SQL.
-    const pendingFirst = profiles.slice().sort((a, b) =>
+    const pendingFirst = profiles.filter(profile => typeof this.searchRecordCounts[profile.id] !== 'number').sort((a, b) =>
       Number(typeof this.searchRecordCounts[a.id] === 'number') - Number(typeof this.searchRecordCounts[b.id] === 'number'));
     this.searchCountsRequest = from(pendingFirst).pipe(concatMap(profile => {
       if (profile.id === this.currentSearchId) { return of(undefined); }
@@ -302,7 +302,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   get addSearchHint() {
     const user = this.api.user();
     const remaining = user && user.hasActivePlan ? Math.max(0, user.maxNumberOfSearches - this.searches.length) : 0;
-    return 'Dodaj nowe wyszukiwanie. Pozostała liczba dodatkowych wyszukiwań w aktualnym planie: ' + remaining;
+    return 'Dodaj nowe wyszukiwanie. PozostaÅ‚a liczba dodatkowych wyszukiwaÅ„ w aktualnym planie: ' + remaining;
   }
 
   private get canPersistNewSearch() {
@@ -426,7 +426,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.exportsError = '';
     this.downloadRequest = this.api.downloadCsv(row).pipe(finalize(() => this.downloadingExportId = null))
       .subscribe(blob => this.saveCsvFile(blob, row.csvFileName),
-        err => this.exportsError = err.status === 404 ? 'Nie znaleziono pliku CSV.' : 'Nie udało się pobrać pliku CSV.');
+        err => this.exportsError = err.status === 404 ? 'Nie znaleziono pliku CSV.' : 'Nie udaÅ‚o siÄ™ pobraÄ‡ pliku CSV.');
   }
 
   csvDeletionsRemaining: number | null = null;
@@ -624,7 +624,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         result => { if (this.currentSearchId !== null) { this.rememberRecordCount(this.currentSearchId, result.total); } },
         () => { if (this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; } });
     }
-    this.companiesRequest = this.api.companies(this.page, this.sortBy, this.direction, this.selectedPkds.map(x => x.id), this.appliedFilters, this.activeResultTab.days, this.activeResultTab.key === 'notes')
+    this.companiesRequest = this.api.companies(this.page, this.sortBy, this.direction, this.selectedPkds.map(x => x.id), this.appliedFilters, this.activeResultTab.days, this.activeResultTab.key === 'notes', refreshSearchCount)
       .pipe(finalize(() => { this.loading = false; this.refreshingSearchCount = false; }))
       .subscribe(result => {
       this.hasNotes = result.hasNotes === true;
@@ -638,7 +638,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       if (!this.companies.some(row => row.id === this.selectedCompanyId)) { this.selectedCompanyId = null; }
       this.total = result.total;
       this.totalWithoutLimit = result.totalWithoutLimit == null ? result.total : result.totalWithoutLimit;
-      if (refreshSearchCount && this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.rememberRecordCount(this.currentSearchId, result.total); }
+      if (this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.rememberRecordCount(this.currentSearchId, result.total); }
       this.page = result.page;
       this.activeResultTab.page = this.page;
     }, err => {
@@ -935,6 +935,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.savingSearch || this.classifyingPkd || this.exportingCsv) { return; }
     if (profile.id === this.currentSearchId) { this.selectDashboardTab('search'); return; }
     this.rememberDraft();
+    if (this.searchCountsRequest) { this.searchCountsRequest.unsubscribe(); }
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     this.searchSaved = profile.id > 0;
     this.currentSearchId = profile.id;
@@ -976,7 +977,21 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.filterError = '';
     this.pkdHint = null;
     this.updatePkdSuggestions();
-    const ids = criteria ? [criteria.wojewodztwoId, criteria.powiatId, criteria.gminaId, criteria.miejscowoscId] : [];
+    const ids = criteria ? [criteria.wojewodztwoId, criteria.powiatId, criteria.gminaId, criteria.miejscowoscId] : [null, null, null, null];
+    // Saved IDs are sufficient for the query; dropdown labels can load in parallel.
+    ['wojewodztwoId', 'powiatId', 'gminaId', 'miejscowoscId'].forEach((key, index) => {
+      this.appliedFilters[key] = ids[index] || undefined;
+    });
+    this.radiusEnabled = !!criteria && criteria.hasFirmyWPromieniu === true && !!ids[3];
+    this.radiusKm = criteria && this.radiusOptions.includes(criteria.firmyWPromieniu) ? criteria.firmyWPromieniu : 1;
+    this.appliedFilters.radiusKm = this.radiusEnabled ? this.radiusKm : undefined;
+    const requestedAddress = JSON.stringify(ids.map(id => id || null));
+    this.resultTabs.forEach(tab => tab.page = 1);
+    this.page = 1;
+    this.selectedCompanyId = null;
+    this.detailsCompany = null;
+    this.companies = [];
+    this.loadCompanies(false);
     const finish = () => {
       this.radiusEnabled = !!criteria && criteria.hasFirmyWPromieniu === true && this.radiusAvailable;
       this.radiusKm = criteria && this.radiusOptions.includes(criteria.firmyWPromieniu) ? criteria.firmyWPromieniu : 1;
@@ -990,8 +1005,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.resultTabs.forEach(tab => tab.page = 1);
       this.page = 1;
       this.restoringSearch = false;
-      this.loadCompanies();
-      this.refreshSearchCounts(this.searches);
+      const restoredAddress = JSON.stringify(this.addressFields.map(field => field.selectedId || null));
+      if (restoredAddress !== requestedAddress) { this.loadCompanies(false); }
     };
     this.restoreSearchRequest = this.restoreAddressSelection(ids, 0).subscribe(finish, () => {
       finish();
@@ -1080,7 +1095,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.sortBy = column;
     this.resultTabs.forEach(tab => tab.page = 1);
     this.page = 1;
-    this.loadCompanies();
+    this.loadCompanies(false);
   }
 
   totalPages() { return Math.max(1, Math.ceil(this.total / this.pageSize)); }

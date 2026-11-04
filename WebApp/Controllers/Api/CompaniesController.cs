@@ -5,6 +5,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Caching.Memory;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
 
 namespace ColdCall.Controllers.Api;
 
@@ -16,12 +20,15 @@ public partial class CompaniesController : ControllerBase
     private readonly ColdCallDbContext _db;
     private readonly ICurrentUserService _currentUserService;
     private readonly CompanyCsvExportService _csvExporter;
+    private readonly IMemoryCache _searchCache;
+    private sealed record SearchSummary(int TotalWithoutLimit, bool HasNotes);
 
-    public CompaniesController(ColdCallDbContext db, ICurrentUserService currentUserService, CompanyCsvExportService csvExporter)
+    public CompaniesController(ColdCallDbContext db, ICurrentUserService currentUserService, CompanyCsvExportService csvExporter, IMemoryCache searchCache)
     {
         _db = db;
         _currentUserService = currentUserService;
         _csvExporter = csvExporter;
+        _searchCache = searchCache;
     }
 
     [HttpGet]
@@ -47,7 +54,8 @@ public partial class CompaniesController : ControllerBase
         [FromQuery] bool addressLocality = false,
         [FromQuery] int? modifiedWithinDays = null,
         [FromQuery] string? companyStatusIds = null,
-        [FromQuery] bool notesOnly = false)
+        [FromQuery] bool notesOnly = false,
+        [FromQuery] bool refreshCount = true)
     {
         try
         {
@@ -67,6 +75,7 @@ public partial class CompaniesController : ControllerBase
             recordLimit = maximumRecordLimit;
             IQueryable<CompanyShortDto> query;
             bool hasNotes;
+            int totalWithoutLimit;
             try
             {
                 var criteria = new SearchProfileCriteria
@@ -80,30 +89,56 @@ public partial class CompaniesController : ControllerBase
                 };
                 var search = new CompanySearchQuery(_db);
                 query = await search.BuildAsync(criteria, pkdIds, modifiedWithinDays, addressLocality);
-                hasNotes = await _db.CompanyUserNotes.AsNoTracking()
-                    .AnyAsync(note => note.UserId == user.Id && note.Notes.Trim() != "", HttpContext.RequestAborted);
-                if (hasNotes)
+                // A sort/page request reuses counts only for the same user and exact
+                // filters. New searches and explicit refreshes always recalculate.
+                var summaryKey = "CompanySearchSummary:" + Convert.ToHexString(SHA256.HashData(
+                    Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
+                    {
+                        userId = user.Id, criteria,
+                        notesVersion = _searchCache.Get<Guid?>("CompanyNotesVersion:" + user.Id),
+                        pkdIds = pkdIds?.Where(id => id > 0).Distinct().OrderBy(id => id).ToArray(),
+                        modifiedWithinDays, addressLocality, notesOnly
+                    }))));
+                if (!refreshCount && _searchCache.TryGetValue(summaryKey, out SearchSummary? cached) && cached is not null)
                 {
-                    var allResults = modifiedWithinDays.HasValue
-                        ? await search.BuildAsync(criteria, pkdIds, null, addressLocality) : query;
-                    hasNotes = await search.WithUserNotes(allResults, user.Id).AnyAsync(HttpContext.RequestAborted);
+                    hasNotes = cached.HasNotes;
+                    totalWithoutLimit = cached.TotalWithoutLimit;
+                    if (notesOnly) query = search.WithUserNotes(query, user.Id);
                 }
-                if (notesOnly) query = search.WithUserNotes(query, user.Id);
+                else
+                {
+                    hasNotes = await _db.CompanyUserNotes.AsNoTracking()
+                        .AnyAsync(note => note.UserId == user.Id && note.Notes.Trim() != "", HttpContext.RequestAborted);
+                    if (hasNotes)
+                    {
+                        var allResults = modifiedWithinDays.HasValue
+                            ? await search.BuildAsync(criteria, pkdIds, null, addressLocality) : query;
+                        hasNotes = await search.WithUserNotes(allResults, user.Id).AnyAsync(HttpContext.RequestAborted);
+                    }
+                    if (notesOnly) query = search.WithUserNotes(query, user.Id);
+                    totalWithoutLimit = await query.CountAsync(HttpContext.RequestAborted);
+                    _searchCache.Set(summaryKey, new SearchSummary(totalWithoutLimit, hasNotes),
+                        new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromMinutes(2))
+                            .SetAbsoluteExpiration(TimeSpan.FromMinutes(10)));
+                }
             }
             catch (ArgumentException exception)
             {
                 return BadRequest(new { message = exception.Message });
             }
 
-            var totalWithoutLimit = await query.CountAsync(HttpContext.RequestAborted);
             var total = Math.Min(totalWithoutLimit, recordLimit.Value);
             page = Math.Clamp(page, 1, Math.Max(1, (int)Math.Ceiling(total / (double)pageSize)));
             var offset = (page - 1) * pageSize;
-            var items = await query
-                .ApplyCompanyShortSort(sortBy, direction)
-                .Skip(offset)
-                .Take(Math.Min(pageSize, total - offset))
-                .ToListAsync(HttpContext.RequestAborted);
+            List<CompanyShortDto> items;
+            var take = Math.Min(pageSize, total - offset);
+            // Page on narrow keys before resolving formatted address/business type.
+            var orderedIds = await new CompanySearchQuery(_db).OrderedIds(query, sortBy, direction)
+                .Skip(offset).Take(take).ToArrayAsync(HttpContext.RequestAborted);
+            items = await query.Where(row => orderedIds.Contains(row.Id)).ToListAsync(HttpContext.RequestAborted);
+            var positions = orderedIds.Select((id, position) => new { id, position })
+                .ToDictionary(row => row.id, row => row.position);
+            items.Sort((left, right) => positions[left.Id].CompareTo(positions[right.Id]));
 
             var pageIds = items.Select(item => item.Id).ToArray();
             var notes = await _db.CompanyUserNotes.AsNoTracking()
@@ -195,7 +230,7 @@ public partial class CompaniesController : ControllerBase
             var query = await new CompanySearchQuery(_db).BuildAsync(profile.Criteria ?? new SearchProfileCriteria(),
                 profile.PkdCodes.Select(x => x.PkdCodeId).ToArray(), days);
             if (notesOnly) query = new CompanySearchQuery(_db).WithUserNotes(query, user.Id);
-            var ids = await query.ApplyCompanyShortSort(request.SortBy, request.Direction).Select(x => x.Id)
+            var ids = await new CompanySearchQuery(_db).OrderedIds(query, request.SortBy, request.Direction)
                 .Take(limit).ToListAsync(cancellationToken);
             if (ids.Count == 0) return BadRequest(new { message = "Brak rekordow do eksportu." });
             var csv = await _csvExporter.ExportAsync(user, profile, ids, days, cancellationToken, request.SearchName, notesOnly);

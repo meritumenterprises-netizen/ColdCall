@@ -1,0 +1,45 @@
+<section aria-label="Użytkownicy — płatności" [attr.aria-busy]="loading">
+  <div *ngIf="error" class="error" role="alert">{{ error }}
+    <button type="button" class="ghost-button" (click)="load()">Ponów</button>
+  </div>
+  <div class="payments-users-grid">
+    <table>
+      <thead><tr>
+        <th *ngFor="let column of columns" scope="col"
+            [attr.aria-sort]="sortBy === column.key ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
+          <button type="button" [disabled]="loading" (click)="sort(column.key)">{{ column.label }}
+            <span *ngIf="sortBy === column.key" aria-hidden="true">{{ direction === 'asc' ? '▲' : '▼' }}</span>
+          </button>
+        </th>
+      </tr></thead>
+      <tbody>
+        <tr *ngIf="loading"><td colspan="6" role="status">Wczytywanie...</td></tr>
+        <ng-container *ngIf="!loading">
+          <tr *ngFor="let row of pagedRows; trackBy: trackUser" tabindex="0"
+              [class.selected]="selectedUser && selectedUser.id === row.id"
+              [attr.aria-selected]="selectedUser && selectedUser.id === row.id"
+              (click)="selectUser(row)" (keydown.enter)="selectUser(row, $event)" (keydown.space)="selectUser(row, $event)">
+            <td>{{ row.displayName || '-' }}</td>
+            <td>{{ row.googleEmail }}</td>
+            <td>{{ row.planCode || '-' }}</td>
+            <td>{{ row.paidAtUtc ? (row.paidAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
+            <td>{{ row.amountPaid == null ? '-' : (row.amountPaid | number:'1.2-2') + ' PLN' }}</td>
+            <td [class.expired]="row.expired">{{ formatExpiry(row.expiresAtUtc) }}</td>
+          </tr>
+          <tr *ngIf="!users.length && !error"><td colspan="6">Brak użytkowników.</td></tr>
+        </ng-container>
+      </tbody>
+    </table>
+  </div>
+  <footer class="admin-list-pager" aria-label="Paginacja użytkowników — płatności">
+    <span>{{ users.length }} użytkowników</span>
+    <button type="button" (click)="changePage(page - 1)" [disabled]="loading || page === 1">Poprzednia</button>
+    <span>Strona {{ page }} z {{ totalPages }}</span>
+    <button type="button" (click)="changePage(page + 1)" [disabled]="loading || page >= totalPages">Następna</button>
+  </footer>
+</section>
+<section *ngIf="selectedUser" class="selected-user-payments" aria-label="Historia płatności wybranego użytkownika">
+  <p><strong>{{ selectedUser.displayName || selectedUser.googleEmail }}</strong> — {{ selectedUser.googleEmail }}</p>
+  <app-admin-user-payments [userId]="selectedUser.id"></app-admin-user-payments>
+</section>
+<p *ngIf="!selectedUser && !loading && users.length" class="selection-hint">Wybierz użytkownika, aby wyświetlić jego historię płatności.</p>

@@ -1,4 +1,4 @@
-import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { finalize, retry, switchMap, tap, timeout } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -210,11 +210,15 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   latestImportDate: string | null | undefined = undefined;
   companyCountError = false;
   private countRequest: Subscription | null = null;
+  private countRefreshTimer: number | null = null;
   private countFormatter = new Intl.NumberFormat('pl-PL');
 
   ngOnInit() {
     this.restoreCompanyCount();
     this.loadCompanyCount();
+    this.countRefreshTimer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') { this.loadCompanyCount(); }
+    }, 60000);
     this.registrationAvailabilityRequest = this.api.maintenanceStatus().pipe(timeout(10000), retry(1))
       .subscribe(status => this.registrationSuspended = status.registrationSuspended, () => {});
     const query = this.route.snapshot.queryParams;
@@ -255,6 +259,9 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
     } catch (_) { /* Storage can be unavailable in a private browser session. */ }
   }
 
+  @HostListener('window:focus')
+  refreshLandingStatistics() { this.loadCompanyCount(); }
+
   loadCompanyCount() {
     if (this.countRequest) { this.countRequest.unsubscribe(); }
     this.companyCountError = false;
@@ -275,6 +282,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.countRefreshTimer !== null) { window.clearInterval(this.countRefreshTimer); }
     this.resetEmailCheck();
     if (this.registrationAvailabilityRequest) { this.registrationAvailabilityRequest.unsubscribe(); }
     if (this.registrationStatusRequest) { this.registrationStatusRequest.unsubscribe(); }

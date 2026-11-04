@@ -3,6 +3,7 @@
     <div class="sidebar-title">Administrator</div>
     <button class="search-item" [class.active]="tab === 'companies'" (click)="openAdminTab('companies')">Firmy</button>
     <button class="search-item" [class.active]="tab === 'users'" (click)="openAdminTab('users')">U&#380;ytkownicy</button>
+    <button class="search-item" [class.active]="tab === 'payments'" (click)="openAdminTab('payments')">Płatności</button>
     <button class="search-item" [class.active]="tab === 'plans'" (click)="openAdminTab('plans')">Plany</button>
     <button class="search-item" [class.active]="tab === 'imports'" (click)="openAdminTab('imports')">Importy</button>
     <button class="search-item" [class.active]="tab === 'global-settings'" (click)="openAdminTab('global-settings')">Ustawienia globalne</button>
@@ -17,6 +18,7 @@
     <header class="workspace-head" *ngIf="tab !== 'users'">
       <div>
         <h1 *ngIf="tab === 'companies'">Wyszukiwanie firm</h1>
+        <h1 *ngIf="tab === 'payments'">Płatności</h1>
         <h1 *ngIf="tab === 'plans'">Plany</h1>
         <h1 *ngIf="tab === 'imports'">Importy</h1>
         <h1 *ngIf="tab === 'global-settings'">Ustawienia globalne</h1>
@@ -27,6 +29,7 @@
     </header>
 
     <div class="message" *ngIf="message">{{ message }}</div>
+    <app-admin-payments *ngIf="tab === 'payments' && !publicPageTitle"></app-admin-payments>
     <app-admin-plans *ngIf="tab === 'plans'"></app-admin-plans>
     <app-admin-regulamin *ngIf="tab === 'regulamin' && !publicPageTitle"></app-admin-regulamin>
     <app-admin-regulamin *ngIf="tab === 'regulamin-beta' && !publicPageTitle" [beta]="true"></app-admin-regulamin>
@@ -185,10 +188,17 @@
           <button type="button" class="primary-button" [disabled]="creatingUser" (click)="requestCreateUser(true)">Utw&#243;rz beta u&#380;ytkownika</button>
         </div>
       </div>
-    <section class="admin-users-grid" *ngIf="tab === 'users'" [attr.aria-busy]="usersLoading" (scroll)="planHint = null">
+    <div *ngIf="tab === 'users'" class="admin-filter-tabs admin-users-tabs" role="tablist" aria-label="Grupy użytkowników">
+      <button *ngFor="let userTab of usersTabs" type="button" role="tab"
+              [id]="'admin-users-tab-' + userTab.key" aria-controls="admin-users-panel"
+              [attr.aria-selected]="usersTab === userTab.key" [attr.tabindex]="usersTab === userTab.key ? 0 : -1"
+              [class.active]="usersTab === userTab.key" (click)="selectUsersTab(userTab.key)"
+              (keydown)="navigateUsersTabs($event, userTab.key)">{{ userTab.label }}</button>
+    </div>
+    <section id="admin-users-panel" role="tabpanel" [attr.aria-labelledby]="'admin-users-tab-' + usersTab" class="admin-users-grid" *ngIf="tab === 'users'" [attr.aria-busy]="usersLoading" (scroll)="planHint = null">
       <table>
         <thead><tr>
-          <th *ngFor="let col of userColumns" [attr.aria-sort]="usersSortBy === col.key ? (usersDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
+          <th *ngFor="let col of visibleUserColumns" [attr.aria-sort]="usersSortBy === col.key ? (usersDirection === 'asc' ? 'ascending' : 'descending') : 'none'">
             <button type="button" (click)="sortUsers(col.key)" [disabled]="usersLoading">{{ col.label }}
               <span *ngIf="usersSortBy === col.key"><ng-container *ngIf="usersDirection === 'asc'">&#9650;</ng-container><ng-container *ngIf="usersDirection === 'desc'">&#9660;</ng-container></span>
             </button>
@@ -196,7 +206,7 @@
           <th>Akcje</th>
         </tr></thead>
         <tbody>
-          <tr *ngIf="usersLoading"><td [attr.colspan]="userColumns.length + 1" role="status">Wczytywanie...</td></tr>
+          <tr *ngIf="usersLoading"><td [attr.colspan]="visibleUserColumns.length + 1" role="status">Wczytywanie...</td></tr>
           <ng-container *ngIf="!usersLoading">
             <tr *ngFor="let row of pagedUserRows; trackBy: trackUser" class="selectable-user"
                 [class.selected]="selectedUserId === row.id" tabindex="0" [attr.aria-selected]="selectedUserId === row.id"
@@ -207,8 +217,8 @@
                         (mouseenter)="showPlanHint($event, row.descriptionHtml)" (mouseleave)="planHint = null"
                         (focus)="showPlanHint($event, row.descriptionHtml)" (blur)="planHint = null" (keydown.escape)="planHint = null"
                         [attr.aria-describedby]="planHint ? 'admin-plan-tooltip' : null">{{ row.planCode }}</span><ng-template #noUserPlan>-</ng-template></td>
-              <td [class.expired]="row.expired">{{ row.expiresAtUtc ? (row.expiresAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
               <td>{{ row.createdAtUtc ? (row.createdAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
+              <td [class.expired]="row.expired">{{ row.expiresAtUtc ? (row.expiresAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
               <td class="admin-plan-purchase-cell">
                 <input type="checkbox" [checked]="row.disablePlanPurchase"
                        [disabled]="busyUserIds.has(row.id)"
@@ -222,26 +232,28 @@
                        [attr.aria-label]="'Aktywny: ' + row.googleEmail"
                        (change)="updateUserEnabled(row.id, $event.target.checked)">
               </td>
-              <td class="admin-plan-purchase-cell">
+              <td *ngIf="usersTab !== 'beta'" class="admin-plan-purchase-cell">
                 <input type="checkbox" [checked]="row.isAdmin"
-                       [disabled]="currentUserId === null || row.isAdmin || row.id === currentUserId || busyUserIds.has(row.id)"
-                       [attr.aria-readonly]="row.isAdmin || row.id === currentUserId ? 'true' : null"
+                       [disabled]="currentUserId === null || row.id === currentUserId || busyUserIds.has(row.id)"
+                       [attr.aria-readonly]="row.id === currentUserId ? 'true' : null"
                        [attr.aria-label]="'Admin: ' + row.googleEmail"
-                       (change)="updateUserAdmin(row.id, $event.target.checked)">
+                       (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                       (change)="requestUserAdmin(row.id, $event)">
               </td>
               <td class="admin-plan-purchase-cell">
-                <input type="checkbox" [checked]="row.isBetaUser" [disabled]="!row.isBetaUser || busyUserIds.has(row.id)"
+                <input type="checkbox" [checked]="row.isBetaUser" [disabled]="busyUserIds.has(row.id)"
                        [attr.aria-label]="'Beta user: ' + row.googleEmail"
+                       (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
                        (change)="updateUserBeta(row.id, $event.target.checked)">
               </td>
               <td class="admin-user-actions">
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="requestChangePlan(row)">Zmie&#324; plan</button>
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="extendPlan(row.id)">Przed&#322;u&#380; o 7 dni</button>
-                <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id)" (click)="requestSetUserPassword(row, $event)" (keydown)="$event.stopPropagation()">Ustaw has&#322;o</button>
+                <button type="button" class="ghost-button compact" [disabled]="!canSetUserPassword(row)" (click)="requestSetUserPassword(row, $event)" (keydown)="$event.stopPropagation()">Ustaw has&#322;o</button>
                 <button type="button" class="ghost-button compact" [disabled]="row.isAdmin || currentUserId === null || row.id === currentUserId || busyUserIds.has(row.id)" (click)="deleteUserAccount(row.id)">Usu&#324; konto</button>
               </td>
             </tr>
-            <tr *ngIf="!userRows.length"><td [attr.colspan]="userColumns.length + 1">Brak u&#380;ytkownik&#243;w.</td></tr>
+            <tr *ngIf="!userRows.length"><td [attr.colspan]="visibleUserColumns.length + 1">Brak u&#380;ytkownik&#243;w.</td></tr>
           </ng-container>
         </tbody>
       </table>
@@ -266,7 +278,7 @@
           <label>Ulica<input type="text" readonly [value]="user.street || ''"></label>
           <label>Nr ulicy/lokalu<input type="text" readonly [value]="user.streetNumber || ''"></label>
         </div>
-        <app-admin-user-payments [userId]="user.id"></app-admin-user-payments>
+
       </section>
     </ng-container>
     <div *ngIf="tab === 'users' && planHint" id="admin-plan-tooltip" role="tooltip" class="admin-plan-tooltip"
@@ -327,6 +339,20 @@
         <button type="button" class="primary-button" [disabled]="planDefinitionsLoading || changingPlan || selectedPlanDefinitionId === null"
                 (click)="confirmChangePlan()">Wybierz</button>
         <button type="button" class="ghost-button" autofocus [disabled]="changingPlan" (click)="cancelChangePlan()">Anuluj</button>
+      </div>
+    </dialog>
+    <dialog #promoteUserAdminDialog class="delete-csv-dialog" role="alertdialog"
+            aria-labelledby="promote-user-admin-title" aria-describedby="promote-user-admin-description"
+            (cancel)="$event.preventDefault(); cancelUserAdmin()">
+      <h2 id="promote-user-admin-title">Nadaj uprawnienia administratora</h2>
+      <p id="promote-user-admin-description">Czy na pewno chcesz uczynić użytkownika
+        <strong>{{ userToPromote ? userToPromote.googleEmail : '' }}</strong> administratorem?</p>
+      <p *ngIf="promoteUserAdminError" class="error" role="alert">{{ promoteUserAdminError }}</p>
+      <div class="delete-csv-actions">
+        <button type="button" class="primary-button" [disabled]="promotingUserAdmin || !userToPromote"
+                (click)="confirmUserAdmin()">Tak</button>
+        <button type="button" class="ghost-button" autofocus [disabled]="promotingUserAdmin"
+                (click)="cancelUserAdmin()">Nie</button>
       </div>
     </dialog>
     <dialog #setUserPasswordDialog class="delete-csv-dialog create-user-dialog" aria-labelledby="set-user-password-title"
