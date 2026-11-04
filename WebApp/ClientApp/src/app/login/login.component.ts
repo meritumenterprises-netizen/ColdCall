@@ -131,10 +131,15 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
       this.localError = 'Hasla musza byc takie same.'; return;
     }
     if (this.localMode === 'login') {
+      if (!this.turnstileToken) { this.localError = 'Potwierdz weryfikacje antybotowa.'; return; }
       this.localBusy = true;
-      this.localRequest = this.api.loginLocal(email, this.localPassword).pipe(
+      this.localRequest = this.api.loginLocal(email, this.localPassword, this.turnstileToken).pipe(
         switchMap(result => this.api.me().pipe(tap(me => this.handleAuthenticated(me, result.trialOffer)))),
-        finalize(() => this.localBusy = false)
+        finalize(() => {
+          this.localBusy = false;
+          this.turnstileToken = '';
+          if (this.turnstile) { this.turnstile.reset(); }
+        })
       ).subscribe(() => this.localPassword = '', err => this.handleLocalError(err));
       return;
     }
