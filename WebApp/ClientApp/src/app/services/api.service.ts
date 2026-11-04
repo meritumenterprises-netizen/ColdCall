@@ -247,14 +247,14 @@ export class ApiService {
   registerLocal(details: ProfileDetails, email: string, password: string, turnstileToken: string) {
     return this.accountPost<{ message: string }>('register', { ...details, email, password, turnstileToken });
   }
-  loginLocal(email: string, password: string) {
+  loginLocal(email: string, password: string, turnstileToken: string) {
     this.purchasedPlan = null;
     this.expiredTrialNotified = false;
     this.expiredTrialNotice.next(false);
     this.csrfToken = ''; this.csrfRequest = null;
     this.authenticated = false; this.currentUser = null;
     this.token = ''; localStorage.removeItem('google_id_token');
-    return this.accountPost<{ trialOffer?: TrialOffer; sessionExpiresAtUtc: string }>('login', { email, password }).pipe(
+    return this.accountPost<{ trialOffer?: TrialOffer; sessionExpiresAtUtc: string }>('login', { email, password, turnstileToken }).pipe(
       tap(result => this.rememberSession(result.sessionExpiresAtUtc)),
       switchMap(result => this.refreshCsrf().pipe(map(() => result)))
     );

@@ -118,8 +118,21 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
     }
 
     [AllowAnonymous, HttpPost("login")]
-    public async Task<IActionResult> Login(PasswordLoginRequest request)
+    public async Task<IActionResult> Login(LoginRequest request)
     {
+        try
+        {
+            if (!turnstile.IsConfigured)
+                return StatusCode(503, new { message = "Weryfikacja antybotowa jest chwilowo niedostepna." });
+            if (!await turnstile.VerifyAsync(request.TurnstileToken, HttpContext.Connection.RemoteIpAddress,
+                HttpContext.RequestAborted, expectedAction: "login"))
+                return BadRequest(new { message = "Potwierdz weryfikacje antybotowa ponownie." });
+        }
+        catch (Exception exception) when (exception is HttpRequestException or System.Text.Json.JsonException
+            || (exception is OperationCanceledException && !HttpContext.RequestAborted.IsCancellationRequested))
+        {
+            return StatusCode(503, new { message = "Weryfikacja antybotowa jest chwilowo niedostepna. Sprobuj ponownie." });
+        }
         var email = Normalize(request.Email);
         var account = await manager.FindByEmailAsync(email);
         if (account == null && await RequiresGoogle(email)) return GoogleRequired();

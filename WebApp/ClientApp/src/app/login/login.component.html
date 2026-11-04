@@ -93,12 +93,13 @@
           <label for="local-password-confirm">Powt&#243;rz has&#322;o</label>
           <input id="local-password-confirm" name="confirmPassword" type="password" [(ngModel)]="localPasswordConfirmation" required minlength="10" maxlength="128" autocomplete="new-password">
         </ng-container>
+        <app-turnstile *ngIf="localMode === 'login'" action="login" (tokenChange)="turnstileToken = $event"></app-turnstile>
         <app-turnstile *ngIf="localMode === 'register'" (tokenChange)="turnstileToken = $event"></app-turnstile>
         <app-turnstile *ngIf="localMode === 'forgot'" action="forgot-password" (tokenChange)="turnstileToken = $event"></app-turnstile>
         <span *ngIf="(localMode === 'register' || localMode === 'reset') && localPassword.length > 0 && localPassword.length < 10" class="error" role="alert">Has&#322;o musi mie&#263; co najmniej 10 znak&#243;w (wpisano {{ localPassword.length }}).</span>
         <span *ngIf="(localMode === 'register' || localMode === 'reset') && localPasswordConfirmation.length > 0 && localPassword !== localPasswordConfirmation" class="error" role="alert">Has&#322;a musz&#261; by&#263; takie same.</span>
         <span *ngIf="localMode === 'register' && checkingEmail" class="error" role="status">Sprawdzanie adresu email...</span>
-        <button type="submit" class="primary-button local-auth-submit" [disabled]="localBusy || localForm.invalid || ((localMode === 'register' || localMode === 'forgot') && !turnstileToken) || (localMode === 'register' && (checkingEmail || !!registrationEmailError))">{{ localBusy ? 'Proszę czekać...' : localMode === 'register' ? 'Zarejestruj się' : localMode === 'forgot' ? 'Wyślij link' : localMode === 'reset' ? 'Zapisz hasło' : 'Zaloguj się' }}</button>
+        <button type="submit" class="primary-button local-auth-submit" [disabled]="localBusy || localForm.invalid || ((localMode === 'login' || localMode === 'register' || localMode === 'forgot') && !turnstileToken) || (localMode === 'register' && (checkingEmail || !!registrationEmailError))">{{ localBusy ? 'Proszę czekać...' : localMode === 'register' ? 'Zarejestruj się' : localMode === 'forgot' ? 'Wyślij link' : localMode === 'reset' ? 'Zapisz hasło' : 'Zaloguj się' }}</button>
       </fieldset>
     </form>
     <div *ngIf="localError" class="error" role="alert">{{ localError }}</div>
