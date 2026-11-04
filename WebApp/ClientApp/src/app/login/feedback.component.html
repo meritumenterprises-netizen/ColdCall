@@ -1,0 +1,22 @@
+<p *ngIf="sent" role="status">Dziękujemy! Wiadomość została wysłana</p>
+<form *ngIf="!sent" #feedbackForm="ngForm" class="feedback-form" (ngSubmit)="submit(feedbackForm)" [attr.aria-busy]="sending">
+  <p>Wszystkie pola są obowiązkowe.</p>
+  <fieldset [disabled]="sending">
+    <label for="feedback-first-name">Imię</label>
+    <input id="feedback-first-name" name="firstName" type="text" [(ngModel)]="details.firstName" required maxlength="100" autocomplete="given-name">
+    <label for="feedback-last-name">Nazwisko</label>
+    <input id="feedback-last-name" name="lastName" type="text" [(ngModel)]="details.lastName" required maxlength="100" autocomplete="family-name">
+    <label for="feedback-email">Email</label>
+    <input id="feedback-email" name="email" type="email" [(ngModel)]="details.email" required email maxlength="254" autocomplete="email">
+    <ng-container *ngIf="rodo">
+      <label for="rodo-nip">NIP</label>
+      <input id="rodo-nip" name="nip" type="text" [(ngModel)]="details.nip" required pattern="[0-9]{10}" minlength="10" maxlength="10" inputmode="numeric" aria-describedby="rodo-nip-hint">
+      <p id="rodo-nip-hint">Wpisz NIP jako 10 cyfr.</p>
+    </ng-container>
+    <label for="feedback-comment">{{ support ? 'Treść' : 'Komentarz' }}</label>
+    <textarea id="feedback-comment" name="comment" [(ngModel)]="details.comment" required rows="12" maxlength="10000"></textarea>
+    <app-turnstile [action]="rodo ? 'rodo' : support ? 'support' : 'feedback'" (tokenChange)="turnstileToken = $event"></app-turnstile>
+    <div class="feedback-actions"><button type="submit" class="primary-button" [disabled]="sending || feedbackForm.invalid || !complete || !turnstileToken">{{ sending ? 'Wysyłanie...' : 'Wyślij' }}</button></div>
+  </fieldset>
+  <p *ngIf="error" class="error" role="alert">{{ error }}</p>
+</form>

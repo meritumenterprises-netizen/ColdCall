@@ -52,7 +52,7 @@
     </div>
   </aside>
 
-  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><app-public-regulamin *ngIf="publicPageTitle === 'Regulamin'"></app-public-regulamin><p *ngIf="filterError" class="error" role="alert">{{ filterError }}</p></main>
+  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><app-feedback *ngIf="publicPageTitle === 'Feedback'"></app-feedback><app-feedback *ngIf="publicPageTitle === 'RODO'" [rodo]="true"></app-feedback><app-feedback *ngIf="publicPageTitle === 'Wsparcie techniczne'" [support]="true"></app-feedback><app-public-regulamin *ngIf="publicPageTitle === 'Regulamin'"></app-public-regulamin><p *ngIf="filterError" class="error" role="alert">{{ filterError }}</p></main>
   <main class="workspace" [style.display]="publicPageTitle ? 'none' : null">
     <section id="dashboard-search-panel" class="dashboard-panel" role="region" aria-label="Wyszukiwanie"
              [hidden]="activeDashboardTab !== 'search'">
@@ -69,15 +69,15 @@
       <button type="button" id="criteria-tab" role="tab" aria-controls="criteria-panel"
               [attr.aria-selected]="activeFilterTab === 'criteria'" [attr.tabindex]="activeFilterTab === 'criteria' ? 0 : -1"
               (click)="selectFilterTab('criteria')" (keydown)="navigateFilterTabs($event)">Og&#243;lne</button>
-      <button type="button" id="contact-tab" role="tab" aria-controls="contact-panel"
-              [attr.aria-selected]="activeFilterTab === 'contact'" [attr.tabindex]="activeFilterTab === 'contact' ? 0 : -1"
-              (click)="selectFilterTab('contact')" (keydown)="navigateFilterTabs($event)">Kontakt</button>
-      <button type="button" id="address-tab" role="tab" aria-controls="address-panel"
-              [attr.aria-selected]="activeFilterTab === 'address'" [attr.tabindex]="activeFilterTab === 'address' ? 0 : -1"
-              (click)="selectFilterTab('address')" (keydown)="navigateFilterTabs($event)">Adres</button>
       <button type="button" id="pkd-tab" role="tab" aria-controls="pkd-panel"
               [attr.aria-selected]="activeFilterTab === 'pkd'" [attr.tabindex]="activeFilterTab === 'pkd' ? 0 : -1"
               (click)="selectFilterTab('pkd')" (keydown)="navigateFilterTabs($event)">PKD</button>
+      <button type="button" id="address-tab" role="tab" aria-controls="address-panel"
+              [attr.aria-selected]="activeFilterTab === 'address'" [attr.tabindex]="activeFilterTab === 'address' ? 0 : -1"
+              (click)="selectFilterTab('address')" (keydown)="navigateFilterTabs($event)">Adres</button>
+      <button type="button" id="contact-tab" role="tab" aria-controls="contact-panel"
+              [attr.aria-selected]="activeFilterTab === 'contact'" [attr.tabindex]="activeFilterTab === 'contact' ? 0 : -1"
+              (click)="selectFilterTab('contact')" (keydown)="navigateFilterTabs($event)">Kontakt</button>
     </div>
     <fieldset class="filter-controls" [disabled]="filtersLocked" [attr.aria-busy]="classifyingPkd || restoringSearch">
     <section class="pkd-filter-panel" id="pkd-panel" role="tabpanel" aria-labelledby="pkd-tab" [hidden]="activeFilterTab !== 'pkd'">

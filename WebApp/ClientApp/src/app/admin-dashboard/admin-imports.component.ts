@@ -13,7 +13,7 @@ export class AdminImportsComponent implements OnInit, OnDestroy {
   imports: AdminImport[] = [];
   page = 1;
   readonly pageSize = 10;
-  sortBy = 'importDate';
+  sortBy = 'startedAt';
   sortDirection = 'desc';
   columns = [
     { key: 'importDate', label: 'Data importu' },
@@ -24,12 +24,13 @@ export class AdminImportsComponent implements OnInit, OnDestroy {
     { key: 'rate', label: 'Rekord\u00f3w/sec' }
   ];
   sort(column: string) {
-    if (this.loading || !this.columns.some(item => item.key === column)) { return; }
+    if (this.loading || (column !== 'importId' && !this.columns.some(item => item.key === column))) { return; }
     this.sortDirection = this.sortBy === column && this.sortDirection === 'asc' ? 'desc' : 'asc';
     this.sortBy = column;
     this.page = 1;
   }
   private sortValue(row: AdminImport): number | null {
+    if (this.sortBy === 'importId') { return row.importId; }
     if (this.sortBy === 'rate') { return importRecordsPerSecond(row); }
     if (this.sortBy === 'duration') { return importDurationSeconds(row.duration); }
     if (this.sortBy === 'importTargetRecords') { return row.importTargetRecords; }

@@ -4,6 +4,7 @@ using ColdCall.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace ColdCall.Controllers.Api;
 
@@ -113,6 +114,10 @@ public partial class CompaniesController : ControllerBase
             return Ok(new PagedResult<CompanyShortDto>(items, total, page, pageSize, QueryableExtensions.CompanyShortSortableColumns, totalWithoutLimit, hasNotes));
         }
         catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            return new EmptyResult();
+        }
+        catch (SqlException exception) when (SqlRequestCancellation.IsExpected(exception, HttpContext.RequestAborted))
         {
             return new EmptyResult();
         }

@@ -14,6 +14,7 @@ export class TermsDialogComponent implements AfterViewInit, OnDestroy {
   @ViewChild('dialog', { static: true }) dialog: ElementRef;
   @ViewChild('content', { static: true }) content: ElementRef;
   html = '';
+  isBetaUser = false;
   loading = false;
   saving = false;
   error = '';
@@ -36,8 +37,10 @@ export class TermsDialogComponent implements AfterViewInit, OnDestroy {
   load() {
     if (this.request) { this.request.unsubscribe(); }
     this.loading = true; this.loaded = false; this.reachedBottom = false; this.error = ''; this.html = '';
+    this.isBetaUser = false;
     this.request = this.api.termsOfService().pipe(timeout(15000), finalize(() => this.loading = false)).subscribe(row => {
       this.html = row.regulamin || '';
+      this.isBetaUser = !!row.isBetaUser;
       this.loaded = true;
       this.content.nativeElement.scrollTop = 0;
       this.frame = window.requestAnimationFrame(() => { this.frame = null; this.checkScroll(); });

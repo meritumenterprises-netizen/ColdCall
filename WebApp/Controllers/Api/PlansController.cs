@@ -27,6 +27,7 @@ public class PlansController : ControllerBase
     public async Task<IReadOnlyList<PlanDto>> Get()
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
+        if (user.IsBetaUser && !user.IsAdmin) return Array.Empty<PlanDto>();
         var currentPlan = await _db.UserPlans
             .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
             .OrderByDescending(x => x.ExpiresAtUtc)

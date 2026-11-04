@@ -119,7 +119,7 @@ public class CompanyCsvExportService
         {
             "Nazwa", "Typ Działalności", "Imię", "Nazwisko", "KRS", "NIP", "Regon", "Województwo",
             "Miejscowość", "Gmina", "Powiat", "Ulica", "Nr Budynku", "Nr lokalu", "Telefon",
-            "Email", "Witryna WWW", "Data Aktywności", "PKD", "Notatki"
+            "Email", "Witryna WWW", "Data Aktywności", "PKD", "Notatki", "ImportedOn"
         };
         var csv = new StringBuilder();
         csv.AppendLine(string.Join(',', headers.Select(Cell)));
@@ -134,7 +134,8 @@ public class CompanyCsvExportService
                 company.Email, company.Website, company.StartedAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 pkds.TryGetValue(company.Id, out var pkd) ? pkd : "",
                 notes != null && notes.TryGetValue(company.Id, out var note)
-                    ? Regex.Replace(note, @"\r\n|[\r\n\u0085\u2028\u2029]", " ") : ""
+                    ? Regex.Replace(note, @"\r\n|[\r\n\u0085\u2028\u2029]", " ") : "",
+                company.ImportedOn?.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
             };
             csv.AppendLine(string.Join(',', values.Select((value, index) => index switch
             {

@@ -37,6 +37,13 @@ builder.Services.AddIdentityCore<LocalAccount>(options =>
 }).AddEntityFrameworkStores<LocalAuthDbContext>().AddDefaultTokenProviders();
 builder.Services.Configure<DataProtectionTokenProviderOptions>(options => options.TokenLifespan = TimeSpan.FromHours(1));
 builder.Services.AddScoped<IAuthEmailSender, AuthEmailSender>();
+builder.Services.AddScoped<IFeedbackEmailSender, FeedbackEmailSender>();
+builder.Services.AddScoped<ISupportEmailSender, SupportEmailSender>();
+builder.Services.AddScoped<IRodoEmailSender, RodoEmailSender>();
+builder.Services.AddScoped<FeedbackSubmissionLimiter>();
+builder.Services.AddSingleton<PasswordResetAttemptLimiter>();
+builder.Services.AddScoped<AdminUserCredentialsEmailSender>();
+builder.Services.AddScoped<AdminUserPasswordService>();
 builder.Services.AddAntiforgery(options =>
 {
     options.HeaderName = "X-CSRF-TOKEN";
@@ -212,7 +219,10 @@ app.UseAuthorization();
 app.Use(async (context, next) =>
 {
     if ((context.User.HasClaim(claim => claim.Type == LocalAuthentication.UserIdClaim)
-            || context.Request.Path.StartsWithSegments("/api/account"))
+            || context.Request.Path.StartsWithSegments("/api/account")
+            || context.Request.Path.StartsWithSegments("/api/public/feedback")
+            || context.Request.Path.StartsWithSegments("/api/public/support")
+            || context.Request.Path.StartsWithSegments("/api/public/rodo"))
         && !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method)
         && !HttpMethods.IsOptions(context.Request.Method))
     {

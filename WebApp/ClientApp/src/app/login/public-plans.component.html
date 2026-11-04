@@ -1,0 +1,16 @@
+<app-landing-menu></app-landing-menu>
+<main class="public-plans" [attr.aria-busy]="loading">
+  <header class="workspace-head"><h1>Plany</h1></header>
+  <p *ngIf="loading" role="status">Wczytywanie plan&#243;w...</p>
+  <div *ngIf="error" class="error" role="alert">{{ error }}
+    <button type="button" class="ghost-button" (click)="load()">Pon&#243;w</button>
+  </div>
+  <p *ngIf="!loading && !error && !plans.length">Obecnie brak dost&#281;pnych plan&#243;w.</p>
+  <section *ngIf="!loading && !error && plans.length" class="plan-grid" aria-label="Dostepne plany">
+    <article *ngFor="let plan of plans" class="plan-card">
+      <h2 class="plan-title">{{ plan.code | uppercase }}</h2>
+      <div class="plan-description" [innerHTML]="plan.descriptionHtml"></div>
+      <div class="price">{{ plan.price | number:'1.2-2' }} {{ plan.currency }}</div>
+    </article>
+  </section>
+</main>

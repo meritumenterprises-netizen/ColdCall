@@ -1,16 +1,17 @@
 <div class="app-layout admin-layout">
   <aside class="sidebar">
     <div class="sidebar-title">Administrator</div>
-    <button class="search-item" [class.active]="tab === 'companies'" (click)="publicPageTitle ? openAdminTab('companies') : tab = 'companies'">Firmy</button>
-    <button class="search-item" [class.active]="tab === 'users'" (click)="publicPageTitle ? openAdminTab('users') : tab = 'users'">U&#380;ytkownicy</button>
-    <button class="search-item" [class.active]="tab === 'plans'" (click)="publicPageTitle ? openAdminTab('plans') : tab = 'plans'">Plany</button>
-    <button class="search-item" [class.active]="tab === 'imports'" (click)="publicPageTitle ? openAdminTab('imports') : tab = 'imports'">Importy</button>
-    <button class="search-item" [class.active]="tab === 'global-settings'" (click)="publicPageTitle ? openAdminTab('global-settings') : tab = 'global-settings'">Ustawienia globalne</button>
-    <button class="search-item" [class.active]="tab === 'logins' && !publicPageTitle" (click)="publicPageTitle ? openAdminTab('logins') : tab = 'logins'">Loginy</button>
-    <button class="search-item" [class.active]="tab === 'regulamin' && !publicPageTitle" (click)="publicPageTitle ? openAdminTab('regulamin') : tab = 'regulamin'">Regulamin</button>
+    <button class="search-item" [class.active]="tab === 'companies'" (click)="openAdminTab('companies')">Firmy</button>
+    <button class="search-item" [class.active]="tab === 'users'" (click)="openAdminTab('users')">U&#380;ytkownicy</button>
+    <button class="search-item" [class.active]="tab === 'plans'" (click)="openAdminTab('plans')">Plany</button>
+    <button class="search-item" [class.active]="tab === 'imports'" (click)="openAdminTab('imports')">Importy</button>
+    <button class="search-item" [class.active]="tab === 'global-settings'" (click)="openAdminTab('global-settings')">Ustawienia globalne</button>
+    <button class="search-item" [class.active]="tab === 'logins' && !publicPageTitle" (click)="openAdminTab('logins')">Loginy</button>
+    <button class="search-item" [class.active]="tab === 'regulamin' && !publicPageTitle" (click)="openAdminTab('regulamin')">Regulamin</button>
+    <button class="search-item" [class.active]="tab === 'regulamin-beta' && !publicPageTitle" (click)="openAdminTab('regulamin-beta')">Regulamin Beta</button>
   </aside>
 
-  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><app-public-regulamin *ngIf="publicPageTitle === 'Regulamin'"></app-public-regulamin></main>
+  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><app-feedback *ngIf="publicPageTitle === 'Feedback'"></app-feedback><app-feedback *ngIf="publicPageTitle === 'RODO'" [rodo]="true"></app-feedback><app-feedback *ngIf="publicPageTitle === 'Wsparcie techniczne'" [support]="true"></app-feedback><app-public-regulamin *ngIf="publicPageTitle === 'Regulamin'"></app-public-regulamin></main>
   <main class="workspace" [style.display]="publicPageTitle ? 'none' : null">
     <div *ngIf="maintenanceMode" class="message" role="status">Jest ustawiony tryb konserwarcji systemu. Zmie&#324; to w Ustawieniach Globalnych</div>
     <header class="workspace-head" *ngIf="tab !== 'users'">
@@ -20,6 +21,7 @@
         <h1 *ngIf="tab === 'imports'">Importy</h1>
         <h1 *ngIf="tab === 'global-settings'">Ustawienia globalne</h1>
         <h1 *ngIf="tab === 'regulamin'">Regulamin</h1>
+        <h1 *ngIf="tab === 'regulamin-beta'">Regulamin Beta</h1>
         <h1 *ngIf="tab === 'logins'">Loginy</h1>
       </div>
     </header>
@@ -27,6 +29,7 @@
     <div class="message" *ngIf="message">{{ message }}</div>
     <app-admin-plans *ngIf="tab === 'plans'"></app-admin-plans>
     <app-admin-regulamin *ngIf="tab === 'regulamin' && !publicPageTitle"></app-admin-regulamin>
+    <app-admin-regulamin *ngIf="tab === 'regulamin-beta' && !publicPageTitle" [beta]="true"></app-admin-regulamin>
     <app-admin-logins *ngIf="tab === 'logins' && !publicPageTitle"></app-admin-logins>
     <app-admin-imports *ngIf="tab === 'imports'"></app-admin-imports>
     <app-admin-global-settings *ngIf="tab === 'global-settings'" (settingsSaved)="maintenanceMode = false"></app-admin-global-settings>
@@ -177,7 +180,10 @@
           <label for="admin-user-email">Email</label>
           <input id="admin-user-email" type="text" [(ngModel)]="userEmailFilter" (ngModelChange)="changeUsersPage(1)" autocomplete="off">
         </div>
-        <button type="button" class="primary-button" [disabled]="creatingUser" (click)="requestCreateUser()">Utw&#243;rz u&#380;ytkownika</button>
+        <div class="admin-users-create-actions">
+          <button type="button" class="primary-button" [disabled]="creatingUser" (click)="requestCreateUser()">Utw&#243;rz u&#380;ytkownika</button>
+          <button type="button" class="primary-button" [disabled]="creatingUser" (click)="requestCreateUser(true)">Utw&#243;rz beta u&#380;ytkownika</button>
+        </div>
       </div>
     <section class="admin-users-grid" *ngIf="tab === 'users'" [attr.aria-busy]="usersLoading" (scroll)="planHint = null">
       <table>
@@ -223,10 +229,15 @@
                        [attr.aria-label]="'Admin: ' + row.googleEmail"
                        (change)="updateUserAdmin(row.id, $event.target.checked)">
               </td>
+              <td class="admin-plan-purchase-cell">
+                <input type="checkbox" [checked]="row.isBetaUser" [disabled]="!row.isBetaUser || busyUserIds.has(row.id)"
+                       [attr.aria-label]="'Beta user: ' + row.googleEmail"
+                       (change)="updateUserBeta(row.id, $event.target.checked)">
+              </td>
               <td class="admin-user-actions">
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="requestChangePlan(row)">Zmie&#324; plan</button>
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="extendPlan(row.id)">Przed&#322;u&#380; o 7 dni</button>
-                <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id)" (click)="requestDeleteCsv(row)">Usu&#324; pliki CSV</button>
+                <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id)" (click)="requestSetUserPassword(row, $event)" (keydown)="$event.stopPropagation()">Ustaw has&#322;o</button>
                 <button type="button" class="ghost-button compact" [disabled]="row.isAdmin || currentUserId === null || row.id === currentUserId || busyUserIds.has(row.id)" (click)="deleteUserAccount(row.id)">Usu&#324; konto</button>
               </td>
             </tr>
@@ -249,6 +260,7 @@
           <label>Nazwisko<input type="text" readonly [value]="user.lastName || ''"></label>
           <label *ngIf="user.companyName && user.companyName.trim()">Nazwa firmy<input type="text" readonly [value]="user.companyName"></label>
           <label>NIP<input type="text" readonly [value]="user.nip || ''"></label>
+          <label>Telefon<input type="tel" readonly [value]="user.phone || ''"></label>
           <label>Kod pocztowy<input type="text" readonly [value]="user.postalCode || ''"></label>
           <label>Miasto<input type="text" readonly [value]="user.city || ''"></label>
           <label>Ulica<input type="text" readonly [value]="user.street || ''"></label>
@@ -261,15 +273,18 @@
          [style.left.px]="planHint.left" [style.top.px]="planHint.top" [innerHTML]="planHint.html"></div>
     <dialog #createUserDialog class="delete-csv-dialog create-user-dialog" aria-labelledby="create-user-title"
             (cancel)="$event.preventDefault(); cancelCreateUser()">
-      <h2 id="create-user-title">Utw&#243;rz u&#380;ytkownika</h2>
+      <h2 id="create-user-title">Utw&#243;rz {{ newUserIsBeta ? 'beta ' : '' }}u&#380;ytkownika</h2>
       <form #createUserForm="ngForm" (ngSubmit)="createUserForm.valid && confirmCreateUser()">
         <fieldset [disabled]="creatingUser">
           <label for="new-user-email">Nazwa u&#380;ytkownika (email)</label>
           <input id="new-user-email" name="email" type="email" email required maxlength="254"
                  [(ngModel)]="newUserEmail" autocomplete="off" autofocus>
           <label for="new-user-password">Has&#322;o</label>
-          <input id="new-user-password" name="password" type="password" required minlength="12" maxlength="128"
-                 [(ngModel)]="newUserPassword" autocomplete="new-password">
+          <div class="new-user-password-controls">
+            <input id="new-user-password" name="password" type="text" required minlength="12" maxlength="128"
+                   [(ngModel)]="newUserPassword" autocomplete="new-password" spellcheck="false" autocapitalize="off">
+            <button type="button" class="ghost-button" [disabled]="creatingUser" (click)="generateUserPassword()">Wygeneruj has&#322;o</button>
+          </div>
           <label class="new-user-purchase-toggle">
             <input name="disablePlanPurchase" type="checkbox" [(ngModel)]="newUserDisablePlanPurchase">
             Uniemo&#380;liw zakup plan&#243;w
@@ -282,6 +297,10 @@
           <section *ngIf="newUserPlanId !== null" class="change-plan-description" aria-label="Opis planu"
                    [innerHTML]="newUserPlanDescriptionHtml"></section>
           <p *ngIf="createUserError" class="error" role="alert">{{ createUserError }}</p>
+          <label class="new-user-purchase-toggle">
+            <input name="sendCredentialsEmail" type="checkbox" [(ngModel)]="newUserSendCredentialsEmail">
+            Wy&#347;lij dane logowania na email u&#380;ytkownika
+          </label>
           <div class="delete-csv-actions">
             <button type="submit" class="primary-button"
                     [disabled]="!createUserForm.valid || creatingUser || newUserPlansLoading || newUserPlanId === null">Utw&#243;rz</button>
@@ -310,13 +329,23 @@
         <button type="button" class="ghost-button" autofocus [disabled]="changingPlan" (click)="cancelChangePlan()">Anuluj</button>
       </div>
     </dialog>
-    <dialog #deleteCsvDialog class="delete-csv-dialog" aria-labelledby="delete-csv-title" (cancel)="$event.preventDefault(); cancelDeleteCsv()">
-      <h2 id="delete-csv-title">Usu&#324; eksporty CSV</h2>
-      <p>Czy trwale usun&#261;&#263; wszystkie eksporty CSV u&#380;ytkownika {{ userToDelete ? userToDelete.googleEmail : '' }} z bazy i dysku?</p>
-      <div class="delete-csv-actions">
-        <button type="button" class="primary-button" (click)="confirmDeleteCsv()">Usu&#324;</button>
-        <button type="button" class="ghost-button" autofocus (click)="cancelDeleteCsv()">Anuluj</button>
-      </div>
+    <dialog #setUserPasswordDialog class="delete-csv-dialog create-user-dialog" aria-labelledby="set-user-password-title"
+            (cancel)="$event.preventDefault(); cancelSetUserPassword()">
+      <h2 id="set-user-password-title">Ustaw has&#322;o</h2>
+      <p>{{ passwordUser ? passwordUser.googleEmail : '' }}</p>
+      <form #setUserPasswordForm="ngForm" (ngSubmit)="confirmSetUserPassword()">
+        <fieldset [disabled]="settingUserPassword">
+          <label for="admin-user-password">Nowe has&#322;o</label>
+          <input id="admin-user-password" name="password" type="password" required minlength="12" maxlength="128"
+                 [(ngModel)]="userPassword" autocomplete="new-password" autofocus aria-describedby="admin-user-password-hint">
+          <p id="admin-user-password-hint">Has&#322;o musi mie&#263; od 12 do 128 znak&#243;w.</p>
+          <p *ngIf="userPasswordError" class="error" role="alert">{{ userPasswordError }}</p>
+          <div class="delete-csv-actions">
+            <button type="submit" class="primary-button" [disabled]="settingUserPassword || setUserPasswordForm.invalid">{{ settingUserPassword ? 'Zapisywanie...' : 'Ustaw hasło' }}</button>
+            <button type="button" class="ghost-button" (click)="cancelSetUserPassword()">Anuluj</button>
+          </div>
+        </fieldset>
+      </form>
     </dialog>
   </main>
 </div>

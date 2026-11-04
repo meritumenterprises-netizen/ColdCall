@@ -1,4 +1,9 @@
 <section [attr.aria-busy]="loading">
+  <div class="login-filters">
+    <label for="login-user-email">U&#380;ytkownik</label>
+    <input id="login-user-email" type="search" autocomplete="off" placeholder="Email"
+      [ngModel]="emailFilter" (ngModelChange)="filterByEmail($event)">
+  </div>
   <div *ngIf="error" class="error" role="alert">{{ error }} <button type="button" (click)="load()">Pon&#243;w</button></div>
   <table>
     <thead><tr><th>ID</th>
@@ -8,12 +13,18 @@
       <th [attr.aria-sort]="sortBy === 'user' ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
         <button type="button" class="sort-button" [disabled]="loading" (click)="sort('user')">U&#380;ytkownik <span class="sort-indicator">{{ sortBy === 'user' ? (direction === 'asc' ? '&#9650;' : '&#9660;') : '' }}</span></button>
       </th>
+      <th>Usu&#324;</th>
     </tr></thead>
     <tbody>
-      <tr *ngIf="loading"><td colspan="3" role="status">Wczytywanie...</td></tr>
+      <tr *ngIf="loading"><td colspan="4" role="status">Wczytywanie...</td></tr>
       <ng-container *ngIf="!loading && !error">
-        <tr *ngFor="let row of rows"><td>{{ row.userLoginId }}</td><td>{{ row.loginDate | date:'dd.MM.yyyy HH:mm:ss' }}</td><td [title]="row.email || ''">{{ row.email || ('Usuni&#281;ty u&#380;ytkownik #' + row.userId) }}</td></tr>
-        <tr *ngIf="!rows.length"><td colspan="3">Brak logowa&#324;.</td></tr>
+        <tr *ngFor="let row of rows">
+          <td>{{ row.userLoginId }}</td><td>{{ row.loginDate | date:'dd.MM.yyyy HH:mm:ss' }}</td>
+          <td [title]="row.email || ''">{{ row.email || ('Usuni&#281;ty u&#380;ytkownik #' + row.userId) }}</td>
+          <td><button type="button" class="delete-login" [disabled]="loading || deletingId !== null"
+            [attr.aria-label]="'Usu&#324; wpis logowania #' + row.userLoginId" (click)="deleteLogin(row)">Usu&#324;</button></td>
+        </tr>
+        <tr *ngIf="!rows.length"><td colspan="4">Brak logowa&#324;.</td></tr>
       </ng-container>
     </tbody>
   </table>

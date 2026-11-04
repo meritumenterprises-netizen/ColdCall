@@ -14,7 +14,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   purchasedPlan: CurrentPlan | null = null;
   plan: CurrentPlan | null = null;
   profile: UserProfile | null = null;
-  details: ProfileDetails = { firstName: '', lastName: '', companyName: '', nip: '', postalCode: '', city: '', street: '', streetNumber: '' };
+  details: ProfileDetails = { firstName: '', lastName: '', companyName: '', nip: '', phone: '', postalCode: '', city: '', street: '', streetNumber: '' };
   saving = false;
   saveError = '';
   saveMessage = '';
@@ -24,6 +24,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     { key: 'lastName', label: 'Nazwisko', max: 100, autocomplete: 'family-name' },
     { key: 'companyName', label: 'Nazwa firmy', max: 200, autocomplete: 'organization' },
     { key: 'nip', label: 'NIP', max: 10, autocomplete: 'off' },
+    { key: 'phone', label: 'Telefon', max: 32, autocomplete: 'tel' },
     { key: 'postalCode', label: 'Kod pocztowy', max: 6, autocomplete: 'postal-code' },
     { key: 'city', label: 'Miasto', max: 100, autocomplete: 'address-level2' },
     { key: 'street', label: 'Ulica', max: 200, autocomplete: 'address-line1' },

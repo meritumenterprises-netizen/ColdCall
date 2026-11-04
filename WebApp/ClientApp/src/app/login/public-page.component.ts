@@ -9,6 +9,9 @@ import { ApiService } from '../services/api.service';
     <app-user-dashboard *ngIf="api.isAuthenticated() && !api.isAdmin()" [publicPageTitle]="title"></app-user-dashboard>
     <main *ngIf="!api.isAuthenticated()" class="public-page">
     <h1>{{ title }}</h1>
+    <app-feedback *ngIf="title === 'Feedback'"></app-feedback>
+    <app-feedback *ngIf="title === 'RODO'" [rodo]="true"></app-feedback>
+    <app-feedback *ngIf="title === 'Wsparcie techniczne'" [support]="true"></app-feedback>
     <app-public-regulamin *ngIf="title === 'Regulamin'"></app-public-regulamin>
     </main>`,
   styles: [`.public-page { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }

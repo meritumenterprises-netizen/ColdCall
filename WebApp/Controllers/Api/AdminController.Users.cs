@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using ColdCall.Data;
 using ColdCall.Models;
+using ColdCall.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,7 +15,8 @@ public partial class AdminController
     [HttpPost("users")]
     public async Task<IActionResult> CreateUser(AdminCreateUserRequest request,
         [FromServices] LocalAuthDbContext credentials,
-        [FromServices] UserManager<LocalAccount> manager, CancellationToken token)
+        [FromServices] UserManager<LocalAccount> manager,
+        [FromServices] AdminUserCredentialsEmailSender credentialsEmailSender, CancellationToken token)
     {
         if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
         var email = request.Email.Trim().ToLowerInvariant();
@@ -50,6 +52,7 @@ public partial class AdminController
                 GoogleEmail = email, GoogleSubject = "local:" + Guid.NewGuid().ToString("N"),
                 DisplayName = email, DisablePlanPurchase = request.DisablePlanPurchase,
                 UsesGmail = false, IsAdmin = false, IsEnabled = true,
+                IsBetaUser = request.IsBetaUser, TermsOfServiceAccepted = false,
                 CreatedAtUtc = now, LastLoginAtUtc = now
             };
             _db.Users.Add(user);
@@ -69,7 +72,9 @@ public partial class AdminController
             });
             await _db.SaveChangesAsync(token);
             await transaction.CommitAsync(token);
-            return Ok(new { user.Id, Email = user.GoogleEmail });
+            bool? credentialsEmailSent = request.SendCredentialsEmail
+                ? await credentialsEmailSender.TrySendAsync(email, request.Password, token) : null;
+            return Ok(new { user.Id, Email = user.GoogleEmail, credentialsEmailSent });
         }
         finally
         {

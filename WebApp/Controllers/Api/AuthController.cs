@@ -59,7 +59,7 @@ public partial class AuthController : ControllerBase
         var isAdmin = user.IsAdmin;
         var requiresProfileCompletion = UserProfileCompletion.IsRequired(user);
         if (!user.IsAdmin && user.TermsOfServiceAccepted != true)
-            return Ok(new { user.Id, user.GoogleEmail, user.DisplayName, user.IsAdmin, user.TermsOfServiceAccepted,
+            return Ok(new { user.Id, user.GoogleEmail, user.DisplayName, user.IsAdmin, user.IsBetaUser, user.TermsOfServiceAccepted,
                 hasActivePlan = false, maxNumberOfExportedRecords = 0, maxNumberOfSearches = 0 });
         var applicationInService = await _db.GlobalSettings.AsNoTracking()
             .OrderByDescending(settings => settings.GlobalSettingsId)
@@ -90,6 +90,7 @@ public partial class AuthController : ControllerBase
             user.Id,
             user.GoogleEmail,
             user.UsesGmail,
+            user.IsBetaUser,
             user.TermsOfServiceAccepted,
             requiresProfileCompletion,
             user.DisablePlanPurchase,
@@ -178,7 +179,7 @@ public partial class AuthController : ControllerBase
             ExpiresAtUtc = DateTime.SpecifyKind(plan.ExpiresAtUtc, DateTimeKind.Utc),
             IsExpired = plan.ExpiresAtUtc <= DateTime.UtcNow
         };
-        return Ok(new { user.DisplayName, user.GoogleEmail, user.IsAdmin, user.FirstName, user.LastName,
-            user.CompanyName, user.Nip, user.PostalCode, user.City, user.Street, user.StreetNumber, plan = profilePlan });
+        return Ok(new { user.DisplayName, user.GoogleEmail, user.IsAdmin, user.IsBetaUser, user.FirstName, user.LastName,
+            user.CompanyName, user.Nip, user.Phone, user.PostalCode, user.City, user.Street, user.StreetNumber, plan = profilePlan });
     }
 }

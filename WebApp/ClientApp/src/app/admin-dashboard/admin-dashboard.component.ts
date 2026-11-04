@@ -1,6 +1,7 @@
 import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { isFutureActivityDate } from '../services/activity-date';
+import { PasswordGenerator } from '../services/password-generator';
 import { Subscription, timer } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { AddressLevel, AddressOption, ApiService, AppUser, BusinessType, Company, CompanyFilters, Pkd, PlanDefinitionOption, SortableColumn } from '../services/api.service';
@@ -16,14 +17,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     const company = this.companies.find(row => row.id === event.companyId);
     if (company) { company.userNotes = event.notes; }
   }
-  @ViewChild('deleteCsvDialog', { static: true }) deleteCsvDialog: ElementRef;
+  @ViewChild('setUserPasswordDialog', { static: true }) setUserPasswordDialog: ElementRef;
   busyUserIds = new Set<number>();
-  userToDelete: { id: number; googleEmail: string } | null = null;
+  passwordUser: { id: number; googleEmail: string } | null = null;
+  userPassword = '';
+  settingUserPassword = false;
+  userPasswordError = '';
   private userActionRequests = new Set<Subscription>();
   @ViewChild('createUserDialog', { static: true }) createUserDialog: ElementRef;
   newUserEmail = '';
   newUserPassword = '';
   newUserDisablePlanPurchase = false;
+  newUserIsBeta = false;
+  newUserSendCredentialsEmail = false;
   newUserPlanId: number | null = null;
   newUserPlans: PlanDefinitionOption[] = [];
   newUserPlansLoading = false;
@@ -36,20 +42,38 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return plan ? plan.descriptionHtml || '' : '';
   }
 
-  requestCreateUser() {
+  requestCreateUser(isBetaUser = false) {
     if (this.creatingUser) { return; }
+    this.newUserIsBeta = isBetaUser;
     if (this.newUserPlansRequest) { this.newUserPlansRequest.unsubscribe(); }
     this.newUserEmail = '';
     this.newUserPassword = '';
     this.newUserDisablePlanPurchase = false;
+    this.newUserSendCredentialsEmail = false;
     this.newUserPlanId = null;
     this.newUserPlans = [];
     this.createUserError = '';
     this.newUserPlansLoading = true;
     this.createUserDialog.nativeElement.showModal();
     this.newUserPlansRequest = this.api.adminPlanDefinitions()
-      .pipe(finalize(() => this.newUserPlansLoading = false)).subscribe(plans => this.newUserPlans = plans,
+      .pipe(finalize(() => this.newUserPlansLoading = false)).subscribe(plans => {
+        this.newUserPlans = plans;
+        if (this.newUserIsBeta) {
+          const defaultPlan = plans.find(plan => plan.code === 'PX3');
+          this.newUserPlanId = defaultPlan ? defaultPlan.id : null;
+        }
+      },
         () => this.createUserError = 'Nie udalo sie pobrac planow.');
+  }
+
+  generateUserPassword() {
+    if (this.creatingUser) { return; }
+    try {
+      this.newUserPassword = PasswordGenerator.generate();
+      this.createUserError = '';
+    } catch {
+      this.createUserError = 'Nie udalo sie wygenerowac hasla. Wpisz haslo recznie.';
+    }
   }
 
   cancelCreateUser() {
@@ -65,13 +89,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         || !this.newUserPlans.some(plan => plan.id === this.newUserPlanId)) { return; }
     this.creatingUser = true;
     this.createUserError = '';
+    const sendCredentialsEmail = this.newUserSendCredentialsEmail;
     const request = this.api.createAdminUser({ email, password: this.newUserPassword,
-      disablePlanPurchase: this.newUserDisablePlanPurchase, planDefinitionId: this.newUserPlanId })
-      .pipe(finalize(() => this.creatingUser = false)).subscribe(() => {
+      disablePlanPurchase: this.newUserDisablePlanPurchase, planDefinitionId: this.newUserPlanId,
+      isBetaUser: this.newUserIsBeta, sendCredentialsEmail })
+      .pipe(finalize(() => this.creatingUser = false)).subscribe(result => {
         this.newUserPassword = '';
         this.createUserDialog.nativeElement.close();
         this.message = 'Uzytkownik zostal utworzony.';
-        this.tab = 'users';
+        if (sendCredentialsEmail) {
+          this.message += result.credentialsEmailSent ? ' Dane logowania wyslano na email uzytkownika.'
+            : ' Nie udalo sie wyslac danych logowania na email. Konto zostalo utworzone; nie tworz go ponownie.';
+        }
+        this.openAdminTab('users');
         this.loadUsers();
       }, err => {
         const errors = err.error && err.error.errors;
@@ -113,6 +143,20 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       this.usersPage = Math.min(this.usersPage, this.usersTotalPages);
       this.message = 'Konto zosta\u0142o usuni\u0119te.';
     }, err => this.message = err.error && err.error.message ? err.error.message : 'Nie uda\u0142o si\u0119 usun\u0105\u0107 konta.');
+    this.userActionRequests.add(request);
+  }
+  updateUserBeta(userId: number, isBetaUser: boolean) {
+    const user = this.users.find(item => item.id === userId);
+    if (!user || !user.isBetaUser || isBetaUser || this.busyUserIds.has(userId)) { return; }
+    user.isBetaUser = false;
+    this.busyUserIds.add(userId);
+    const request = this.api.updateUserBeta(userId, false)
+      .pipe(finalize(() => this.busyUserIds.delete(userId))).subscribe(result => {
+        user.isBetaUser = result.isBetaUser;
+      }, () => {
+        user.isBetaUser = true;
+        this.message = 'Nie udalo sie wylaczyc statusu beta uzytkownika.';
+      });
     this.userActionRequests.add(request);
   }
   updateUserAdmin(userId: number, isAdmin: boolean) {
@@ -214,19 +258,41 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }, err => this.message = err.error && err.error.message ? err.error.message : 'Nie udalo sie przedluzyc planu.');
     this.userActionRequests.add(request);
   }
-  requestDeleteCsv(row: { id: number; googleEmail: string }) {
-    this.userToDelete = row;
-    this.deleteCsvDialog.nativeElement.showModal();
+  requestSetUserPassword(row: { id: number; googleEmail: string }, event: Event) {
+    event.stopPropagation();
+    if (this.settingUserPassword || this.busyUserIds.has(row.id)) { return; }
+    this.passwordUser = row;
+    this.userPassword = '';
+    this.userPasswordError = '';
+    this.setUserPasswordDialog.nativeElement.showModal();
   }
-  cancelDeleteCsv() { this.deleteCsvDialog.nativeElement.close(); this.userToDelete = null; }
-  confirmDeleteCsv() {
-    if (!this.userToDelete) { return; }
-    const id = this.userToDelete.id;
-    this.cancelDeleteCsv();
-    this.busyUserIds.add(id);
-    const request = this.api.deleteUserCsvExports(id).pipe(finalize(() => this.busyUserIds.delete(id))).subscribe(result => {
-      this.message = 'Usunieto eksporty CSV: ' + this.formatNumber(result.deleted) + '.';
-    }, () => this.message = 'Nie udalo sie usunac eksportow CSV.');
+  cancelSetUserPassword() {
+    if (this.settingUserPassword) { return; }
+    this.setUserPasswordDialog.nativeElement.close();
+    this.passwordUser = null;
+    this.userPassword = '';
+    this.userPasswordError = '';
+  }
+  confirmSetUserPassword() {
+    if (!this.passwordUser || this.settingUserPassword || this.userPassword.length < 12
+        || this.userPassword.length > 128) { return; }
+    const userId = this.passwordUser.id;
+    this.settingUserPassword = true;
+    this.busyUserIds.add(userId);
+    this.userPasswordError = '';
+    const request = this.api.setAdminUserPassword(userId, this.userPassword)
+      .pipe(finalize(() => { this.settingUserPassword = false; this.busyUserIds.delete(userId); }))
+      .subscribe(result => {
+        this.userPassword = '';
+        this.passwordUser = null;
+        this.setUserPasswordDialog.nativeElement.close();
+        this.message = result.message;
+      }, err => {
+        const errors = err.error && err.error.errors;
+        this.userPasswordError = err.error && err.error.message ? err.error.message
+          : errors ? Object.keys(errors).map(key => errors[key].join(' ')).join(' ')
+          : 'Nie udalo sie ustawic hasla uzytkownika.';
+      });
     this.userActionRequests.add(request);
   }
   activeFilterTab = 'criteria';
@@ -333,6 +399,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }, () => this.filterError = 'Nie udalo sie rozpoznac kodow PKD.');
   }
   ngOnDestroy() {
+    this.userPassword = '';
     this.newUserPassword = '';
     if (this.newUserPlansRequest) { this.newUserPlansRequest.unsubscribe(); }
     if (this.planDefinitionsRequest) { this.planDefinitionsRequest.unsubscribe(); }
@@ -344,7 +411,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     if (this.classificationRequest) { this.classificationRequest.unsubscribe(); }
     this.addressFields.forEach(field => { if (field.request) { field.request.unsubscribe(); } });
   }
-  tab: 'companies' | 'users' | 'plans' | 'imports' | 'global-settings' | 'regulamin' | 'logins' = 'companies';
+  tab: 'companies' | 'users' | 'plans' | 'imports' | 'global-settings' | 'regulamin' | 'regulamin-beta' | 'logins' = 'companies';
   companies: Company[] = [];
   users: AppUser[] = [];
   selectedUserId: number | null = null;
@@ -378,7 +445,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { key: 'createdAtUtc', label: 'Login utworzony' },
     { key: 'disablePlanPurchase', label: 'Nie pozw\u00f3l na zakup planu' },
     { key: 'isEnabled', label: 'Aktywny' },
-    { key: 'isAdmin', label: 'Admin' }
+    { key: 'isAdmin', label: 'Admin' },
+    { key: 'isBetaUser', label: 'Beta user' }
   ];
   private dateUtc(value: string) { return /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + 'Z'; }
   get userRows() {
@@ -391,6 +459,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         disablePlanPurchase: !!user.disablePlanPurchase,
         isEnabled: !!user.isEnabled,
         isAdmin: !!user.isAdmin,
+        isBetaUser: !!user.isBetaUser,
         createdAtUtc: user.createdAtUtc ? this.dateUtc(user.createdAtUtc) : '',
         planCode: plan ? plan.planCode : '', descriptionHtml: plan ? plan.descriptionHtml || '' : '', expiresAtUtc, expired: !!plan && new Date(expiresAtUtc).getTime() <= now };
     });
@@ -479,13 +548,31 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   openAdminTab(tab: string) {
-    this.router.navigate(['/admin'], { queryParams: { tab } });
+    if (!this.isAdminTab(tab)) { return; }
+    this.tab = tab;
+    try { localStorage.setItem(this.adminTabStorageKey, tab); } catch {}
+    this.router.navigate(['/admin'], { queryParams: { tab }, replaceUrl: !this.publicPageTitle });
+  }
+
+  private get adminTabStorageKey(): string {
+    const user = this.api.user();
+    return 'coldcall.admin.lastTab.' + (user ? user.id : 'default');
+  }
+
+  private isAdminTab(tab: string): tab is AdminDashboardComponent['tab'] {
+    return ['companies', 'users', 'plans', 'imports', 'global-settings', 'regulamin', 'regulamin-beta', 'logins'].includes(tab);
   }
 
   ngOnInit() {
     if (this.publicPageTitle) { return; }
-    const tab = this.route.snapshot.queryParams.tab;
-    if (['companies', 'users', 'plans', 'imports', 'global-settings', 'regulamin', 'logins'].includes(tab)) { this.tab = tab; }
+    let savedTab = '';
+    try { savedTab = localStorage.getItem(this.adminTabStorageKey) || ''; } catch {}
+    const requestedTab = this.route.snapshot.queryParams.tab;
+    const tab = this.isAdminTab(requestedTab) ? requestedTab : savedTab;
+    if (this.isAdminTab(tab)) {
+      this.tab = tab;
+      try { localStorage.setItem(this.adminTabStorageKey, tab); } catch {}
+    }
     this.loadCompanyStatuses();
     this.loadPkds();
     this.loadAddressOptions(0);

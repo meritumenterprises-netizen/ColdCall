@@ -54,7 +54,9 @@ public partial class ColdCallDbContext
             entity.HasKey(e => e.GlobalSettingsId).HasName("PK_GlobalSettings");
             entity.Property(e => e.GlobalSettingsId).UseIdentityColumn();
             entity.Property(e => e.ApplicationInService).HasColumnType("bit").HasDefaultValue(false);
+            entity.Property(e => e.RegistrationSuspended).HasColumnType("bit").HasDefaultValue(false);
             entity.Property(e => e.Regulamin).HasColumnType("nvarchar(max)").IsRequired(false);
+            entity.Property(e => e.RegulaminBeta).HasColumnType("nvarchar(max)").IsRequired(false);
         });
         modelBuilder.Entity<CompanyXml>(entity =>
         {
@@ -122,11 +124,13 @@ public partial class ColdCallDbContext
             entity.Property(x => x.GoogleSubject).HasColumnType("nvarchar(max)").IsRequired();
             entity.Property(x => x.GoogleEmail).HasColumnType("nvarchar(450)").HasMaxLength(450).IsRequired();
             entity.Property(x => x.DisplayName).HasColumnType("nvarchar(max)").IsRequired(false);
+            entity.Property(x => x.Phone).HasMaxLength(32).IsRequired(false);
             entity.Property(x => x.FirstName).HasMaxLength(100).IsRequired(false);
             entity.Property(x => x.LastName).HasMaxLength(100).IsRequired(false);
             entity.Property(x => x.CompanyName).HasMaxLength(200).IsRequired(false);
             entity.Property(x => x.Nip).HasMaxLength(10).IsRequired(false);
             entity.Property(x => x.TermsOfServiceAccepted).HasColumnType("bit").IsRequired(false);
+            entity.Property(x => x.IsBetaUser).HasColumnType("bit");
             entity.Property(x => x.PostalCode).HasMaxLength(20).IsRequired(false);
             entity.Property(x => x.City).HasMaxLength(100).IsRequired(false);
             entity.Property(x => x.Street).HasMaxLength(200).IsRequired(false);

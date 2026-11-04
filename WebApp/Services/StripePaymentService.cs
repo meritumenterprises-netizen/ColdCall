@@ -33,6 +33,8 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
 {
     public async Task<Session> CreateAsync(AppUser user, string planCode, CancellationToken token)
     {
+        if (user.IsBetaUser)
+            throw new InvalidOperationException("Zakup planow jest niedostepny dla uzytkownikow beta.");
         var plan = await db.PlanDefinitions.AsNoTracking().SingleOrDefaultAsync(p => p.Code == planCode, token);
         if (user.IsAdmin || !user.IsEnabled || plan == null || !plan.IsActive || plan.IsTrial || !plan.ShowInOffer
             || plan.ExpiresAfterDays is not > 0 || plan.Price <= 0 || !string.Equals(plan.Currency, "PLN", StringComparison.OrdinalIgnoreCase))

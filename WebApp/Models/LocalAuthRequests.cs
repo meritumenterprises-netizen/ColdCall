@@ -8,6 +8,12 @@ public class EmailRequest
     public string Email { get; set; } = "";
 }
 
+public class ForgotPasswordRequest : EmailRequest
+{
+    [Required, StringLength(2048)]
+    public string TurnstileToken { get; set; } = "";
+}
+
 public class PasswordLoginRequest : EmailRequest
 {
     [Required, StringLength(128)]
@@ -18,6 +24,8 @@ public class RegistrationRequest : PasswordLoginRequest
 {
     [Required, StringLength(2048)]
     public string TurnstileToken { get; set; } = "";
+    [Required, StringLength(32)]
+    public string Phone { get; set; } = "";
     [Required, StringLength(100)]
     public string FirstName { get; set; } = "";
     [Required, StringLength(100)]
