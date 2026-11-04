@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
+import { BehaviorSubject, forkJoin, Observable, of, throwError } from 'rxjs';
 import { catchError, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { TermsConsentService } from './terms-consent.service';
@@ -76,7 +76,7 @@ export interface SearchCriteria {
   hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
   dateRangeEnabled: boolean; dateFrom: string | null; dateTo: string | null; recordLimit: number;
 }
-export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; hasCsvExports?: boolean; }
+export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; hasCsvExports?: boolean; recordCount?: number | null; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; order: number; canPurchase: boolean; }
 export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; enableCSVDeleting: boolean; expiresAtUtc: string; isExpired?: boolean; }
 export interface ProfileDetails { firstName: string; lastName: string; companyName: string; nip: string; phone: string; postalCode: string; city: string; street: string; streetNumber: string; }
@@ -500,6 +500,9 @@ export class ApiService {
   adminPlans(upgrade: boolean): Observable<AdminPlanDefinition[]> {
     return this.http.get<AdminPlanDefinition[]>(this.url('/api/admin/plans'), { ...this.headers(), params: { upgrade: String(upgrade) } });
   }
+  updateAdminPlanOffer(id: number, showInOffer: boolean): Observable<void> {
+    return this.http.put<void>(this.url('/api/admin/plans/' + id + '/offer'), { showInOffer }, this.headers());
+  }
   saveAdminPlan(plan: AdminPlanDefinition): Observable<void> {
     return this.http.put<void>(this.url('/api/admin/plans/' + plan.id), plan, this.headers());
   }
@@ -511,8 +514,15 @@ export class ApiService {
     return this.http.put<{ disablePlanPurchase: boolean }>(this.url('/api/admin/users/' + id + '/plan-purchase'),
       { disablePlanPurchase }, this.headers());
   }
-  adminPlanDefinitions(): Observable<PlanDefinitionOption[]> {
-    return this.http.get<PlanDefinitionOption[]>(this.url('/api/admin/plan-definitions'), this.headers());
+  adminPlanDefinitions(includeUpgrades = false): Observable<PlanDefinitionOption[]> {
+    if (includeUpgrades) {
+      return forkJoin([this.adminPlans(false), this.adminPlans(true)]).pipe(
+        map(([standard, upgrades]) => standard.concat(upgrades).map(plan => ({
+          id: plan.id, code: plan.code, descriptionHtml: plan.descriptionHtml
+        }))));
+    }
+    return this.http.get<PlanDefinitionOption[]>(this.url('/api/admin/plan-definitions'),
+      { ...this.headers(), params: { includeUpgrades: String(includeUpgrades) } });
   }
   changeUserPlan(id: number, planDefinitionId: number): Observable<void> {
     return this.http.put<void>(this.url('/api/admin/users/' + id + '/plan'), { planDefinitionId }, this.headers());

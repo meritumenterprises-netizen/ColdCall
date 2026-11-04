@@ -22,6 +22,18 @@ public partial class AdminController
             }).ToListAsync(token));
     }
 
+    [HttpPut("plans/{id:int}/offer")]
+    public async Task<IActionResult> UpdatePlanOffer(int id, UpdatePlanOfferRequest request, CancellationToken token)
+    {
+        if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
+        if (!request.ShowInOffer.HasValue) return BadRequest();
+        var plan = await _db.PlanDefinitions.SingleOrDefaultAsync(p => p.Id == id, token);
+        if (plan == null) return NotFound();
+        plan.ShowInOffer = request.ShowInOffer.Value;
+        await _db.SaveChangesAsync(token);
+        return NoContent();
+    }
+
     [HttpPut("plans/{id:int}")]
     public async Task<IActionResult> SavePlanDefinition(int id, AdminPlanDefinitionDto request, CancellationToken token)
     {

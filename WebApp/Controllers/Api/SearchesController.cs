@@ -37,7 +37,7 @@ public class SearchesController : ControllerBase
             .Select(e => e.SearchProfileId!.Value).Distinct().ToHashSetAsync();
         return profiles.Select(x => new SearchProfileDto(x.Id, x.Name,
             x.PkdCodes.Select(p => new PkdDto(p.PkdCode.Id, p.PkdCode.Code, p.PkdCode.Name)).OrderBy(p => p.Code).ToList(),
-            ToCriteriaDto(x.Criteria), exportedProfileIds.Contains(x.Id))).ToList();
+            ToCriteriaDto(x.Criteria), exportedProfileIds.Contains(x.Id), x.RecordCount)).ToList();
     }
 
     [HttpPost]
@@ -155,6 +155,13 @@ public class SearchesController : ControllerBase
         if (!id.HasValue && !request.ConfirmDuplicateCriteria && await _db.SearchProfiles.AsNoTracking()
             .AnyAsync(p => p.AppUserId == user.Id && p.SearchProfileHash == profile.SearchProfileHash))
             return Conflict(new { code = "DuplicateSearchCriteria", message = "Wyszukiwanie z takimi samymi kryteriami ju\u017c istnieje. Czy na pewno chcesz je zapisa\u0107?" });
+        try
+        {
+            var query = await new CompanySearchQuery(_db).BuildAsync(profile.Criteria, request.PkdCodeIds.ToArray(), null);
+            profile.RecordCount = await query.Select(company => company.Id).Take(maximumRecordLimit)
+                .CountAsync(HttpContext.RequestAborted);
+        }
+        catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); }
         profile.LastSavedAtUtc = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
@@ -164,7 +171,7 @@ public class SearchesController : ControllerBase
             .ToListAsync();
 
         var hasCsvExports = await _db.CsvExports.AnyAsync(e => e.SearchProfileId == profile.Id);
-        return Ok(new SearchProfileDto(profile.Id, profile.Name, pkds, ToCriteriaDto(profile.Criteria), hasCsvExports));
+        return Ok(new SearchProfileDto(profile.Id, profile.Name, pkds, ToCriteriaDto(profile.Criteria), hasCsvExports, profile.RecordCount));
     }
 
     private static SearchProfileCriteriaDto ToCriteriaDto(SearchProfileCriteria? criteria) =>

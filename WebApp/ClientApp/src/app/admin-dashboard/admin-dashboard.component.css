@@ -37,7 +37,7 @@
 .admin-users-grid th, .admin-users-grid button { font-size: inherit; }
 .admin-users-grid td, .admin-users-grid th { padding: 5px 12px; border-bottom: 1px solid var(--border); text-align: left; }
 .admin-users-grid th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
-.admin-users-grid .expired { color: #b91c1c; }
+.admin-users-grid td.expired { color: #dc2626; }
 .admin-users-grid .selectable-user { cursor: pointer; }
 .admin-users-grid .selectable-user:hover { background: var(--surface-hover); }
 .admin-users-grid .selectable-user.selected { background: var(--accent-soft); }

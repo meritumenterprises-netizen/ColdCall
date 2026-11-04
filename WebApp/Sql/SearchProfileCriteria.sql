@@ -23,7 +23,7 @@ BEGIN TRY
                 FOREIGN KEY ([SearchProfileId]) REFERENCES [ColdCall].[SearchProfiles] ([Id]) ON DELETE CASCADE,
             CONSTRAINT [CK_SearchProfileCriteria_SortColumn] CHECK ([SortColumn] IN (N'name',N'nip',N'fullAddress',N'phone',N'email',N'www',N'dataAktywnosci')),
             CONSTRAINT [CK_SearchProfileCriteria_SortDirection] CHECK ([SortDirection] IN ('asc','desc')),
-            CONSTRAINT [CK_SearchProfileCriteria_RecordLimit] CHECK ([RecordLimit] BETWEEN 1 AND 10000),
+            CONSTRAINT [CK_SearchProfileCriteria_RecordLimit] CHECK ([RecordLimit] >= 1),
             CONSTRAINT [CK_SearchProfileCriteria_Dates] CHECK (
                 ([DateRangeEnabled] = 0 AND [DateFrom] IS NULL AND [DateTo] IS NULL) OR
                 ([DateRangeEnabled] = 1 AND [DateFrom] IS NOT NULL AND [DateTo] IS NOT NULL AND [DateTo] >= [DateFrom]))

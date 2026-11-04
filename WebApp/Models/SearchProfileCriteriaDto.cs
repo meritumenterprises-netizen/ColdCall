@@ -19,7 +19,7 @@ public class SearchProfileCriteriaDto : IValidatableObject
     public bool DateRangeEnabled { get; set; }
     public DateOnly? DateFrom { get; set; }
     public DateOnly? DateTo { get; set; }
-    [Range(1, 10000)]
+    [Range(1, int.MaxValue)]
     public int RecordLimit { get; set; } = 1000;
     public int? WojewodztwoId { get; set; }
     public int? PowiatId { get; set; }

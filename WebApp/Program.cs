@@ -208,6 +208,7 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.UseMiddleware<RequestCancellationMiddleware>();
 app.UseRouting();
 app.UseCors("LocalAngular");
 app.UseRateLimiter();
@@ -239,6 +240,22 @@ app.Use(async (context, next) =>
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();
+});
+
+// Unmatched API requests must not fall through to the Angular default page.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        context.Response.StatusCode = StatusCodes.Status404NotFound;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            code = "ApiEndpointNotFound",
+            message = "Nie znaleziono endpointu API. Odswiez strone i upewnij sie, ze backend jest aktualny."
+        });
+        return;
+    }
+    await next();
 });
 
 app.UseSpa(spa =>
@@ -316,6 +333,8 @@ static async Task EnsureDatabaseSchemaAsync(ColdCallDbContext db)
         await EnsureCompanyStatusAsync(connection);
         await EnsureDictionaryNamesAsync(connection);
         await EnsureSearchProfileCriteriaAsync(connection);
+        await ExecuteSchemaResourceAsync(connection, "SearchProfileRecordCount");
+        await ExecuteSchemaResourceAsync(connection, "PlanRecordLimits");
         await ExecuteSchemaResourceAsync(connection, "CompanyUserNotes");
         await ExecuteSchemaResourceAsync(connection, "SearchProfileLastSaved");
         await ExecuteSchemaResourceAsync(connection, "StripePayments");
@@ -353,7 +372,7 @@ static async Task EnsureSearchProfileCriteriaAsync(System.Data.Common.DbConnecti
                         FOREIGN KEY ([SearchProfileId]) REFERENCES [ColdCall].[SearchProfiles] ([Id]) ON DELETE CASCADE,
                     CONSTRAINT [CK_SearchProfileCriteria_SortColumn] CHECK ([SortColumn] IN (N'name',N'nip',N'fullAddress',N'phone',N'email',N'www',N'dataAktywnosci')),
                     CONSTRAINT [CK_SearchProfileCriteria_SortDirection] CHECK ([SortDirection] IN ('asc','desc')),
-                    CONSTRAINT [CK_SearchProfileCriteria_RecordLimit] CHECK ([RecordLimit] BETWEEN 1 AND 10000),
+                    CONSTRAINT [CK_SearchProfileCriteria_RecordLimit] CHECK ([RecordLimit] >= 1),
                     CONSTRAINT [CK_SearchProfileCriteria_Dates] CHECK (
                         ([DateRangeEnabled] = 0 AND [DateFrom] IS NULL AND [DateTo] IS NULL) OR
                         ([DateRangeEnabled] = 1 AND [DateFrom] IS NOT NULL AND [DateTo] IS NOT NULL AND [DateTo] > [DateFrom]))

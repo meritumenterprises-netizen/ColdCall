@@ -230,11 +230,11 @@ public partial class AdminController : ControllerBase
     }
 
     [HttpGet("plan-definitions")]
-    public async Task<IActionResult> PlanDefinitions(CancellationToken token)
+    public async Task<IActionResult> PlanDefinitions([FromQuery] bool includeUpgrades = false, CancellationToken token = default)
     {
         if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
         return Ok(await _db.PlanDefinitions.AsNoTracking()
-            .Where(p => !p.IsUpgrade)
+            .Where(p => includeUpgrades || !p.IsUpgrade)
             .OrderBy(p => p.Order).ThenBy(p => p.Code).ThenBy(p => p.Id)
             .Select(p => new { p.Id, p.Code, p.DescriptionHtml }).ToListAsync(token));
     }

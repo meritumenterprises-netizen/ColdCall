@@ -1,3 +1,4 @@
+import { ApiService } from '../services/api.service';
 import { Component, ElementRef, HostListener, Input, ViewChild } from '@angular/core';
 
 @Component({
@@ -10,7 +11,7 @@ export class LandingMenuComponent {
   @Input() showBrand = true;
   contactOpen = false;
   @ViewChild('contactButton', { static: true }) contactButton: ElementRef;
-  constructor(private element: ElementRef) {}
+  constructor(private element: ElementRef, public api: ApiService) {}
 
   @HostListener('document:click', ['$event'])
   closeOutside(event: MouseEvent) {

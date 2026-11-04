@@ -27,67 +27,30 @@ public class PlansController : ControllerBase
     public async Task<IReadOnlyList<PlanDto>> Get()
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
-        if (user.IsBetaUser && !user.IsAdmin) return Array.Empty<PlanDto>();
-        var currentPlan = await _db.UserPlans
+        if (user.DisablePlanPurchase || (user.IsBetaUser && UserProfileCompletion.IsRequired(user))) return Array.Empty<PlanDto>();
+        var currentPlan = await _db.UserPlans.AsNoTracking()
             .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
-            .OrderByDescending(x => x.ExpiresAtUtc)
-            .Select(x => new
-            {
-                x.PlanDefinitionId,
-                x.PlanDefinition.Code,
-                x.PlanDefinition.IsTrial,
-                x.PlanDefinition.IsUpgrade,
-                x.PlanDefinition.UpgradeFrom,
-                x.PlanDefinition.MaxNumberOfSearches
-            })
-            .FirstOrDefaultAsync();
-        var currentPlanId = currentPlan?.PlanDefinitionId;
-        var showUpgradePlans = currentPlan != null && !currentPlan.IsTrial;
-        var upgradeSourceId = currentPlan != null && currentPlan.IsUpgrade
-            ? currentPlan.UpgradeFrom : currentPlanId;
-        var currentSearchLimit = currentPlan?.MaxNumberOfSearches ?? 0;
-        var specificUpgradeCodes = PlanOfferRules.UpgradeCodesFor(currentPlan?.Code);
-        var currentPlanOrder = await _db.UserPlans
-            .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
-            .Select(x => (int?)x.PlanDefinition.Order).MaxAsync();
-        var activePlansByDefinitionId = await _db.UserPlans
+            .OrderByDescending(x => x.ExpiresAtUtc).ThenByDescending(x => x.Id)
+            .Select(x => x.PlanDefinition).FirstOrDefaultAsync();
+        var currentPlanId = currentPlan?.Id;
+        var showCurrentPlan = currentPlan != null && !currentPlan.IsTrial;
+        var activePlans = await _db.UserPlans.AsNoTracking()
             .Where(x => x.AppUserId == user.Id && x.ExpiresAtUtc > DateTime.UtcNow)
             .GroupBy(x => x.PlanDefinitionId)
-            .Select(x => new
-            {
-                PlanDefinitionId = x.Key,
-                ActiveUntil = x.Max(p => p.ExpiresAtUtc)
-            })
+            .Select(x => new { PlanDefinitionId = x.Key, ActiveUntil = x.Max(p => p.ExpiresAtUtc) })
             .ToListAsync();
-        var activeUntilByDefinitionId = activePlansByDefinitionId.ToDictionary(
-            x => x.PlanDefinitionId,
+        var activeUntil = activePlans.ToDictionary(x => x.PlanDefinitionId,
             x => (DateTime?)DateTime.SpecifyKind(x.ActiveUntil, DateTimeKind.Utc));
-
-        var plans = await _db.PlanDefinitions
-            .Where(x => (showUpgradePlans && x.Id == currentPlanId)
-                || (x.ShowInOffer && !x.IsTrial
-                    && (showUpgradePlans
-                        ? x.IsUpgrade && (specificUpgradeCodes.Length > 0
-                            ? specificUpgradeCodes.Contains(x.Code)
-                            : x.UpgradeFrom == upgradeSourceId && x.MaxNumberOfSearches > currentSearchLimit)
-                        : !x.IsUpgrade)))
-            .OrderByDescending(x => showUpgradePlans && x.Id == currentPlanId)
-            .ThenBy(x => x.Order).ThenBy(x => x.Id)
-            .ToListAsync();
-
-        return plans
-            .Select(x => new PlanDto(
-                x.Code,
-                x.MaxNumberOfSearches,
-                x.DescriptionHtml,
-                x.Price,
-                x.Currency,
-                activeUntilByDefinitionId.TryGetValue(x.Id, out var activeUntil) ? activeUntil : null,
-                x.Order,
-                x.Id != currentPlanId && ((showUpgradePlans && x.IsUpgrade && (specificUpgradeCodes.Length > 0
-                        ? specificUpgradeCodes.Contains(x.Code)
-                        : x.UpgradeFrom == upgradeSourceId && x.MaxNumberOfSearches > currentSearchLimit))
-                    || !currentPlanOrder.HasValue || x.Order > currentPlanOrder.Value)))
+        var candidates = await _db.PlanDefinitions.AsNoTracking()
+            .Where(x => (showCurrentPlan && x.Id == currentPlanId)
+                || (x.IsActive && x.ShowInOffer && !x.IsTrial)).ToListAsync();
+        return candidates
+            .Where(x => (showCurrentPlan && x.Id == currentPlanId) || PlanOfferRules.CanPurchase(currentPlan, x))
+            .OrderByDescending(x => showCurrentPlan && x.Id == currentPlanId)
+            .ThenBy(x => PlanOfferRules.EffectiveCode(x.Code) == PlanOfferRules.HighestPlanCode)
+            .ThenBy(x => x.MaxNumberOfSearches).ThenBy(x => x.Order).ThenBy(x => x.Id)
+            .Select(x => new PlanDto(x.Code, x.MaxNumberOfSearches, x.DescriptionHtml, x.Price, x.Currency,
+                activeUntil.GetValueOrDefault(x.Id), x.Order, PlanOfferRules.CanPurchase(currentPlan, x)))
             .ToList();
     }
 

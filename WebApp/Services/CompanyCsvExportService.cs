@@ -117,9 +117,9 @@ public class CompanyCsvExportService
     {
         var headers = new[]
         {
-            "Nazwa", "Typ Działalności", "Imię", "Nazwisko", "KRS", "NIP", "Regon", "Województwo",
+            "Import date", "Nazwa", "Typ Działalności", "Imię", "Nazwisko", "KRS", "NIP", "Regon", "Województwo",
             "Miejscowość", "Gmina", "Powiat", "Ulica", "Nr Budynku", "Nr lokalu", "Telefon",
-            "Email", "Witryna WWW", "Data Aktywności", "PKD", "Notatki", "ImportedOn"
+            "Email", "Witryna WWW", "Data Aktywności", "PKD", "Notatki"
         };
         var csv = new StringBuilder();
         csv.AppendLine(string.Join(',', headers.Select(Cell)));
@@ -127,6 +127,7 @@ public class CompanyCsvExportService
         {
             var values = new[]
             {
+                company.ImportedOn?.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
                 company.Name, company.BusinessType?.TypDzialalnosci, company.FirstName, company.LastName,
                 company.Krs, company.Nip, company.Regon, company.Wojewodztwo?.Name,
                 company.Miejscowosc?.Name, company.Gmina?.Name, company.Powiat?.Name,
@@ -134,13 +135,12 @@ public class CompanyCsvExportService
                 company.Email, company.Website, company.StartedAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 pkds.TryGetValue(company.Id, out var pkd) ? pkd : "",
                 notes != null && notes.TryGetValue(company.Id, out var note)
-                    ? Regex.Replace(note, @"\r\n|[\r\n\u0085\u2028\u2029]", " ") : "",
-                company.ImportedOn?.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)
+                    ? Regex.Replace(note, @"\r\n|[\r\n\u0085\u2028\u2029]", " ") : ""
             };
             csv.AppendLine(string.Join(',', values.Select((value, index) => index switch
             {
-                5 or 6 => IdentifierCell(value),
-                14 => ExcelTextCell(value),
+                6 or 7 => IdentifierCell(value),
+                15 => ExcelTextCell(value),
                 _ => Cell(value)
             })));
         }

@@ -1,5 +1,6 @@
-import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, HostListener, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { SearchDraftStore } from '../services/search-draft-store.service';
 import { isFutureActivityDate } from '../services/activity-date';
 import { from, Observable, of, Subscription, timer } from 'rxjs';
 import { catchError, concatMap, finalize, map, switchMap, take, timeout } from 'rxjs/operators';
@@ -102,6 +103,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   searchName = '';
   currentSearchId: number | null = null;
   private nextDraftId = -1;
+  private searchDraftUserId = 0;
   savingSearch = false;
   searchSaved = false;
 
@@ -140,10 +142,11 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   ];
 
   @Input() publicPageTitle = '';
-  constructor(private api: ApiService, private route: ActivatedRoute, private router: Router) {}
+  constructor(private api: ApiService, private route: ActivatedRoute, private router: Router, private searchDraftStore: SearchDraftStore) {}
 
   ngOnInit() {
     const user = this.api.user();
+    this.searchDraftUserId = user ? user.id : 0;
     this.maxRecordLimit = user && Number.isInteger(user.maxNumberOfExportedRecords)
       ? Math.max(0, user.maxNumberOfExportedRecords) : 0;
     this.filterDraft.recordLimit = this.maxRecordLimit;
@@ -175,20 +178,30 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.restoringSearch = true;
     this.searchesRequest = this.api.searches().subscribe(profiles => {
       this.searches = profiles;
+      profiles.forEach(profile => {
+        if (typeof profile.recordCount === 'number') { this.searchRecordCounts[profile.id] = profile.recordCount; }
+      });
       this.searchesLoaded = true;
       if (this.publicPageTitle) {
         this.restoringSearch = false;
-        this.refreshSearchCounts(profiles);
+        this.refreshSearchCounts(this.searches);
         return;
       }
-      const requested = Number(this.route.snapshot.queryParams.searchId);
+      const retained = this.searchDraftStore.load(this.searchDraftUserId);
+      this.searches = profiles.concat(retained.drafts);
+      retained.drafts.forEach(profile => {
+        if (typeof profile.recordCount === 'number') { this.searchRecordCounts[profile.id] = profile.recordCount; }
+      });
+      this.nextDraftId = Math.min(-1, ...retained.drafts.map(draft => draft.id - 1));
+      const requested = this.route.snapshot.queryParams.searchId == null
+        ? retained.selectedSearchId : Number(this.route.snapshot.queryParams.searchId);
       if (this.route.snapshot.queryParams.newSearch === 'true') { this.restoringSearch = false; this.newSearch(); }
-      else if (profiles.length) {
-        this.selectSearch(profiles.find(profile => profile.id === requested) || profiles[0]);
+      else if (this.searches.length) {
+        this.selectSearch(this.searches.find(profile => profile.id === requested) || this.searches[0]);
         if (this.route.snapshot.queryParams.view === 'csv') { this.selectDashboardTab('export'); }
       }
       else { this.restoringSearch = false; this.loadAddressOptions(0); this.loadCompanies(); }
-      this.refreshSearchCounts(profiles);
+      this.refreshSearchCounts(this.searches);
     }, () => {
       this.restoringSearch = false;
       if (this.publicPageTitle) { this.filterError = 'Nie udalo sie pobrac zapisanych wyszukiwan.'; return; }
@@ -240,11 +253,20 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       : count === null ? '- rekord\u00f3w' : '... rekord\u00f3w';
   }
 
+  private rememberRecordCount(id: number, count: number) {
+    this.searchRecordCounts[id] = count;
+    const profile = this.searches.find(search => search.id === id);
+    if (profile) { profile.recordCount = count; }
+    if (id < 0) { this.searchDraftStore.save(this.searchDraftUserId, this.searches, this.currentSearchId); }
+  }
+
   private refreshSearchCounts(profiles: SearchProfile[]) {
     if (this.searchCountsRequest) { this.searchCountsRequest.unsubscribe(); }
     // Sequential background requests avoid blocking the first grid or flooding SQL.
-    this.searchCountsRequest = from(profiles).pipe(concatMap(profile => {
-      if (profile.id === this.currentSearchId || profile.id <= 0) { return of(undefined); }
+    const pendingFirst = profiles.slice().sort((a, b) =>
+      Number(typeof this.searchRecordCounts[a.id] === 'number') - Number(typeof this.searchRecordCounts[b.id] === 'number'));
+    this.searchCountsRequest = from(pendingFirst).pipe(concatMap(profile => {
+      if (profile.id === this.currentSearchId) { return of(undefined); }
       const criteria = profile.criteria;
       const filters: CompanyFilters = {
         companyName: criteria && criteria.companyName || '', address: '', recordLimit: this.maxRecordLimit,
@@ -263,7 +285,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       return this.api.companies(1, criteria && criteria.sortColumn || 'dataAktywnosci',
         criteria && criteria.sortDirection || 'desc', profile.pkdCodes.map(pkd => pkd.id), filters).pipe(
         map(result => {
-          if (profile.id !== this.currentSearchId) { this.searchRecordCounts[profile.id] = result.total; }
+          if (profile.id !== this.currentSearchId) { this.rememberRecordCount(profile.id, result.total); }
         }),
         catchError(() => {
           if (profile.id !== this.currentSearchId) { this.searchRecordCounts[profile.id] = null; }
@@ -294,7 +316,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     const index = this.searches.findIndex(search => search.id === this.currentSearchId);
     if (index >= 0) {
       this.searches[index] = { id: this.currentSearchId, name: this.searchName,
-        pkdCodes: this.selectedPkds.slice(), criteria: this.currentCriteria() };
+        pkdCodes: this.selectedPkds.slice(), criteria: this.currentCriteria(),
+        recordCount: this.searchRecordCounts[this.currentSearchId] == null ? this.searches[index].recordCount : this.searchRecordCounts[this.currentSearchId] };
     }
   }
 
@@ -346,6 +369,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.updatePkdSuggestions();
     this.loadAddressOptions(0);
     this.loadCompanies();
+    this.refreshSearchCounts(this.searches);
     this.searchNameInput.nativeElement.focus();
   }
 
@@ -597,7 +621,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (refreshSearchCount && this.activeResultTab.key !== 'all' && this.currentSearchId !== null) {
       this.allResultsCountRequest = this.api.companies(1, this.sortBy, this.direction,
         this.selectedPkds.map(x => x.id), this.appliedFilters).subscribe(
-        result => { if (this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = result.total; } },
+        result => { if (this.currentSearchId !== null) { this.rememberRecordCount(this.currentSearchId, result.total); } },
         () => { if (this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; } });
     }
     this.companiesRequest = this.api.companies(this.page, this.sortBy, this.direction, this.selectedPkds.map(x => x.id), this.appliedFilters, this.activeResultTab.days, this.activeResultTab.key === 'notes')
@@ -614,7 +638,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       if (!this.companies.some(row => row.id === this.selectedCompanyId)) { this.selectedCompanyId = null; }
       this.total = result.total;
       this.totalWithoutLimit = result.totalWithoutLimit == null ? result.total : result.totalWithoutLimit;
-      if (refreshSearchCount && this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = result.total; }
+      if (refreshSearchCount && this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.rememberRecordCount(this.currentSearchId, result.total); }
       this.page = result.page;
       this.activeResultTab.page = this.page;
     }, err => {
@@ -627,7 +651,15 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
+  @HostListener('window:beforeunload')
+  preserveSearchDrafts() {
+    if (this.publicPageTitle || !this.searchesLoaded) { return; }
+    this.rememberDraft();
+    this.searchDraftStore.save(this.searchDraftUserId, this.searches, this.currentSearchId);
+  }
+
   ngOnDestroy() {
+    this.preserveSearchDrafts();
     if (this.deletionQuotaRequest) { this.deletionQuotaRequest.unsubscribe(); }
     this.cancelCsvDeletion();
     if (this.deleteExportRequest) { this.deleteExportRequest.unsubscribe(); }
@@ -959,6 +991,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.page = 1;
       this.restoringSearch = false;
       this.loadCompanies();
+      this.refreshSearchCounts(this.searches);
     };
     this.restoreSearchRequest = this.restoreAddressSelection(ids, 0).subscribe(finish, () => {
       finish();
@@ -1005,7 +1038,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         const index = this.searches.findIndex(search => search.id === draftId || search.id === profile.id);
         if (index >= 0) { this.searches.splice(index, 1); }
         this.searches.unshift(profile);
-        if (draftId !== null && this.searchRecordCounts[draftId] !== undefined) {
+      if (typeof profile.recordCount === 'number') { this.searchRecordCounts[profile.id] = profile.recordCount; }
+        if (profile.recordCount == null && draftId !== null && this.searchRecordCounts[draftId] !== undefined) {
           this.searchRecordCounts[profile.id] = this.searchRecordCounts[draftId];
           if (draftId < 0) { delete this.searchRecordCounts[draftId]; }
         }

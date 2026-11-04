@@ -87,7 +87,7 @@ public record CompanyUpdateDto(
     string? FacebookAccount,
     DateTime? StartedAt);
 
-public record SearchProfileDto(int Id, string Name, IReadOnlyList<PkdDto> PkdCodes, SearchProfileCriteriaDto? Criteria = null, bool HasCsvExports = false);
+public record SearchProfileDto(int Id, string Name, IReadOnlyList<PkdDto> PkdCodes, SearchProfileCriteriaDto? Criteria = null, bool HasCsvExports = false, int? RecordCount = null);
 
 public record SaveSearchProfileDto(string Name, IReadOnlyList<int> PkdCodeIds, SearchProfileCriteriaDto? Criteria = null, bool ConfirmDuplicateCriteria = false);
 

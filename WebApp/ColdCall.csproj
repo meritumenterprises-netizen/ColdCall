@@ -1,8 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup>
     <EmbeddedResource Include="Sql\CompanyStatus.sql" />
+    <EmbeddedResource Include="Sql\PlanRecordLimits.sql" />
     <EmbeddedResource Include="Sql\CompanyUserNotes.sql" />
     <EmbeddedResource Include="Sql\SearchProfileLastSaved.sql" />
+    <EmbeddedResource Include="Sql\SearchProfileRecordCount.sql" />
     <EmbeddedResource Include="Sql\DictionaryNames.sql" />
     <EmbeddedResource Include="Sql\StripePayments.sql" />
   </ItemGroup>
