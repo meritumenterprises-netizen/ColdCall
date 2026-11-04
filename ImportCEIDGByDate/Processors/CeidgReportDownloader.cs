@@ -1,4 +1,4 @@
-﻿using ImportCEIDGByDate.Data.FirmyTemp;
+using ImportCEIDGByDate.Data.FirmyTemp;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -237,7 +237,10 @@ namespace ImportCEIDGByDate
                 PartialDownloadCleanup.ForFolder(this.Statistics.NewFilesFolder);
                 var downloadedUrls = await importRepository.GetDownloadedReportUrlsAsync(Statistics.NewDate);
                 var totalDownloads = Statistics.NewReports.Values.SelectMany(reports => reports)
-                    .Where(report => !string.IsNullOrWhiteSpace(report.Report) && !downloadedUrls.Contains(report.Report))
+                    .Where(report => !string.IsNullOrWhiteSpace(report.Report)
+                        && (!downloadedUrls.Contains(report.Report)
+                            || (!File.Exists(Path.Combine(Statistics.NewFilesFolder, report.FileNameZip))
+                                && !File.Exists(Path.Combine(Statistics.NewFilesFolder, report.FileName)))))
                     .Select(report => report.Report).Distinct(StringComparer.Ordinal).Count();
                 var downloadPhase = Statistics.StartNewPhase(ImportPhasesEnum.DownloadNewFiles,
                     $"Downloading new files for date {Statistics.NewDate:yyyy-MM-dd}");
@@ -264,14 +267,13 @@ namespace ImportCEIDGByDate
                         }
                         if (downloadedUrls.Contains(ceidgReport.Report))
                         {
-                            Console.WriteLine($"\tReport already downloaded for {Statistics.NewDate:yyyy-MM-dd}: {ceidgReport.Report}; skipping download.");
-                            if (!File.Exists(fullFile) && !File.Exists(xmlFile))
+                            if (File.Exists(fullFile) || File.Exists(xmlFile))
                             {
-                                throw new FileNotFoundException(
-                                    "Report is already recorded in ImportReports, but its ZIP/XML is missing. Restore the local file before importing; download was skipped.", xmlFile);
+                                Console.WriteLine($"\tReport already downloaded for {Statistics.NewDate:yyyy-MM-dd}: {ceidgReport.Report}; local file exists, skipping download.");
+                                Statistics.FinishChildPhase("Already downloaded", 0);
+                                continue;
                             }
-                            Statistics.FinishChildPhase("Already downloaded", 0);
-                            continue;
+                            Console.WriteLine($"\tReport is recorded in ImportReports but its ZIP/XML is missing; downloading again: {ceidgReport.FileName}");
                         }
                         Stopwatch sw = Stopwatch.StartNew();
                         downloadNumber++;

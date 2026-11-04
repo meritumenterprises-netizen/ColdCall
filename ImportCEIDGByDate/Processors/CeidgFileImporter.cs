@@ -1,4 +1,4 @@
-﻿using ImportCEIDGByDate.Data;
+using ImportCEIDGByDate.Data;
 using ImportCEIDGByDate.Data.FirmyImport;
 using ImportCEIDGByDate.Data.FirmyTemp;
 using ImportCEIDGByDate.Repositories;
@@ -61,6 +61,18 @@ namespace ImportCEIDGByDate
             if (GlobalSettings.SkipImportNewFiles == false)
             {
                 Console.WriteLine($"Importing new files {Statistics.NewDate:yyyy-MM-dd}...");
+                // Validate every input before truncating ImportTarget or importing any rows.
+                if (!SkipImports && !GlobalSettings.SkipXmlImports)
+                {
+                    foreach (var report in Statistics.NewReports.Values.SelectMany(reports => reports))
+                    {
+                        var xmlPath = Path.Combine(Statistics.NewFilesFolder, report.FileName);
+                        if (!File.Exists(xmlPath))
+                            throw new FileNotFoundException(
+                                "Required CEIDG XML is missing. ImportTarget has not been cleared. "
+                                + "Run the download and unpack phases again before retrying the import.", xmlPath);
+                    }
+                }
                 var swGlobal = Stopwatch.StartNew();
                 var globalRecordCounter = 0;
                 var globalMd5s = this.ContentXmlMd5s;
@@ -219,7 +231,7 @@ namespace ImportCEIDGByDate
                                 recordCounter++;
                                 if (recordCounter % flushTableEveryRecordCount == 0)
                                 {
-                                    Console.WriteLine($"Writing {flushTableEveryRecordCount} records of {recordCounter} records to database, skipped {skippedRecordCounter} records...");
+                                    Console.WriteLine($"Writing {flushTableEveryRecordCount} records of {recordCounter} records to database Firmy_Import, skipped {skippedRecordCounter} records...");
                                     await ImportRepository.SaveAndClearAsync();
                                 }
                                 
