@@ -81,7 +81,7 @@ public partial class ColdCallDbContext
             entity.Property(p => p.PDFInvoice).HasColumnType("image").IsRequired(false);
             entity.Property(p => p.InvoiceId).HasColumnType("nvarchar(128)").HasMaxLength(128).IsRequired(false);
             entity.Property(p => p.ClientId).HasColumnType("int").IsRequired(false);
-            entity.Property(p => p.InvoiceNumber).HasColumnType("int").IsRequired(false);
+            entity.Property(p => p.InvoiceNumber).HasColumnType("varchar(128)").HasMaxLength(128).IsUnicode(false).IsRequired(false);
             entity.HasIndex(p => p.AppUserId).HasDatabaseName("IX_StripePayments_AppUserId");
             entity.HasOne(p => p.AppUser).WithMany().HasForeignKey(p => p.AppUserId)
                 .HasConstraintName("FK_StripePayments_Users").OnDelete(DeleteBehavior.Cascade);
