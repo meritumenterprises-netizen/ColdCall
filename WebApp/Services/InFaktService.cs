@@ -21,12 +21,19 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
             ?? throw new InvalidDataException("inFakt returned an empty response.");
     }
 
-    public async Task<JsonElement> CreateInvoice(string clientCompanyName, int invoiceNumber, string invoiceDate, string planName, decimal price,
+    public Task<JsonElement> CreateInvoice(string clientCompanyName, int invoiceNumber, string invoiceDate, string planName, decimal price,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(invoiceNumber);
+        return CreateInvoice(clientCompanyName, invoiceNumber.ToString(System.Globalization.CultureInfo.InvariantCulture), invoiceDate, planName, price, cancellationToken);
+    }
+
+    public async Task<JsonElement> CreateInvoice(string clientCompanyName, string invoiceNumber, string invoiceDate, string planName, decimal price,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(clientCompanyName);
         ArgumentException.ThrowIfNullOrWhiteSpace(planName);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(invoiceNumber);
+        ArgumentException.ThrowIfNullOrWhiteSpace(invoiceNumber);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(price);
         var priceInGrosze = checked((long)(price * 100m));
         if (price * 100m != priceInGrosze)
@@ -37,7 +44,7 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
             invoice = new
             {
                 kind = "vat",
-                number = invoiceNumber.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                number = invoiceNumber,
                 invoice_date = invoiceDate,
                 sell_date = invoiceDate,
                 payment_to = invoiceDate,

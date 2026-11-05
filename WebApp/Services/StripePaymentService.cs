@@ -205,7 +205,7 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             }
             if (string.IsNullOrWhiteSpace(payment.InvoiceId))
             {
-                if (!payment.InvoiceNumber.HasValue)
+                if (string.IsNullOrWhiteSpace(payment.InvoiceNumber))
                 {
                     // Reserve MAX + 1 across all payments and persist it before calling inFakt.
                     await using (var numbering = await db.Database.BeginTransactionAsync(token))
@@ -214,8 +214,8 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
                             DECLARE @result int;
                             EXEC @result=sys.sp_getapplock @Resource='StripePayments:InvoiceNumber', @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
                             IF @result < 0 THROW 50001, 'Invoice numbering lock unavailable', 1;", token);
-                        var maximum = await db.StripePayments.MaxAsync(p => p.InvoiceNumber, token) ?? 0;
-                        payment.InvoiceNumber = checked(maximum + 1);
+                        var maximum = await db.Database.SqlQuery<int?>($"SELECT MAX(TRY_CONVERT(int, InvoiceNumber)) AS [Value] FROM ColdCall.StripePayments").SingleAsync(token) ?? 0;
+                        payment.InvoiceNumber = checked(maximum + 1).ToString(CultureInfo.InvariantCulture);
                         await db.SaveChangesAsync(token);
                         await numbering.CommitAsync(token);
                     }
@@ -224,7 +224,7 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
                     .Select(plan => plan.Code).SingleAsync(token);
                 var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
                     TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw")));
-                var invoice = await inFakt.CreateInvoice(companyName, payment.InvoiceNumber.Value,
+                var invoice = await inFakt.CreateInvoice(companyName, payment.InvoiceNumber,
                     today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), planCode, payment.AmountPaid, token);
                 if (!invoice.TryGetProperty("uuid", out var uuid) || uuid.ValueKind != System.Text.Json.JsonValueKind.String
                     || !Guid.TryParse(uuid.GetString(), out var invoiceId))

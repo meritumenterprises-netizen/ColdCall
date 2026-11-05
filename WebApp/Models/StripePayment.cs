@@ -12,5 +12,5 @@ public class StripePayment
     public byte[]? PDFInvoice { get; set; }
     public string? InvoiceId { get; set; }
     public int? ClientId { get; set; }
-    public int? InvoiceNumber { get; set; }
+    public string? InvoiceNumber { get; set; }
 }

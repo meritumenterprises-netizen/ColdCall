@@ -11,7 +11,7 @@ BEGIN
         PDFInvoice image NULL,
         InvoiceId nvarchar(128) NULL,
         ClientId int NULL,
-        InvoiceNumber int NULL,
+        InvoiceNumber varchar(128) NULL,
         CONSTRAINT FK_StripePayments_Users FOREIGN KEY (AppUserId)
             REFERENCES ColdCall.Users(Id) ON DELETE CASCADE,
         CONSTRAINT FK_StripePayments_PlanDefinitions FOREIGN KEY (PlanDefinitionId)
@@ -26,5 +26,5 @@ IF COL_LENGTH(N'ColdCall.StripePayments', N'InvoiceId') IS NULL
 IF COL_LENGTH(N'ColdCall.StripePayments', N'ClientId') IS NULL
     ALTER TABLE ColdCall.StripePayments ADD ClientId int NULL;
 IF COL_LENGTH(N'ColdCall.StripePayments', N'InvoiceNumber') IS NULL
-    ALTER TABLE ColdCall.StripePayments ADD InvoiceNumber int NULL;
+    ALTER TABLE ColdCall.StripePayments ADD InvoiceNumber varchar(128) NULL;
 COMMIT TRANSACTION;
