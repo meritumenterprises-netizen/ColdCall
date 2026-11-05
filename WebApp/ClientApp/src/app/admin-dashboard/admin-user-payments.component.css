@@ -6,4 +6,5 @@ th, td { padding: 5px 12px; border-bottom: 1px solid var(--border); text-align: 
 th { background: var(--surface-muted); }
 th button { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
 .payment-amount { white-space: nowrap; }
+tfoot th, tfoot td { border-top: 2px solid var(--border); background: transparent; font-weight: 700; }
 .error { margin-top: 12px; color: #b91c1c; }

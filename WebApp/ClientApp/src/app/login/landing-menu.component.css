@@ -7,6 +7,10 @@ nav { height: 100%; display: flex; align-items: center; justify-content: flex-en
 button, a { font: inherit; font-size: 14px; letter-spacing: 0; border: 0; background: transparent; color: #374151; text-decoration: none; box-sizing: border-box; }
 .menu-trigger { min-height: 36px; padding: 8px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
 .menu-trigger:hover:not(:disabled), .menu-trigger[aria-expanded="true"] { background: #eef2ff; color: #243bce; }
+.landing-header nav a.plans-menu-link,
+.landing-header nav a.plans-menu-link:hover:not(:disabled),
+.landing-header nav a.plans-menu-link:active,
+.landing-header nav a.plans-menu-link:focus { background: transparent; }
 button:focus-visible, a:focus-visible { outline: 2px solid #243bce; outline-offset: 2px; }
 button:disabled { cursor: default; }
 .contact-menu { position: relative; }

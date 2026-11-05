@@ -13,4 +13,5 @@
       <div class="price">{{ plan.price | number:'1.2-2' }} {{ plan.currency }}</div>
     </article>
   </section>
+  <p *ngIf="!loading && !error && plans.length && showRegistrationPrompt" class="registration-prompt">Zarejestruj się na stronie głównej, a następnie wykup dowolny plan!</p>
 </main>

@@ -1,5 +1,5 @@
 import { AfterViewInit, ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, ViewChild } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { Subscription, timer } from 'rxjs';
 import { finalize, retry, switchMap, tap, timeout } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, Me, TrialOffer } from '../services/api.service';
@@ -27,6 +27,17 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   checkingEmail = false;
   private emailCheckRequest: Subscription | null = null;
 
+  get loginCredentialsReady(): boolean {
+    const email = this.localEmail.trim();
+    return this.localMode === 'login' && email.length <= 254
+      && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      && this.localPassword.length > 0 && this.localPassword.length <= 128;
+  }
+
+  resetLoginVerificationIfIncomplete() {
+    if (this.localMode === 'login' && !this.loginCredentialsReady) { this.turnstileToken = ''; }
+  }
+
   resetEmailCheck() {
     if (this.emailCheckRequest) { this.emailCheckRequest.unsubscribe(); this.emailCheckRequest = null; }
     this.checkingEmail = false;
@@ -53,6 +64,8 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   localBusy = false;
   localError = '';
   localMessage = '';
+  registrationInvoiceToast = false;
+  private registrationInvoiceToastTimer: Subscription | null = null;
   private resetToken = '';
   private localRequest: Subscription | null = null;
 
@@ -82,6 +95,11 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   private applyLocalMode(mode: 'login' | 'register' | 'forgot' | 'reset') {
     this.resetEmailCheck();
     this.localMode = mode; this.localError = ''; this.localMessage = '';
+    if (this.registrationInvoiceToastTimer) { this.registrationInvoiceToastTimer.unsubscribe(); }
+    this.registrationInvoiceToast = mode === 'register';
+    if (this.registrationInvoiceToast) {
+      this.registrationInvoiceToastTimer = timer(6000).subscribe(() => this.registrationInvoiceToast = false);
+    }
     this.turnstileToken = '';
     this.localPassword = ''; this.localPasswordConfirmation = '';
   }
@@ -282,6 +300,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.registrationInvoiceToastTimer) { this.registrationInvoiceToastTimer.unsubscribe(); }
     if (this.countRefreshTimer !== null) { window.clearInterval(this.countRefreshTimer); }
     this.resetEmailCheck();
     if (this.registrationAvailabilityRequest) { this.registrationAvailabilityRequest.unsubscribe(); }

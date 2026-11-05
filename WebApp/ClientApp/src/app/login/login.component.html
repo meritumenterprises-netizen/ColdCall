@@ -2,6 +2,7 @@
 <section class="login-shell" [class.registration-shell]="localMode === 'register'" [class.login-bottom-shell]="localMode === 'login' || localMode === 'forgot'">
   <div class="login-art">
     <h1>FindMyClient</h1>
+    <p>Platforma B2B do wyszukiwania i pozyskiwania klientów biznesowych (Sales Intelligence & Lead Generation), umożliwiająca precyzyjne identyfikowanie potencjalnych klientów na podstawie danych rejestrowych jednoosobowych działalności gospodarczych, branży (PKD), lokalizacji geograficznej i odległości.</p>
     <div class="home-statistics">
     <article class="company-count-card" aria-live="polite">
       <div class="company-count-value">{{ companyCount === null ? (companyCountError ? '-' : '...') : formatCompanyCount() }}</div>
@@ -29,13 +30,12 @@
       <div class="company-count-label">Dane z dnia</div>
     </article>
     </div>
-    <p>Platforma B2B do wyszukiwania i pozyskiwania klientów biznesowych (Sales Intelligence & Lead Generation), umożliwiająca precyzyjne identyfikowanie potencjalnych klientów na podstawie danych rejestrowych jednoosobowych działalności gospodarczych, branży (PKD), lokalizacji geograficznej i odległości.</p>
     <section class="landing-steps" aria-labelledby="landing-steps-title">
       <h2 id="landing-steps-title">Od zdefiniowania wyszukiwania do wysyłki kampanii w kilka minut</h2>
       <ol class="landing-steps-grid">
         <li class="landing-step">
           <span class="landing-step-number" aria-hidden="true">01</span>
-          <h3>Wybierz wyszukiwanie</h3>
+          <h3>Sprecyzuj wyszukiwanie</h3>
           <p>Filtruj firmy po branży (PKD), regionie, dostępnych danych kontaktowych i odległości od wskazanej miejscowości</p>
         </li>
         <li class="landing-step">
@@ -76,24 +76,24 @@
           <input id="register-city" name="city" [(ngModel)]="registration.city" required pattern=".*\S.*" maxlength="100" autocomplete="address-level2">
           <label for="register-street">Ulica</label>
           <input id="register-street" name="street" [(ngModel)]="registration.street" required pattern=".*\S.*" maxlength="200" autocomplete="address-line1">
-          <label for="register-phone">Telefon</label>
-          <input id="register-phone" name="phone" type="tel" [(ngModel)]="registration.phone" required pattern=".*\S.*" maxlength="32" autocomplete="tel">
           <label for="register-streetNumber">Nr ulicy/lokalu</label>
           <input id="register-streetNumber" name="streetNumber" [(ngModel)]="registration.streetNumber" required pattern=".*\S.*" maxlength="50" autocomplete="address-line2">
+          <label for="register-phone">Telefon</label>
+          <input id="register-phone" name="phone" type="tel" [(ngModel)]="registration.phone" required pattern=".*\S.*" maxlength="32" autocomplete="tel">
         </ng-container>
         <label for="local-email">Email</label>
-        <input id="local-email" name="email" type="email" [(ngModel)]="localEmail" (ngModelChange)="resetEmailCheck()" (blur)="checkRegistrationEmail()" #emailField="ngModel" required email pattern="[^\s@]+@[^\s@]+\.[^\s@]+" maxlength="254" autocomplete="username" [readOnly]="localMode === 'reset'" [attr.aria-invalid]="(emailField.invalid && emailField.touched) || !!registrationEmailError" [attr.aria-busy]="checkingEmail" [attr.aria-describedby]="registrationEmailError ? 'registration-email-error' : null">
+        <input id="local-email" name="email" type="email" [(ngModel)]="localEmail" (ngModelChange)="resetEmailCheck(); resetLoginVerificationIfIncomplete()" (blur)="checkRegistrationEmail()" #emailField="ngModel" required email pattern="[^\s@]+@[^\s@]+\.[^\s@]+" maxlength="254" autocomplete="username" [readOnly]="localMode === 'reset'" [attr.aria-invalid]="(emailField.invalid && emailField.touched) || !!registrationEmailError" [attr.aria-busy]="checkingEmail" [attr.aria-describedby]="registrationEmailError ? 'registration-email-error' : null">
         <span *ngIf="localMode === 'register' && registrationEmailError" id="registration-email-error" class="error" role="alert">{{ registrationEmailError }}</span>
         <span *ngIf="emailField.invalid && emailField.touched" class="error" role="alert">Podaj poprawny adres email.</span>
         <ng-container *ngIf="localMode !== 'forgot'">
           <label for="local-password">{{ localMode === 'reset' ? 'Nowe hasło' : 'Hasło' }}</label>
-          <input id="local-password" name="password" type="password" [(ngModel)]="localPassword" required [minlength]="localMode === 'login' ? 1 : 10" maxlength="128" [attr.autocomplete]="localMode === 'login' ? 'current-password' : 'new-password'">
+          <input id="local-password" name="password" type="password" [(ngModel)]="localPassword" (ngModelChange)="resetLoginVerificationIfIncomplete()" required [minlength]="localMode === 'login' ? 1 : 10" maxlength="128" [attr.autocomplete]="localMode === 'login' ? 'current-password' : 'new-password'">
         </ng-container>
         <ng-container *ngIf="localMode === 'register' || localMode === 'reset'">
           <label for="local-password-confirm">Powt&#243;rz has&#322;o</label>
           <input id="local-password-confirm" name="confirmPassword" type="password" [(ngModel)]="localPasswordConfirmation" required minlength="10" maxlength="128" autocomplete="new-password">
         </ng-container>
-        <app-turnstile *ngIf="localMode === 'login'" action="login" (tokenChange)="turnstileToken = $event"></app-turnstile>
+        <app-turnstile *ngIf="loginCredentialsReady" action="login" (tokenChange)="turnstileToken = $event"></app-turnstile>
         <app-turnstile *ngIf="localMode === 'register'" (tokenChange)="turnstileToken = $event"></app-turnstile>
         <app-turnstile *ngIf="localMode === 'forgot'" action="forgot-password" (tokenChange)="turnstileToken = $event"></app-turnstile>
         <span *ngIf="(localMode === 'register' || localMode === 'reset') && localPassword.length > 0 && localPassword.length < 10" class="error" role="alert">Has&#322;o musi mie&#263; co najmniej 10 znak&#243;w (wpisano {{ localPassword.length }}).</span>
@@ -139,3 +139,5 @@
   <p id="registration-maintenance-message">System w trybie konserwacji. Spr&#243;buj za kilka minut</p>
   <div class="trial-actions"><button type="button" class="primary-button" (click)="registrationMaintenanceDialog.close()">OK</button></div>
 </dialog>
+
+<div *ngIf="registrationInvoiceToast" class="registration-invoice-toast" role="status" aria-live="polite">Dane będą potrzebne do wystawiania faktur</div>

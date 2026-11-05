@@ -17,14 +17,14 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     const company = this.companies.find(row => row.id === event.companyId);
     if (company) { company.userNotes = event.notes; }
   }
-  @ViewChild('setUserPasswordDialog', { static: true }) setUserPasswordDialog: ElementRef;
+  @ViewChild('setUserPasswordDialog', { static: false }) setUserPasswordDialog: ElementRef;
   busyUserIds = new Set<number>();
   passwordUser: { id: number; googleEmail: string } | null = null;
   userPassword = '';
   settingUserPassword = false;
   userPasswordError = '';
   private userActionRequests = new Set<Subscription>();
-  @ViewChild('createUserDialog', { static: true }) createUserDialog: ElementRef;
+  @ViewChild('createUserDialog', { static: false }) createUserDialog: ElementRef;
   newUserEmail = '';
   newUserPassword = '';
   newUserDisablePlanPurchase = false;
@@ -165,7 +165,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       });
     this.userActionRequests.add(request);
   }
-  @ViewChild('promoteUserAdminDialog', { static: true }) promoteUserAdminDialog: ElementRef;
+  @ViewChild('promoteUserAdminDialog', { static: false }) promoteUserAdminDialog: ElementRef;
   userToPromote: { id: number; googleEmail: string } | null = null;
   promotingUserAdmin = false;
   promoteUserAdminError = '';
@@ -239,7 +239,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       });
     this.userActionRequests.add(request);
   }
-  @ViewChild('changePlanDialog', { static: true }) changePlanDialog: ElementRef;
+  @ViewChild('changePlanDialog', { static: false }) changePlanDialog: ElementRef;
   userToChangePlan: { id: number; googleEmail: string; planCode: string } | null = null;
   planDefinitions: PlanDefinitionOption[] = [];
   selectedPlanDefinitionId: number | null = null;
@@ -623,7 +623,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   maintenanceMode = false;
   @Input() publicPageTitle = '';
-  constructor(private api: ApiService, private route: ActivatedRoute, private router: Router) {
+  constructor(public api: ApiService, private route: ActivatedRoute, private router: Router) {
     this.maintenanceMode = this.api.takeAdminMaintenanceNotice();
   }
 
@@ -644,6 +644,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
+    if (!this.api.isAdmin()) {
+      this.router.navigateByUrl(this.api.isAuthenticated() ? '/dashboard' : '/', { replaceUrl: true });
+      return;
+    }
     if (this.publicPageTitle) { return; }
     let savedTab = '';
     try { savedTab = localStorage.getItem(this.adminTabStorageKey) || ''; } catch {}

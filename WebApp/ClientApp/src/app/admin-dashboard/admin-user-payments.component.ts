@@ -19,6 +19,9 @@ export class AdminUserPaymentsComponent implements OnChanges, OnDestroy {
   private request: Subscription | null = null;
 
   constructor(private api: ApiService) {}
+  get totalAmountPaid(): number {
+    return this.payments.reduce((total, payment) => total + Math.round(payment.amountPaid * 100), 0) / 100;
+  }
   ngOnChanges() { this.sortBy = 'paidAtUtc'; this.direction = 'desc'; this.load(); }
   ngOnDestroy() { if (this.request) { this.request.unsubscribe(); } }
   load() {
