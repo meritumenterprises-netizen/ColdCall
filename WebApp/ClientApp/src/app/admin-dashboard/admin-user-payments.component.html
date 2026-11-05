@@ -18,6 +18,12 @@
         </tr>
         <tr *ngIf="!loading && !error && !payments.length"><td colspan="3">Brak p&#322;atno&#347;ci.</td></tr>
       </tbody>
+      <tfoot *ngIf="!loading && !error">
+        <tr>
+          <th colspan="2" scope="row">Suma</th>
+          <td class="payment-amount"><strong>{{ totalAmountPaid | number:'1.2-2' }} PLN</strong></td>
+        </tr>
+      </tfoot>
     </table>
   </div>
   <div *ngIf="error" class="error" role="alert">{{ error }} <button type="button" class="ghost-button" (click)="load()">Pon&#243;w</button></div>

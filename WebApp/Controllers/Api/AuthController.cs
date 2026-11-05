@@ -53,6 +53,7 @@ public partial class AuthController : ControllerBase
     }
 
     [HttpGet("me")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Me()
     {
         var user = await _currentUserService.GetOrCreateAsync(User);

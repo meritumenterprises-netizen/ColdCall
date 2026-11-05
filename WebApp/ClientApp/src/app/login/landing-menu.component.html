@@ -1,7 +1,7 @@
 <header class="landing-header" [class.embedded]="embedded">
   <a *ngIf="!embedded && showBrand" routerLink="/" class="landing-brand">FindMyClient</a>
   <nav aria-label="Menu strony">
-    <a *ngIf="!api.user() || !api.user().disablePlanPurchase" [routerLink]="api.isNonAdmin() ? '/plans' : '/plany'" class="menu-trigger" (click)="contactOpen = false">Plany</a>
+    <a *ngIf="!api.user() || !api.user().disablePlanPurchase" [routerLink]="api.isNonAdmin() ? '/plans' : '/plany'" class="menu-trigger plans-menu-link" (click)="contactOpen = false">Plany</a>
     <div class="contact-menu">
       <button #contactButton type="button" class="menu-trigger" [attr.aria-expanded]="contactOpen"
               aria-controls="landing-contact-options" (click)="contactOpen = !contactOpen">Kontakt <span aria-hidden="true">&#9662;</span></button>

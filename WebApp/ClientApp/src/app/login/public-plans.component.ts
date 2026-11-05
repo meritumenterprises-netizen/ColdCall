@@ -8,8 +8,9 @@ import { ApiService, PublicPlan } from '../services/api.service';
   templateUrl: './public-plans.component.html',
   styleUrls: ['../plans/plans.component.css'],
   styles: [`.public-plans { width: 100%; max-width: 1600px; margin: 0 auto; padding: 32px 24px; box-sizing: border-box; }
-    .public-plans .plan-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .public-plans .plan-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .public-plans .plan-card { min-width: 0; overflow-wrap: anywhere; }
+    .public-plans .registration-prompt { margin: 32px 0 0; font-size: 32px; font-weight: 700; line-height: 1.4; text-align: center; }
     @media (max-width: 1100px) { .public-plans .plan-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
     @media (max-width: 600px) { .public-plans .plan-grid { grid-template-columns: 1fr; } }`]
 })
@@ -19,6 +20,7 @@ export class PublicPlansComponent implements OnInit, OnDestroy {
   error = '';
   private request: Subscription | null = null;
   constructor(private api: ApiService) {}
+  get showRegistrationPrompt(): boolean { return !this.api.isAuthenticated(); }
   ngOnInit() { this.load(); }
   load() {
     if (this.request) { this.request.unsubscribe(); }

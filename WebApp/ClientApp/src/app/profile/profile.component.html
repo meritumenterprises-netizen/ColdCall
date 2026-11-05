@@ -17,7 +17,7 @@
       {{ error }} <button type="button" class="ghost-button" (click)="loadPlan()">Ponów</button>
     </div>
     <ng-container *ngIf="!loading && !error">
-      <p *ngIf="requiresProfileCompletion" class="message" role="status">Uzupe&#322;nij wymagane dane u&#380;ytkownika, aby kontynuowa&#263;.</p>
+      <p *ngIf="requiresProfileCompletion" class="message" role="status"><strong>Uzupe&#322;nij wymagane dane u&#380;ytkownika, aby kontynuowa&#263;.</strong> Dane b&#281;d&#261; potrzebne do faktury</p>
       <dl *ngIf="isDataPanel && profile">
         <dt>Email</dt><dd>{{ profile.googleEmail }}</dd>
       </dl>

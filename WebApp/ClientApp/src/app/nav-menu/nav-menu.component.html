@@ -13,14 +13,13 @@
   </div>
   <nav *ngIf="showAuthenticatedMenu()">
     <app-landing-menu [embedded]="true"></app-landing-menu>
-    <a *ngIf="showPlansLink" routerLink="/plans" routerLinkActive="active">Plany</a>
     <a *ngIf="api.isAdmin()" routerLink="/admin" routerLinkActive="active">Admin</a>
     <div class="user-menu" *ngIf="api.user()">
       <button #userMenuButton type="button" class="user-chip" [attr.aria-expanded]="userMenuOpen" aria-controls="user-menu-links"
               (click)="userMenuOpen = !userMenuOpen">
         <img *ngIf="avatarUrl" [src]="avatarUrl" referrerpolicy="no-referrer" (error)="avatarFailed()" alt="">
         <span *ngIf="!avatarUrl" class="avatar-fallback" aria-hidden="true">{{ avatarInitials }}</span>
-        <span>{{ api.user()?.displayName || api.user()?.googleEmail }}</span>
+        <span>{{ api.user()?.displayName || api.user()?.googleEmail }}<ng-container *ngIf="api.user()?.isBetaUser"> (beta)</ng-container></span>
         <span aria-hidden="true">&#9662;</span>
       </button>
       <div id="user-menu-links" class="user-menu-links" *ngIf="userMenuOpen">

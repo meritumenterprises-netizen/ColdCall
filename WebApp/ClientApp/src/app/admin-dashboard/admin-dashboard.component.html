@@ -1,4 +1,4 @@
-<div class="app-layout admin-layout">
+<div class="app-layout admin-layout" *ngIf="api.isAdmin()">
   <aside class="sidebar">
     <div class="sidebar-title">Administrator</div>
     <button class="search-item" [class.active]="tab === 'companies'" (click)="openAdminTab('companies')">Firmy</button>
