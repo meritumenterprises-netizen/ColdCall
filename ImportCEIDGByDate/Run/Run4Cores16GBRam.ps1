@@ -5,7 +5,7 @@ $env:DOTNET_GCHeapHardLimit = '0x400000000'
 
 $p = Start-Process `
     -FilePath '.\ImportCEIDGByDate.exe' `
-    -ArgumentList '2026-11-05'`
+    -ArgumentList '2026-11-04'`
     -NoNewWindow -PassThru
 
 $p.ProcessorAffinity = [IntPtr]15

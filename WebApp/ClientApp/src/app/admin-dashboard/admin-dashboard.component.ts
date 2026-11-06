@@ -390,15 +390,16 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   ];
   private companiesRequest: Subscription | null = null;
   searchStartedAt = 0;
+  searchFinishedAt = 0;
   companySearchError = '';
   private filterDelay: Subscription | null = null;
   private classificationRequest: Subscription | null = null;
 
-  updateCompanyName(delay = false) {
+  updateCompanyName() {
     if (this.filterDelay) { this.filterDelay.unsubscribe(); }
     const name = (this.filters.companyName || '').trim();
     if (name.length > 0 && name.length < 3) { return; }
-    this.updateFilters(delay);
+    this.filterDelay = timer(3000).subscribe(() => this.updateFilters());
   }
 
   updateFilters(delay = false) {
@@ -670,8 +671,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     this.companySearchError = '';
     this.searchStartedAt = Date.now();
+    this.searchFinishedAt = 0;
     this.loading = true;
     this.companiesRequest = this.api.adminCompanies(this.page, this.sortBy, this.direction, '', this.selectedPkds.map(p => p.id), this.filters, this.nipTerm.replace(/[-\s]/g, ''), this.blockedByRodoFilter, refreshCount).pipe(finalize(() => this.loading = false)).subscribe(x => {
+      this.searchFinishedAt = Date.now();
       this.companies = x.items;
       this.total = x.total;
       this.pageSize = x.pageSize;

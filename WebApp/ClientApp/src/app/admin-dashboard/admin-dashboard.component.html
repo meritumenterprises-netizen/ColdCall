@@ -59,7 +59,7 @@
         <section id="admin-criteria-panel" role="tabpanel" [hidden]="activeFilterTab !== 'criteria'">
           <div class="admin-company-name-filter">
             <label for="admin-company-name">Nazwa firmy</label>
-            <input id="admin-company-name" [(ngModel)]="filters.companyName" (ngModelChange)="updateCompanyName()" (keydown.enter)="$event.preventDefault(); updateCompanyName(false)" placeholder="Min. 3 znaki" maxlength="1000">
+            <input id="admin-company-name" [(ngModel)]="filters.companyName" (ngModelChange)="updateCompanyName()" (keydown.enter)="$event.preventDefault()" placeholder="Min. 3 znaki" maxlength="1000">
           </div>
           <div class="admin-presence-row">
             <div class="admin-presence-criterion" *ngFor="let key of ['hasPhone', 'hasEmail', 'hasWebsite']">
@@ -125,7 +125,7 @@
         <div *ngIf="filterError" class="error" role="alert">{{ filterError }}</div>
       </div>
       <div class="admin-company-grid" [attr.aria-busy]="loading">
-        <app-company-search-progress [active]="loading" [startedAt]="searchStartedAt"></app-company-search-progress>
+        <app-company-search-progress [active]="loading" [startedAt]="searchStartedAt" [finishedAt]="searchFinishedAt"></app-company-search-progress>
         <div *ngIf="companySearchError && !loading" class="error" role="alert">{{ companySearchError }}</div>
         <table>
           <colgroup>

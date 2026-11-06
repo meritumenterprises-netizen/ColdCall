@@ -3,7 +3,11 @@ import { Subscription, timer } from 'rxjs';
 
 @Component({
   selector: 'app-company-search-progress',
-  template: '<div *ngIf="active" class="search-progress" role="status">Wyszukiwanie {{ elapsedSeconds }} s</div>',
+  template: `
+    <div *ngIf="active || finishedAt > 0" class="search-progress" [class.completed]="!active" role="status">
+      {{ active ? 'Wyszukiwanie' : 'Załadowano w' }} <span aria-hidden="true">{{ active ? elapsedTime : (elapsedMilliseconds / 1000).toFixed(3) }}</span><ng-container *ngIf="!active"> sekundy</ng-container>
+    </div>
+  `,
   styles: [`
     .search-progress {
       padding: 12px 14px;
@@ -14,25 +18,36 @@ import { Subscription, timer } from 'rxjs';
       font-weight: 600;
       font-variant-numeric: tabular-nums;
     }
+    .search-progress.completed {
+      background: #f1f3f5;
+      color: #495057;
+    }
   `]
 })
 export class CompanySearchProgressComponent implements OnChanges, OnDestroy {
   @Input() active = false;
   @Input() startedAt = 0;
-  elapsedSeconds = 0;
+  @Input() finishedAt = 0;
+  elapsedMilliseconds = 0;
   private clock: Subscription | null = null;
 
   ngOnChanges() {
     this.stopClock();
-    this.elapsedSeconds = 0;
+    this.elapsedMilliseconds = this.finishedAt > 0 ? Math.max(0, this.finishedAt - this.startedAt) : 0;
     if (this.active) {
       this.clock = timer(0, 1000).subscribe(() => {
-        this.elapsedSeconds = Math.max(0, Math.floor((Date.now() - this.startedAt) / 1000));
+        this.elapsedMilliseconds = Math.max(0, Date.now() - this.startedAt);
       });
     }
   }
 
   ngOnDestroy() { this.stopClock(); }
+
+  get elapsedTime() {
+    const seconds = Math.floor(this.elapsedMilliseconds / 1000);
+    const milliseconds = this.active ? '000' : String(this.elapsedMilliseconds % 1000).padStart(3, '0');
+    return seconds + ':' + milliseconds;
+  }
 
   private stopClock() {
     if (this.clock) { this.clock.unsubscribe(); this.clock = null; }
