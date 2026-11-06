@@ -95,6 +95,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   readonly pageSize = 10;
   readonly loadingRows = Array.from({ length: 10 }, (_, index) => index);
   loading = false;
+  searchStartedAt = 0;
   private refreshingSearchCount = false;
   private companiesRequest: Subscription | null = null;
   page = 1;
@@ -616,14 +617,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     if (refreshSearchCount && this.allResultsCountRequest) { this.allResultsCountRequest.unsubscribe(); }
     this.error = '';
+    this.searchStartedAt = Date.now();
     this.loading = true;
     this.refreshingSearchCount = refreshSearchCount;
-    if (refreshSearchCount && this.activeResultTab.key !== 'all' && this.currentSearchId !== null) {
-      this.allResultsCountRequest = this.api.companies(1, this.sortBy, this.direction,
-        this.selectedPkds.map(x => x.id), this.appliedFilters).subscribe(
-        result => { if (this.currentSearchId !== null) { this.rememberRecordCount(this.currentSearchId, result.total); } },
-        () => { if (this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; } });
-    }
     this.companiesRequest = this.api.companies(this.page, this.sortBy, this.direction, this.selectedPkds.map(x => x.id), this.appliedFilters, this.activeResultTab.days, this.activeResultTab.key === 'notes', refreshSearchCount)
       .pipe(finalize(() => { this.loading = false; this.refreshingSearchCount = false; }))
       .subscribe(result => {
@@ -641,13 +637,22 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       if (this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.rememberRecordCount(this.currentSearchId, result.total); }
       this.page = result.page;
       this.activeResultTab.page = this.page;
+      if (refreshSearchCount && this.activeResultTab.key !== 'all' && this.currentSearchId !== null) {
+        const searchId = this.currentSearchId;
+        this.allResultsCountRequest = this.api.companies(1, this.sortBy, this.direction,
+          this.selectedPkds.map(x => x.id), this.appliedFilters).subscribe(count => {
+            if (this.currentSearchId === searchId) { this.rememberRecordCount(searchId, count.total); }
+          }, () => {
+            if (this.currentSearchId === searchId) { this.searchRecordCounts[searchId] = null; }
+          });
+      }
     }, err => {
       this.companies = [];
       this.total = 0;
       this.totalWithoutLimit = 0;
       if (refreshSearchCount && this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; }
       this.error = err.status === 402 ? '' :
-        err.status === 400 && err.error && err.error.message ? err.error.message : 'Nie udalo sie pobrac firm.';
+        (err.status === 400 || err.status === 503) && err.error && err.error.message ? err.error.message : 'Nie udalo sie pobrac firm.';
     });
   }
 
@@ -788,7 +793,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     if (value.length > 0 && !value.trim()) { return; }
     if (value.trim().length >= 3 || !value.trim()) {
-      this.companyNameDelay = timer(3000).subscribe(() => this.updateFilters());
+      this.updateFilters();
     }
   }
 

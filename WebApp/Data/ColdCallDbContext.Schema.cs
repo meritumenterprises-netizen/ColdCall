@@ -32,6 +32,7 @@ public partial class ColdCallDbContext
 
     private static void ConfigureDatabaseSchema(ModelBuilder modelBuilder)
     {
+        ConfigureNameGramSchema(modelBuilder);
         modelBuilder.Entity<CsvDeletionHistory>(entity =>
         {
             entity.ToTable("CsvDeletionHistory", "ColdCall");
@@ -155,6 +156,11 @@ public partial class ColdCallDbContext
         modelBuilder.Entity<BusinessType>().Property(x => x.TypDzialalnosciSkrot).HasMaxLength(128);
         modelBuilder.Entity<Company>(entity =>
         {
+            entity.ToTable("Companies", "ColdCall", table =>
+            {
+                table.HasTrigger("TR_Companies_NameGrams");
+                table.UseSqlOutputClause(false);
+            });
             entity.Property(x => x.BlockedByRODO).HasColumnType("bit").IsRequired().HasDefaultValue(false);
             entity.Property(x => x.SkipAddressVerification).HasColumnType("bit").IsRequired().HasDefaultValue(false);
             entity.Property(x => x.DataModifiedOn).HasColumnType("datetime").IsRequired(false);

@@ -4,6 +4,7 @@ using ColdCall.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Caching.Memory;
 using System.Security.Cryptography;
 using System.Text;
@@ -45,110 +46,123 @@ public partial class AdminController : ControllerBase
         [FromQuery] string? companyStatusIds = null,
         [FromQuery] bool refreshCount = true)
     {
-        var admin = await _adminAccess.RequireAdminAsync(User);
-        if (admin == null)
-        {
-            return Forbid();
-        }
-
-        pageSize = 10;
-        var query = _db.Companies
-            .AsNoTracking()
-            .Include(x => x.BusinessType)
-            .Include(x => x.Wojewodztwo)
-            .Include(x => x.Miejscowosc)
-            .Include(x => x.Gmina)
-            .Include(x => x.Powiat)
-            .AsQueryable();
-
-        if (blockedByRODO.HasValue)
-            query = query.Where(c => c.BlockedByRODO == blockedByRODO.Value);
-
-        if (!string.IsNullOrWhiteSpace(filter))
-        {
-            query = query.Where(x =>
-                x.Name.Contains(filter) ||
-                (x.Nip != null && x.Nip.Contains(filter)) ||
-                (x.Krs != null && x.Krs.Contains(filter)) ||
-                (x.Email != null && x.Email.Contains(filter)) ||
-                (x.Phone != null && x.Phone.Contains(filter)));
-        }
-
-        if (!string.IsNullOrWhiteSpace(nip))
-        {
-            var normalizedNip = nip.Trim().Replace("-", "").Replace(" ", "");
-            if (normalizedNip.Length > 10 || normalizedNip.Any(c => c < '0' || c > '9'))
-                return BadRequest(new { message = "NIP moze zawierac maksymalnie 10 cyfr." });
-            query = normalizedNip.Length == 10
-                ? query.Where(c => c.Nip == normalizedNip)
-                : query.Where(c => c.Nip != null && c.Nip.Contains(normalizedNip));
-        }
-
-        if ((companyName?.Trim().Length ?? 0) >= 3 || hasPhone.HasValue || hasEmail.HasValue || hasWebsite.HasValue
-            || startedFrom.HasValue || startedTo.HasValue || wojewodztwoId.HasValue || powiatId.HasValue
-            || gminaId.HasValue || miejscowoscId.HasValue || radiusKm.HasValue || pkdIds?.Length > 0
-            || companyStatusIds != null)
-        {
         try
         {
-            var matches = await new CompanySearchQuery(_db).BuildAsync(new SearchProfileCriteria
+            var admin = await _adminAccess.RequireAdminAsync(User);
+            if (admin == null)
             {
-                CompanyName = companyName ?? "", HasPhone = hasPhone, HasEmail = hasEmail, HasWebsite = hasWebsite,
-                CompanyStatusIds = companyStatusIds == null ? null
-                    : CompanyStatusSelection.Serialize(CompanyStatusSelection.Parse(companyStatusIds)),
-                DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue, DateFrom = startedFrom, DateTo = startedTo,
-                WojewodztwoId = wojewodztwoId, PowiatId = powiatId, GminaId = gminaId, MiejscowoscId = miejscowoscId,
-                HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
-            }, pkdIds, null, includeAllCompanies: true);
-            query = query.Where(company => matches.Select(row => row.Id).Contains(company.Id));
-        }
-        catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); }
-        }
+                return Forbid();
+            }
 
-        var countKey = "AdminCompanyCount:" + admin.Id + ":" + Convert.ToHexString(
-            SHA256.HashData(Encoding.UTF8.GetBytes(query.ToQueryString())));
-        if (refreshCount || !_companyCounts.TryGetValue(countKey, out int total))
-        {
-            total = await query.CountAsync(HttpContext.RequestAborted);
-            _companyCounts.Set(countKey, total, new MemoryCacheEntryOptions()
-                .SetSlidingExpiration(TimeSpan.FromMinutes(2)).SetAbsoluteExpiration(TimeSpan.FromMinutes(10)));
-        }
-        var offset = (Math.Max(page, 1) - 1) * pageSize;
-        int[] addressPageIds;
-        IQueryable<Company> pageQuery;
-        if (string.Equals(sortBy, "fullAddress", StringComparison.OrdinalIgnoreCase))
-        {
-            addressPageIds = await AdminCompanyAddressPage.LoadIdsAsync(query,
-                string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase), offset, pageSize,
-                HttpContext.RequestAborted);
-            pageQuery = query.Where(company => addressPageIds.Contains(company.Id));
-        }
-        else
-        {
-            // Page over the narrow index keys before loading all display columns and dictionaries.
-            addressPageIds = await query.ApplyCompanySort(sortBy, direction).ThenBy(x => x.Id)
-                .Skip(offset).Take(pageSize).Select(x => x.Id).ToArrayAsync(HttpContext.RequestAborted);
-            pageQuery = query.Where(company => addressPageIds.Contains(company.Id));
-        }
-        var items = await pageQuery
-            .Select(x => new CompanyDto(
-                x.Id, x.Name, x.BusinessTypeId, x.BusinessType != null ? x.BusinessType.TypDzialalnosci : null, x.FirstName, x.LastName, x.Krs, x.Nip,
-                x.Wojewodztwo!.Name, x.Miejscowosc!.Name, x.Gmina!.Name, x.Powiat!.Name, x.PostalCode,
-                x.Street, x.BuildingNumber, x.ApartmentNumber, x.Phone, x.Email, x.GoogleEmail,
-                x.Website, x.InstagramAccount, x.FacebookAccount,
-                x.StartedAt,
-                x.CreatedOn,
-                x.Regon, x.StatusDzialalnosciId, x.StatusDzialalnosci!.Nazwa, x.AddressIsMissing, x.BlockedByRODO,
-                x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId, x.DataModifiedOn,
-                null, null, null, EF.Property<string>(x, "AddressSort")))
-            .ToListAsync(HttpContext.RequestAborted);
+            _db.Database.SetCommandTimeout(120);
+            pageSize = 10;
+            var query = _db.Companies.AsNoTracking();
 
-        if (addressPageIds != null)
-        {
-            var positions = addressPageIds.Select((id, index) => new { id, index }).ToDictionary(item => item.id, item => item.index);
-            items = items.OrderBy(item => positions[item.Id]).ToList();
+            if (blockedByRODO.HasValue)
+                query = query.Where(c => c.BlockedByRODO == blockedByRODO.Value);
+
+            if (!string.IsNullOrWhiteSpace(filter))
+            {
+                query = query.Where(x =>
+                    x.Name.Contains(filter) ||
+                    (x.Nip != null && x.Nip.Contains(filter)) ||
+                    (x.Krs != null && x.Krs.Contains(filter)) ||
+                    (x.Email != null && x.Email.Contains(filter)) ||
+                    (x.Phone != null && x.Phone.Contains(filter)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(nip))
+            {
+                var normalizedNip = nip.Trim().Replace("-", "").Replace(" ", "");
+                if (normalizedNip.Length > 10 || normalizedNip.Any(c => c < '0' || c > '9'))
+                    return BadRequest(new { message = "NIP moze zawierac maksymalnie 10 cyfr." });
+                query = normalizedNip.Length == 10
+                    ? query.Where(c => c.Nip == normalizedNip)
+                    : query.Where(c => c.Nip != null && c.Nip.Contains(normalizedNip));
+            }
+
+            if ((companyName?.Trim().Length ?? 0) >= 3 || hasPhone.HasValue || hasEmail.HasValue || hasWebsite.HasValue
+                || startedFrom.HasValue || startedTo.HasValue || wojewodztwoId.HasValue || powiatId.HasValue
+                || gminaId.HasValue || miejscowoscId.HasValue || radiusKm.HasValue || pkdIds?.Length > 0
+                || companyStatusIds != null)
+            {
+            try
+            {
+                query = await new CompanySearchQuery(_db).BuildCompaniesAsync(new SearchProfileCriteria
+                {
+                    CompanyName = companyName ?? "", HasPhone = hasPhone, HasEmail = hasEmail, HasWebsite = hasWebsite,
+                    CompanyStatusIds = companyStatusIds == null ? null
+                        : CompanyStatusSelection.Serialize(CompanyStatusSelection.Parse(companyStatusIds)),
+                    DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue, DateFrom = startedFrom, DateTo = startedTo,
+                    WojewodztwoId = wojewodztwoId, PowiatId = powiatId, GminaId = gminaId, MiejscowoscId = miejscowoscId,
+                    HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
+                }, pkdIds, null, includeAllCompanies: true, source: query, token: HttpContext.RequestAborted);
+            }
+            catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); }
+            }
+
+            var countKey = "AdminCompanyCount:" + admin.Id + ":" + Convert.ToHexString(
+                SHA256.HashData(Encoding.UTF8.GetBytes(query.ToQueryString())));
+            if (refreshCount || !_companyCounts.TryGetValue(countKey, out int total))
+            {
+                total = await query.TagWith("AdminCompanySearch.Count").CountAsync(HttpContext.RequestAborted);
+                _companyCounts.Set(countKey, total, new MemoryCacheEntryOptions()
+                    .SetSlidingExpiration(TimeSpan.FromMinutes(2)).SetAbsoluteExpiration(TimeSpan.FromMinutes(10)));
+            }
+            var offset = (Math.Max(page, 1) - 1) * pageSize;
+            int[] addressPageIds;
+            IQueryable<Company> pageQuery;
+            if (string.Equals(sortBy, "fullAddress", StringComparison.OrdinalIgnoreCase))
+            {
+                addressPageIds = await AdminCompanyAddressPage.LoadIdsAsync(query,
+                    string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase), offset, pageSize,
+                    HttpContext.RequestAborted);
+                pageQuery = query.Where(company => addressPageIds.Contains(company.Id));
+            }
+            else
+            {
+                // Page over the narrow index keys before loading all display columns and dictionaries.
+                addressPageIds = await query.ApplyCompanySort(sortBy, direction).ThenBy(x => x.Id)
+                    .Skip(offset).Take(pageSize).Select(x => x.Id).TagWith("AdminCompanySearch.PageIds")
+                    .ToArrayAsync(HttpContext.RequestAborted);
+                pageQuery = query.Where(company => addressPageIds.Contains(company.Id));
+            }
+            var items = await pageQuery
+                .Select(x => new CompanyDto(
+                    x.Id, x.Name, x.BusinessTypeId, x.BusinessType != null ? x.BusinessType.TypDzialalnosci : null, x.FirstName, x.LastName, x.Krs, x.Nip,
+                    x.Wojewodztwo!.Name, x.Miejscowosc!.Name, x.Gmina!.Name, x.Powiat!.Name, x.PostalCode,
+                    x.Street, x.BuildingNumber, x.ApartmentNumber, x.Phone, x.Email, x.GoogleEmail,
+                    x.Website, x.InstagramAccount, x.FacebookAccount,
+                    x.StartedAt,
+                    x.CreatedOn,
+                    x.Regon, x.StatusDzialalnosciId, x.StatusDzialalnosci!.Nazwa, x.AddressIsMissing, x.BlockedByRODO,
+                    x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId, x.DataModifiedOn,
+                    null, null, null, EF.Property<string>(x, "AddressSort")))
+                .TagWith("AdminCompanySearch.PageDetails").ToListAsync(HttpContext.RequestAborted);
+
+            if (addressPageIds != null)
+            {
+                var positions = addressPageIds.Select((id, index) => new { id, index }).ToDictionary(item => item.id, item => item.index);
+                items = items.OrderBy(item => positions[item.Id]).ToList();
+            }
+            return Ok(new PagedResult<CompanyDto>(items, total, page, pageSize, QueryableExtensions.CompanySortableColumns));
         }
-        return Ok(new PagedResult<CompanyDto>(items, total, page, pageSize, QueryableExtensions.CompanySortableColumns));
+        catch (OperationCanceledException) when (HttpContext.RequestAborted.IsCancellationRequested)
+        {
+            return new EmptyResult();
+        }
+        catch (SqlException exception) when (SqlRequestCancellation.IsExpected(exception, HttpContext.RequestAborted))
+        {
+            return new EmptyResult();
+        }
+        catch (SqlException exception) when (exception.Number == -2)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                code = "SearchTimeout",
+                message = "Wyszukiwanie przekroczyło limit czasu. Spróbuj ponownie lub zawęź kryteria."
+            });
+        }
     }
 
     public record RodoRequest(bool? BlockedByRODO);

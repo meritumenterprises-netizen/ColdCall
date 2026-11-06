@@ -251,7 +251,8 @@
          [style.left.px]="pkdHint.left" [style.top.px]="pkdHint.top" [style.bottom.px]="pkdHint.bottom"
          (mouseleave)="pkdHint = null">{{ pkdHint.text }}</div>
 
-    <div class="error" *ngIf="error">{{ error }}</div>
+    <app-company-search-progress [active]="loading" [startedAt]="searchStartedAt"></app-company-search-progress>
+    <div class="error" *ngIf="error && !loading">{{ error }}</div>
 
     <div class="filter-tabs result-tabs" role="tablist" aria-label="Wyniki wyszukiwania">
       <button *ngFor="let tab of visibleResultTabs" type="button" role="tab" [id]="'results-tab-' + tab.key"
