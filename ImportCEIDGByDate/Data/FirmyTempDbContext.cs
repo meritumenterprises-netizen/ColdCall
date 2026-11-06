@@ -40,6 +40,7 @@ public partial class FirmyTempDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        ConfigureNameGramSchema(modelBuilder);
         modelBuilder.Entity<UserLogin>(entity =>
         {
             entity.ToTable("UserLogin", "ColdCall");
@@ -137,7 +138,11 @@ public partial class FirmyTempDbContext : DbContext
 
         modelBuilder.Entity<Company>(entity =>
         {
-            entity.ToTable("Companies", "ColdCall", table => table.UseSqlOutputClause(false));
+            entity.ToTable("Companies", "ColdCall", table =>
+            {
+                table.HasTrigger("TR_Companies_NameGrams");
+                table.UseSqlOutputClause(false);
+            });
 
             entity.HasIndex(e => e.DataModifiedOn, "IX_Companies_DataModifiedOn");
             entity.HasIndex(e => e.ImportedOn, "IX_Companies_ImportedOn");
