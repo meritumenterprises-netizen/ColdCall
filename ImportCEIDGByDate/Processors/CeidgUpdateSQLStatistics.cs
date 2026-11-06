@@ -33,6 +33,7 @@ namespace ImportCEIDGByDate.Processors
                 {
                     FirmyTempDbContext.Database.SetCommandTimeout(TimeSpan.FromHours(1));
                     await FirmyTempDbContext.Database.ExecuteSqlRawAsync("UPDATE STATISTICS [ColdCall].[Companies] WITH FULLSCAN;");
+                    await FirmyTempDbContext.Database.ExecuteSqlRawAsync("UPDATE STATISTICS ColdCall.CompanyNameGrams\r\n    IX_CompanyNameGrams_Gram_CompanyId\r\nWITH RESAMPLE;");
                 }
                 finally
                 {
