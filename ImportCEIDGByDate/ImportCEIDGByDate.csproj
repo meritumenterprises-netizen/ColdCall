@@ -5,6 +5,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UserSecretsId>ColdCall-ImportCEIDGByDate</UserSecretsId>
+    <ApplicationVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/Properties/Version.cs')), 'Current\s*=\s*&quot;([0-9]+\.[0-9]+\.[0-9]+)&quot;').Groups[1].Value)</ApplicationVersion>
+    <VersionPrefix>$(ApplicationVersion)</VersionPrefix>
+    <Version>$(ApplicationVersion)</Version>
+    <AssemblyVersion>$(ApplicationVersion).0</AssemblyVersion>
+    <FileVersion>$(ApplicationVersion).0</FileVersion>
+    <InformationalVersion>$(ApplicationVersion)</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Utils\CeidgReportsDeserializer.cs" />

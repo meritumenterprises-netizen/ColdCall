@@ -203,8 +203,13 @@ public class CompanySearchQuery
     {
         var radiusMeters = radiusKm * 1000d;
         // Keep distance evaluation in SQL: geography.STDistance returns meters, unlike client-side NTS.
-        return query.Where(company => _db.CompanyAddresses.Any(link => link.CompanyId == company.Id
-            && link.Address.Location != null && link.Address.Location.Distance(center) <= radiusMeters));
+        var nearbyAddressIds = _db.Adresy.AsNoTracking()
+            .Where(address => address.Location != null && address.Location.Distance(center) <= radiusMeters)
+            .Select(address => address.Id);
+        var nearbyCompanyIds = _db.CompanyAddresses
+            .Where(link => nearbyAddressIds.Contains(link.AddressId))
+            .Select(link => link.CompanyId);
+        return query.Where(company => nearbyCompanyIds.Contains(company.Id));
     }
 
     private IQueryable<Company> ApplyDetailFilters(

@@ -281,6 +281,8 @@ public partial class ColdCallDbContext
             entity.Property(x => x.CompanyAdresId).UseIdentityColumn();
             entity.HasIndex(x => x.CompanyId).HasDatabaseName("IX_PrgImporter_CompanyAddress_CompanyId")
                 .IncludeProperties(x => x.AddressId);
+            entity.HasIndex(x => new { x.AddressId, x.CompanyId })
+                .HasDatabaseName("IX_CompanyAddress_AddressId_CompanyId");
             entity.HasOne(x => x.Company).WithMany(x => x.CompanyAddresses).HasForeignKey(x => x.CompanyId)
                 .HasConstraintName("FK_CompanyAddress_Companies").OnDelete(DeleteBehavior.NoAction);
             entity.HasOne(x => x.Address).WithMany(x => x.CompanyAddresses).HasForeignKey(x => x.AddressId)

@@ -17,14 +17,13 @@
 		<IsPackable>false</IsPackable>
 		<SpaRoot>ClientApp\</SpaRoot>
 		<DefaultItemExcludes>$(DefaultItemExcludes);$(SpaRoot)node_modules\**</DefaultItemExcludes>
-		<VersionPrefix>1.0.0</VersionPrefix>
-		<BuildStamp>$([System.DateTime]::UtcNow.ToString('yyyyMMddHHmmss'))</BuildStamp>
-		<BuildNumber Condition="'$(BuildNumber)' == ''">$(BuildStamp)</BuildNumber>
-
-		<Version>$(VersionPrefix)</Version>
-		<AssemblyVersion>1.0.0.0</AssemblyVersion>
-		<FileVersion>1.0.0.0</FileVersion>
-		<InformationalVersion>$(VersionPrefix).$(BuildNumber)</InformationalVersion>
+		<ApplicationVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/Properties/Version.cs')), 'Current\s*=\s*&quot;([0-9]+\.[0-9]+\.[0-9]+)&quot;').Groups[1].Value)</ApplicationVersion>
+		<VersionPrefix>$(ApplicationVersion)</VersionPrefix>
+		<Version>$(ApplicationVersion)</Version>
+		<AssemblyVersion>$(ApplicationVersion).0</AssemblyVersion>
+		<FileVersion>$(ApplicationVersion).0</FileVersion>
+		<InformationalVersion>$(ApplicationVersion)</InformationalVersion>
+		<IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
 
 		<!-- Set this to true if you enable server-side prerendering -->
 		<BuildServerSideRenderer>false</BuildServerSideRenderer>

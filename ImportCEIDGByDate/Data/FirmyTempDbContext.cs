@@ -68,6 +68,7 @@ public partial class FirmyTempDbContext : DbContext
             entity.Property(e => e.FinishedAt).HasColumnType("datetime");
             entity.Property(e => e.Summary).HasColumnType("varchar(max)").IsRequired(false);
             entity.Property(e => e.Duration).HasMaxLength(50).IsUnicode(false).IsRequired(false);
+            entity.Property(e => e.Version).HasMaxLength(50).IsUnicode(false).IsRequired(false);
         });
 
         modelBuilder.Entity<CompanyXml>(entity =>
@@ -220,6 +221,7 @@ public partial class FirmyTempDbContext : DbContext
             entity.ToTable("CompanyAddress", "ColdCall");
 
             entity.HasIndex(e => e.CompanyId, "IX_PrgImporter_CompanyAddress_CompanyId");
+            entity.HasIndex(e => new { e.AddressId, e.CompanyId }, "IX_CompanyAddress_AddressId_CompanyId");
 
             entity.HasOne(d => d.Address).WithMany(p => p.CompanyAddresses)
                 .HasForeignKey(d => d.AddressId)
