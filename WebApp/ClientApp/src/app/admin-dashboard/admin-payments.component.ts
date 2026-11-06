@@ -30,7 +30,7 @@ export class AdminPaymentsComponent implements OnInit, OnDestroy {
   readonly columns = [
     { key: 'displayName', label: 'Imię i nazwisko' },
     { key: 'googleEmail', label: 'Email' },
-    { key: 'planCode', label: 'Plan' },
+    { key: 'planCode', label: 'Aktualny Plan' },
     { key: 'paidAtUtc', label: 'Zakupiono' },
     { key: 'amountPaid', label: 'Zapłacono' },
     { key: 'expiresAtUtc', label: 'Data wygaśnięcia' }
