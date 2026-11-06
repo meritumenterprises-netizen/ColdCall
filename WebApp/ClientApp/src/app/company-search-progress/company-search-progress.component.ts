@@ -5,7 +5,7 @@ import { Subscription, timer } from 'rxjs';
   selector: 'app-company-search-progress',
   template: `
     <div *ngIf="active || finishedAt > 0" class="search-progress" [class.completed]="!active" role="status">
-      {{ active ? 'Wyszukiwanie' : 'Załadowano w' }} <span aria-hidden="true">{{ active ? elapsedTime : (elapsedMilliseconds / 1000).toFixed(3) }}</span><ng-container *ngIf="!active"> sekundy</ng-container>
+      {{ active ? 'Wyszukiwanie' : 'Załadowano w' }} <span aria-hidden="true">{{ active ? elapsedTime : (elapsedMilliseconds / 1000).toFixed(3) }}</span><ng-container *ngIf="!active"> sekundy, znaleziono {{ recordCount }} rekordów</ng-container>
     </div>
   `,
   styles: [`
@@ -28,6 +28,7 @@ export class CompanySearchProgressComponent implements OnChanges, OnDestroy {
   @Input() active = false;
   @Input() startedAt = 0;
   @Input() finishedAt = 0;
+  @Input() recordCount = 0;
   elapsedMilliseconds = 0;
   private clock: Subscription | null = null;
 
