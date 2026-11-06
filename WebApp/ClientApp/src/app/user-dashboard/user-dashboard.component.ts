@@ -96,6 +96,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   readonly loadingRows = Array.from({ length: 10 }, (_, index) => index);
   loading = false;
   searchStartedAt = 0;
+  searchFinishedAt = 0;
   private refreshingSearchCount = false;
   private companiesRequest: Subscription | null = null;
   page = 1;
@@ -618,11 +619,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (refreshSearchCount && this.allResultsCountRequest) { this.allResultsCountRequest.unsubscribe(); }
     this.error = '';
     this.searchStartedAt = Date.now();
+    this.searchFinishedAt = 0;
     this.loading = true;
     this.refreshingSearchCount = refreshSearchCount;
     this.companiesRequest = this.api.companies(this.page, this.sortBy, this.direction, this.selectedPkds.map(x => x.id), this.appliedFilters, this.activeResultTab.days, this.activeResultTab.key === 'notes', refreshSearchCount)
       .pipe(finalize(() => { this.loading = false; this.refreshingSearchCount = false; }))
       .subscribe(result => {
+      this.searchFinishedAt = Date.now();
       this.hasNotes = result.hasNotes === true;
       if (this.activeResultTab.key === 'notes' && !this.hasNotes) {
         this.activeResultTab = this.resultTabs[0];
@@ -793,7 +796,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     if (value.length > 0 && !value.trim()) { return; }
     if (value.trim().length >= 3 || !value.trim()) {
-      this.updateFilters();
+      this.companyNameDelay = timer(3000).subscribe(() => this.updateFilters());
     }
   }
 
