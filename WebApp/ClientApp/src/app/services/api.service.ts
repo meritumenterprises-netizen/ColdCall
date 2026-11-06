@@ -20,6 +20,7 @@ export interface AdminImport {
   startedAt: string;
   finishedAt: string | null;
   duration: string | null;
+  version: string | null;
 }
 
 export interface AdminPlanDefinition {
@@ -41,7 +42,7 @@ export interface Company {
   addressIsMissing: boolean | null; blockedByRODO: boolean;
   wojewodztwoId?: number | null; miejscowoscId?: number | null; gminaId?: number | null; powiatId?: number | null;
 }
-export interface AdminGlobalSetting { globalSettingsId: number; globalDegreeOfParallelismImportByDate: number; applicationInService: boolean; registrationSuspended: boolean; }
+export interface AdminGlobalSetting { globalSettingsId: number; applicationVersion?: string; globalDegreeOfParallelismImportByDate: number; applicationInService: boolean; registrationSuspended: boolean; }
 export interface AdminUserPayment { planCode: string; paidAtUtc: string; amountPaid: number; }
 export interface CompanyAddress { companyAdresId: number; companyId: number; addressId: number; }
 export interface CompanyAddressDetails extends CompanyAddress {

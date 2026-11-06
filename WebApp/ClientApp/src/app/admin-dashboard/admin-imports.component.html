@@ -22,12 +22,13 @@
           <td>{{ row.finishedAt ? (row.finishedAt | date:'yyyy-MM-dd HH:mm:ss') : '—' }}</td>
           <td>{{ row.duration || '—' }}</td>
           <td>{{ (recordsPerSecond(row) | number:'1.2-2') || '—' }}</td>
+          <td>{{ row.version || '—' }}</td>
           <td><button type="button" class="delete-import" title="Usu&#324;" aria-label="Usu&#324; import"
             [disabled]="deletingIds.has(row.importId)" (click)="deleteImport(row, $event)"
             (keydown)="$event.stopPropagation()">&#215;</button></td>
         </tr>
-        <tr *ngIf="loading"><td colspan="8">Wczytywanie...</td></tr>
-        <tr *ngIf="!loading && !imports.length"><td colspan="8">Brak import&#243;w.</td></tr>
+        <tr *ngIf="loading"><td [attr.colspan]="columns.length + 2">Wczytywanie...</td></tr>
+        <tr *ngIf="!loading && !imports.length"><td [attr.colspan]="columns.length + 2">Brak import&#243;w.</td></tr>
       </tbody>
     </table>
   </div>

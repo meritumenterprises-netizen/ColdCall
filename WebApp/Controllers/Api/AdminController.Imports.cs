@@ -21,7 +21,7 @@ public partial class AdminController
             .OrderByDescending(row => row.StartedAt).ThenByDescending(row => row.ImportId)
             .Select(row => new {
                 row.ImportId, row.ImportDate,
-                row.ImportTargetRecords, row.StartedAt, row.FinishedAt, row.Duration
+                row.ImportTargetRecords, row.StartedAt, row.FinishedAt, row.Duration, row.Version
             }).ToListAsync(token));
     }
 

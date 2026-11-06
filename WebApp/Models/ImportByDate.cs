@@ -9,4 +9,5 @@ public class ImportByDate
     public DateTime? FinishedAt { get; set; }
     public string? Summary { get; set; }
     public string? Duration { get; set; }
+    public string? Version { get; set; }
 }

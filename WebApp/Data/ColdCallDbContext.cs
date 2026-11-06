@@ -41,6 +41,7 @@ public partial class ColdCallDbContext : DbContext
             entity.Property(row => row.FinishedAt).HasColumnType("datetime");
             entity.Property(row => row.Summary).HasColumnType("varchar(max)").IsRequired(false);
             entity.Property(row => row.Duration).HasMaxLength(50).IsUnicode(false).IsRequired(false);
+            entity.Property(row => row.Version).HasMaxLength(50).IsUnicode(false).IsRequired(false);
         });
         modelBuilder.Entity<Wojewodztwo>().HasIndex(x => x.Name)
             .HasDatabaseName("UX_Wojewodztwa_Name").IsUnique();
