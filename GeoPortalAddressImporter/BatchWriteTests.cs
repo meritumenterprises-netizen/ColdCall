@@ -9,11 +9,13 @@ internal static class BatchWriteTests
         await using var connection = new SqlConnection(connectionString);
         await connection.OpenAsync(token);
         using var command = new SqlCommand("""
+            DECLARE @Inserted TABLE (Id int);
             INSERT ColdCall.Companies (WojewodztwoId,MiejscowoscId,PowiatId,GminaId,
                 Street,BuildingNumber,PostalCode,AddressIsMissing,BlockedByRODO)
-            OUTPUT INSERTED.Id
+            OUTPUT INSERTED.Id INTO @Inserted
             SELECT 2,1,1,1,N'ul. Psie Pole',N'99',N'58-301',1,0
             FROM (VALUES (1),(2),(3),(4),(5)) N(Id);
+            SELECT Id FROM @Inserted;
             """, connection);
         var ids = new List<int>();
         await using (var reader = await command.ExecuteReaderAsync(token))
