@@ -1,5 +1,6 @@
 using ColdCall.Data;
 using ColdCall.Models;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
 
@@ -69,7 +70,7 @@ public class CompanySearchQuery
             // Administrative selections identify the center only; candidates are filtered solely by distance.
             var center = await LocalityCenter(wojewodztwoId, powiatId, gminaId, miejscowoscId!.Value, token);
             if (center == null) throw new ArgumentException("Brak wspolrzednych dla wybranej miejscowosci.");
-            companies = ApplyRadiusFilter(companies, center, radiusKm.Value);
+            companies = await ApplyRadiusFilterAsync(companies, center, radiusKm.Value, token);
         }
         else if (addressLocality)
             companies = companies.Where(company => _db.CompanyAddresses.Any(link => link.CompanyId == company.Id
@@ -199,17 +200,74 @@ public class CompanySearchQuery
             ? null : new Point((double)coordinates.Longitude.Value, (double)coordinates.Latitude.Value) { SRID = 4326 };
     }
 
-    private IQueryable<Company> ApplyRadiusFilter(IQueryable<Company> query, Point center, int radiusKm)
+    private async Task<IQueryable<Company>> ApplyRadiusFilterAsync(
+        IQueryable<Company> query, Point center, int radiusKm, CancellationToken token)
     {
         var radiusMeters = radiusKm * 1000d;
         // Keep distance evaluation in SQL: geography.STDistance returns meters, unlike client-side NTS.
         var nearbyAddressIds = _db.Adresy.AsNoTracking()
             .Where(address => address.Location != null && address.Location.Distance(center) <= radiusMeters)
             .Select(address => address.Id);
-        var nearbyCompanyIds = _db.CompanyAddresses
-            .Where(link => nearbyAddressIds.Contains(link.AddressId))
-            .Select(link => link.CompanyId);
-        return query.Where(company => nearbyCompanyIds.Contains(company.Id));
+        // Resolve small spatial sets before TOP/ORDER BY can favor scanning the whole company index.
+        // Large radii keep the database-side query rather than loading unbounded ID lists.
+        const int addressLimit = 20000;
+        const int companyLimit = 50000;
+        var addressIds = await nearbyAddressIds.Take(addressLimit + 1).ToArrayAsync(token);
+        if (addressIds.Length > addressLimit)
+            return await ApplyWideRadiusFilterAsync(query, center, radiusMeters, token);
+        var companyIds = await _db.CompanyAddresses.AsNoTracking()
+            .Where(link => addressIds.Contains(link.AddressId))
+            .Select(link => link.CompanyId).Distinct().Take(companyLimit + 1).ToArrayAsync(token);
+        return companyIds.Length > companyLimit
+            ? await ApplyWideRadiusFilterAsync(query, center, radiusMeters, token)
+            : query.Where(company => companyIds.Contains(company.Id));
+    }
+
+    private async Task<IQueryable<Company>> ApplyWideRadiusFilterAsync(
+        IQueryable<Company> query, Point center, double radiusMeters, CancellationToken token)
+    {
+        // Keep the connection open until the request's DbContext is disposed so all
+        // count/page/detail queries share these candidates. Pool reset removes the table.
+        if (_db.Database.GetDbConnection().State != System.Data.ConnectionState.Open)
+            await _db.Database.OpenConnectionAsync(token);
+        var table = "#RadiusCompanies_" + Guid.NewGuid().ToString("N");
+        // A straight path in latitude/longitude is bounded by the maximum WGS84
+        // metric (111700 m/degree). The 1% margin also exceeds STDistance's error.
+        // Only this strictly interior rectangle can bypass the expensive distance call.
+        var latitudeHalfWidth = radiusMeters * 0.99 / (Math.Sqrt(2) * 111700);
+        var minLatitude = Math.Max(-90, center.Y - latitudeHalfWidth);
+        var maxLatitude = Math.Min(90, center.Y + latitudeHalfWidth);
+        var closestLatitudeToEquator = minLatitude <= 0 && maxLatitude >= 0
+            ? 0 : Math.Min(Math.Abs(minLatitude), Math.Abs(maxLatitude));
+        var longitudeHalfWidth = Math.Min(180, latitudeHalfWidth /
+            Math.Cos(closestLatitudeToEquator * Math.PI / 180));
+        await _db.Database.ExecuteSqlRawAsync(
+            $"CREATE TABLE [{table}] ([Value] int NOT NULL PRIMARY KEY)", token);
+        await _db.Database.ExecuteSqlRawAsync($"""
+            DECLARE @Center geography = geography::Point(@Latitude, @Longitude, 4326);
+            INSERT INTO [{table}] ([Value])
+            SELECT DISTINCT link.CompanyId
+            FROM ColdCall.Adresy AS address
+            INNER JOIN ColdCall.CompanyAddress AS link ON link.AddressId = address.Id
+            WHERE address.Location IS NOT NULL
+              AND CASE WHEN address.Location.Lat BETWEEN @MinLatitude AND @MaxLatitude
+                         AND address.Location.Long BETWEEN @MinLongitude AND @MaxLongitude THEN 1
+                       WHEN address.Location.STDistance(@Center) <= @RadiusMeters THEN 1
+                       ELSE 0 END = 1
+            OPTION (RECOMPILE);
+            """, new object[]
+            {
+                new SqlParameter("@Latitude", center.Y),
+                new SqlParameter("@Longitude", center.X),
+                new SqlParameter("@RadiusMeters", radiusMeters),
+                new SqlParameter("@MinLatitude", minLatitude),
+                new SqlParameter("@MaxLatitude", maxLatitude),
+                new SqlParameter("@MinLongitude", center.X - longitudeHalfWidth),
+                new SqlParameter("@MaxLongitude", center.X + longitudeHalfWidth)
+            }, token);
+        // Only the generated GUID identifier is interpolated; all coordinates are parameters.
+        var ids = _db.Database.SqlQueryRaw<int>($"SELECT [Value] FROM [{table}]");
+        return query.Where(company => ids.Contains(company.Id));
     }
 
     private IQueryable<Company> ApplyDetailFilters(
