@@ -21,7 +21,8 @@ export class AdminImportsComponent implements OnInit, OnDestroy {
     { key: 'startedAt', label: 'Rozpocz\u0119to' },
     { key: 'finishedAt', label: 'Zako\u0144czono' },
     { key: 'duration', label: 'Czas trwania' },
-    { key: 'rate', label: 'Rekord\u00f3w/sec' }
+    { key: 'rate', label: 'Rekord\u00f3w/sec' },
+    { key: 'version', label: 'Version' }
   ];
   sort(column: string) {
     if (this.loading || (column !== 'importId' && !this.columns.some(item => item.key === column))) { return; }
@@ -29,7 +30,8 @@ export class AdminImportsComponent implements OnInit, OnDestroy {
     this.sortBy = column;
     this.page = 1;
   }
-  private sortValue(row: AdminImport): number | null {
+  private sortValue(row: AdminImport): number | string | null {
+    if (this.sortBy === 'version') { return row.version || null; }
     if (this.sortBy === 'importId') { return row.importId; }
     if (this.sortBy === 'rate') { return importRecordsPerSecond(row); }
     if (this.sortBy === 'duration') { return importDurationSeconds(row.duration); }
@@ -45,7 +47,9 @@ export class AdminImportsComponent implements OnInit, OnDestroy {
       if (first == null || second == null) {
         return first == null && second == null ? b.importId - a.importId : first == null ? 1 : -1;
       }
-      return (first - second) * (this.sortDirection === 'asc' ? 1 : -1) || b.importId - a.importId;
+      const order = typeof first === 'string' && typeof second === 'string'
+        ? first.localeCompare(second, 'pl', { numeric: true }) : Number(first) - Number(second);
+      return order * (this.sortDirection === 'asc' ? 1 : -1) || b.importId - a.importId;
     });
   }
   get totalPages() { return Math.max(1, Math.ceil(this.imports.length / this.pageSize)); }

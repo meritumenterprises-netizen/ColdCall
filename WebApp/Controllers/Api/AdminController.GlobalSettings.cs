@@ -1,4 +1,5 @@
 using ColdCall.Models;
+using ColdCall.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,10 +12,12 @@ public partial class AdminController
     public async Task<IActionResult> GetGlobalSettings(CancellationToken token)
     {
         if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
+        var applicationVersion = ApplicationVersion.Current;
         return Ok(await _db.GlobalSettings.AsNoTracking().OrderByDescending(row => row.GlobalSettingsId)
             .Select(row => new AdminGlobalSettingsDto
             {
                 GlobalSettingsId = row.GlobalSettingsId,
+                ApplicationVersion = applicationVersion,
                 GlobalDegreeOfParallelismImportByDate = row.GlobalDegreeOfParallelismImportByDate,
                 ApplicationInService = row.ApplicationInService,
                 RegistrationSuspended = row.RegistrationSuspended
