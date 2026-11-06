@@ -137,7 +137,7 @@ public partial class FirmyTempDbContext : DbContext
 
         modelBuilder.Entity<Company>(entity =>
         {
-            entity.ToTable("Companies", "ColdCall");
+            entity.ToTable("Companies", "ColdCall", table => table.UseSqlOutputClause(false));
 
             entity.HasIndex(e => e.DataModifiedOn, "IX_Companies_DataModifiedOn");
             entity.HasIndex(e => e.ImportedOn, "IX_Companies_ImportedOn");

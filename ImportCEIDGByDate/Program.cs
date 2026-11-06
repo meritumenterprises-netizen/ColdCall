@@ -171,9 +171,15 @@ import.FinishedAt = statistics.ProcessEnd.Value;
 import.ImportTargetRecords = statistics.ImportTargetRecordCount;
 import.Summary = summaryText;
 import.Duration = import.FinishedAt.Value.Subtract(import.StartedAt).AsString();
-// Batch processing may have detached the startup record.
-firmyTempDbContext.ImportByDates.Update(import);
-await firmyTempDbContext.SaveChangesAsync();
+var summaryPath = Path.Combine(newFilesFolder, $"import-summary-{import.StartedAt:yyyyMMdd-HHmmss}-{import.ImportId}.txt");
+await File.WriteAllTextAsync(summaryPath, summaryText, new UTF8Encoding(false));
+Console.WriteLine($"Summary saved to {summaryPath}");
+if (!await new ImportSummaryWriter(firmyTempDbContext).SaveAsync(import))
+{
+    Console.Error.WriteLine($"Cannot save summary: ImportByDate record ImportId={import.ImportId} no longer exists. "
+        + $"Previously saved company data remains in the database. Summary is available at {summaryPath}");
+    if (exitCode == 0) exitCode = 1;
+}
 
 
 return exitCode;
