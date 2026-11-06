@@ -11,7 +11,14 @@ public class CompanySearchQuery
     public CompanySearchQuery(ColdCallDbContext db) => _db = db;
 
     public async Task<IQueryable<CompanyShortDto>> BuildAsync(SearchProfileCriteria criteria, int[]? pkdIds,
-        int? modifiedWithinDays, bool addressLocality = false, bool includeAllCompanies = false)
+        int? modifiedWithinDays, bool addressLocality = false, bool includeAllCompanies = false,
+        CancellationToken token = default) =>
+        SelectDetails(await BuildCompaniesAsync(criteria, pkdIds, modifiedWithinDays, addressLocality,
+            includeAllCompanies, token: token), includeAllCompanies);
+
+    public async Task<IQueryable<Company>> BuildCompaniesAsync(SearchProfileCriteria criteria, int[]? pkdIds,
+        int? modifiedWithinDays, bool addressLocality = false, bool includeAllCompanies = false,
+        IQueryable<Company>? source = null, CancellationToken token = default)
     {
         var address = criteria.Address;
         var hasPhone = criteria.HasPhone;
@@ -36,7 +43,7 @@ public class CompanySearchQuery
         if (radiusKm.HasValue && (!new[] { 1, 5, 10, 20, 50, 100, 200, 500 }.Contains(radiusKm.Value)
             || !miejscowoscId.HasValue))
             throw new ArgumentException("Wybierz miejscowosc i poprawny promien.");
-        var companies = _db.Companies.AsNoTracking();
+        var companies = source ?? _db.Companies.AsNoTracking();
         if (!includeAllCompanies || criteria.CompanyStatusIds != null)
         {
             var statuses = CompanyStatusSelection.Parse(criteria.CompanyStatusIds).Select(status => (byte)status).ToArray();
@@ -55,23 +62,73 @@ public class CompanySearchQuery
             if (gminaId.HasValue) companies = companies.Where(c => c.GminaId == gminaId);
             if (miejscowoscId.HasValue) companies = companies.Where(c => c.MiejscowoscId == miejscowoscId);
         }
-        var query = ApplyDetailFilters(ApplyPkdFilter(BaseCompanyQuery(companies, includeAllCompanies), pkdIds),
-            radiusKm.HasValue ? null : address, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
+        companies = ApplyDetailFilters(ApplyPkdFilter(companies, pkdIds),
+            radiusKm.HasValue ? null : address, includeAllCompanies, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
         if (radiusKm.HasValue)
         {
             // Administrative selections identify the center only; candidates are filtered solely by distance.
-            var center = await LocalityCenter(wojewodztwoId, powiatId, gminaId, miejscowoscId!.Value);
+            var center = await LocalityCenter(wojewodztwoId, powiatId, gminaId, miejscowoscId!.Value, token);
             if (center == null) throw new ArgumentException("Brak wspolrzednych dla wybranej miejscowosci.");
-            query = ApplyRadiusFilter(query, center, radiusKm.Value);
+            companies = ApplyRadiusFilter(companies, center, radiusKm.Value);
         }
         else if (addressLocality)
-            query = query.Where(company => _db.CompanyAddresses.Any(link => link.CompanyId == company.Id
+            companies = companies.Where(company => _db.CompanyAddresses.Any(link => link.CompanyId == company.Id
                 && link.Address.MiejscowoscId == miejscowoscId
                 && (!gminaId.HasValue || link.Address.GminaId == gminaId)));
         if (!string.IsNullOrWhiteSpace(companyName) && companyName.Trim().Length >= 3)
-            query = query.Where(x => x.Name.Contains(companyName.Trim()));
-        return query;
+        {
+            var name = companyName.Trim();
+            var indexReady = await _db.Database.SqlQuery<int>(
+                $"SELECT CONVERT(int, IsReady) AS [Value] FROM ColdCall.CompanyNameGramBuild WHERE Id = 1")
+                .SingleAsync(token);
+            var useTrigrams = indexReady == 1 && name.All(character => character >= ' ' && character <= '~'
+                || "ĄĆĘŁŃÓŚŹŻąćęłńóśźż".Contains(character));
+            if (useTrigrams)
+            {
+                var candidateEstimate = await _db.Database.SqlQuery<long>($"""
+                    SELECT COALESCE(MIN(COALESCE(f.CompanyCount, CONVERT(bigint, 0))), CONVERT(bigint, 0)) AS [Value]
+                    FROM ColdCall.CompanyNameGramPositions p
+                    LEFT JOIN ColdCall.CompanyNameGramFrequency f ON f.Gram = SUBSTRING({name}, p.Position, 3)
+                    WHERE p.Position <= DATALENGTH({name}) / 2 - 2
+                    """).SingleAsync(token);
+                // Broad terms should not materialize hundreds of thousands of matching IDs.
+                useTrigrams = candidateEstimate <= 100000;
+            }
+            if (useTrigrams)
+            {
+                var candidateIds = _db.Database.SqlQuery<int>(
+                    $"SELECT CompanyId AS [Value] FROM ColdCall.CompanyNameCandidates({name})");
+                // The function intersects selective grams and verifies the complete literal substring.
+                companies = companies.Where(x => candidateIds.Contains(x.Id));
+            }
+            else
+                companies = companies.Where(x => x.Name.Contains(name));
+        }
+        return companies;
     }
+
+    public IQueryable<CompanyShortDto> SelectDetails(IQueryable<Company> companies, bool includeAllCompanies = false) =>
+        BaseCompanyQuery(companies, includeAllCompanies);
+
+    public IQueryable<int> OrderedIds(IQueryable<Company> query, string? sortBy, string? direction)
+    {
+        var key = (sortBy ?? "name").ToLowerInvariant() switch
+        {
+            "dataaktywnosci" => "startedAt",
+            "www" => "website",
+            "typydzialalnosci" => "businessTypeName",
+            _ => sortBy
+        };
+        if (string.Equals(sortBy, "id", StringComparison.OrdinalIgnoreCase))
+            return (string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase)
+                ? query.OrderByDescending(company => company.Id) : query.OrderBy(company => company.Id))
+                .Select(company => company.Id);
+        return query.ApplyCompanySort(key, direction).ThenBy(company => company.Id).Select(company => company.Id);
+    }
+
+    public IQueryable<Company> WithUserNotes(IQueryable<Company> query, int userId) =>
+        query.Where(company => _db.CompanyUserNotes.Any(note => note.CompanyId == company.Id
+            && note.UserId == userId && note.Notes.Trim() != ""));
 
     // Sort indexed address/name keys before materializing the formatted view.
     // The view's FullAddress is calculated from several columns and cannot use
@@ -115,7 +172,7 @@ public class CompanySearchQuery
             TypyDzialalnosci = c.BusinessType!.TypDzialalnosci
         });
 
-    private IQueryable<CompanyShortDto> ApplyPkdFilter(IQueryable<CompanyShortDto> query, int[]? pkdIds)
+    private IQueryable<Company> ApplyPkdFilter(IQueryable<Company> query, int[]? pkdIds)
     {
         var selectedPkdIds = pkdIds?.Where(x => x > 0).Distinct().ToArray() ?? Array.Empty<int>();
         return selectedPkdIds.Length == 0
@@ -124,7 +181,7 @@ public class CompanySearchQuery
                 companyPkd.CompanyId == company.Id && selectedPkdIds.Contains(companyPkd.PkdCodeId)));
     }
 
-    private async Task<Point?> LocalityCenter(int? wojewodztwoId, int? powiatId, int? gminaId, int miejscowoscId)
+    private async Task<Point?> LocalityCenter(int? wojewodztwoId, int? powiatId, int? gminaId, int miejscowoscId, CancellationToken token)
     {
         // The dictionary has no center point; estimate it from distinct valid address coordinates.
         var coordinates = await _db.Adresy.AsNoTracking()
@@ -137,12 +194,12 @@ public class CompanySearchQuery
             .Select(a => new { a.Latitude, a.Longitude }).Distinct()
             .GroupBy(a => 1)
             .Select(group => new { Latitude = group.Average(a => a.Latitude), Longitude = group.Average(a => a.Longitude) })
-            .SingleOrDefaultAsync();
+            .SingleOrDefaultAsync(token);
         return coordinates?.Longitude == null || coordinates.Latitude == null
             ? null : new Point((double)coordinates.Longitude.Value, (double)coordinates.Latitude.Value) { SRID = 4326 };
     }
 
-    private IQueryable<CompanyShortDto> ApplyRadiusFilter(IQueryable<CompanyShortDto> query, Point center, int radiusKm)
+    private IQueryable<Company> ApplyRadiusFilter(IQueryable<Company> query, Point center, int radiusKm)
     {
         var radiusMeters = radiusKm * 1000d;
         // Keep distance evaluation in SQL: geography.STDistance returns meters, unlike client-side NTS.
@@ -150,12 +207,18 @@ public class CompanySearchQuery
             && link.Address.Location != null && link.Address.Location.Distance(center) <= radiusMeters));
     }
 
-    private IQueryable<CompanyShortDto> ApplyDetailFilters(
-        IQueryable<CompanyShortDto> query, string? address, bool? hasPhone, bool? hasEmail,
+    private IQueryable<Company> ApplyDetailFilters(
+        IQueryable<Company> query, string? address, bool includeAllCompanies, bool? hasPhone, bool? hasEmail,
         bool? hasWebsite, DateOnly? startedFrom, DateOnly? startedTo)
     {
         if (!string.IsNullOrWhiteSpace(address))
-            query = query.Where(x => x.FullAddress.Contains(address.Trim()));
+        {
+            var term = address.Trim();
+            query = includeAllCompanies
+                ? query.Where(c => ((c.Miejscowosc!.Name ?? "") + " " + (c.PostalCode ?? "") + " " + (c.Street ?? "") + " "
+                    + (c.BuildingNumber ?? "") + (c.ApartmentNumber == null ? "" : "/" + c.ApartmentNumber)).Contains(term))
+                : query.Where(c => _db.CompaniesShort.Any(row => row.Id == c.Id && row.FullAddress.Contains(term)));
+        }
         if (hasPhone.HasValue)
             query = hasPhone.Value ? query.Where(x => x.Phone != null && x.Phone.Trim() != "")
                 : query.Where(x => x.Phone == null || x.Phone.Trim() == "");
@@ -163,18 +226,18 @@ public class CompanySearchQuery
             query = hasEmail.Value ? query.Where(x => x.Email != null && x.Email.Trim() != "")
                 : query.Where(x => x.Email == null || x.Email.Trim() == "");
         if (hasWebsite.HasValue)
-            query = hasWebsite.Value ? query.Where(x => x.Www != null && x.Www.Trim() != "")
-                : query.Where(x => x.Www == null || x.Www.Trim() == "");
+            query = hasWebsite.Value ? query.Where(x => x.Website != null && x.Website.Trim() != "")
+                : query.Where(x => x.Website == null || x.Website.Trim() == "");
         if (startedFrom.HasValue && startedTo.HasValue)
         {
             var from = startedFrom.Value.ToDateTime(TimeOnly.MinValue);
-            query = query.Where(x => x.DataAktywnosci >= from);
+            query = query.Where(x => x.StartedAt >= from);
             if (startedTo.Value == DateOnly.MaxValue)
-                query = query.Where(x => x.DataAktywnosci <= DateTime.MaxValue);
+                query = query.Where(x => x.StartedAt <= DateTime.MaxValue);
             else
             {
                 var until = startedTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue);
-                query = query.Where(x => x.DataAktywnosci < until);
+                query = query.Where(x => x.StartedAt < until);
             }
         }
         return query;

@@ -37,6 +37,7 @@ import { AdminGuard } from './admin.guard';
 import { LandingGuard } from './landing.guard';
 import { CompanyDetailsComponent } from './company-details/company-details.component';
 import { CompanyNotesIndicatorComponent } from './company-notes-indicator/company-notes-indicator.component';
+import { CompanySearchProgressComponent } from './company-search-progress/company-search-progress.component';
 
 @NgModule({
   declarations: [
@@ -65,7 +66,8 @@ import { CompanyNotesIndicatorComponent } from './company-notes-indicator/compan
     PaymentSuccessComponent,
     ProfileComponent,
     CompanyDetailsComponent,
-    CompanyNotesIndicatorComponent
+    CompanyNotesIndicatorComponent,
+    CompanySearchProgressComponent
   ],
   imports: [
     BrowserModule.withServerTransition({ appId: 'ng-cli-universal' }),

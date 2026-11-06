@@ -67,13 +67,15 @@ public partial class CompaniesController : ControllerBase
                 return StatusCode(StatusCodes.Status402PaymentRequired, new { message = "Plan wygasl albo nie zostal jeszcze zakupiony." });
             }
 
+            _db.Database.SetCommandTimeout(120);
             pageSize = 10;
             var maximumRecordLimit = await PlanRecordLimits.ForUserAsync(_db, user.Id, isAdmin);
             if (maximumRecordLimit <= 0)
                 return StatusCode(StatusCodes.Status403Forbidden, new { message = "Plan nie pozwala na pobieranie rekordow." });
             // The plan, not a request parameter or a saved search, determines the result cap.
             recordLimit = maximumRecordLimit;
-            IQueryable<CompanyShortDto> query;
+            IQueryable<Company> query;
+            var search = new CompanySearchQuery(_db);
             bool hasNotes;
             int totalWithoutLimit;
             try
@@ -87,8 +89,8 @@ public partial class CompaniesController : ControllerBase
                     GminaId = gminaId, MiejscowoscId = miejscowoscId,
                     HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
                 };
-                var search = new CompanySearchQuery(_db);
-                query = await search.BuildAsync(criteria, pkdIds, modifiedWithinDays, addressLocality);
+                query = await search.BuildCompaniesAsync(criteria, pkdIds, modifiedWithinDays, addressLocality,
+                    token: HttpContext.RequestAborted);
                 // A sort/page request reuses counts only for the same user and exact
                 // filters. New searches and explicit refreshes always recalculate.
                 var summaryKey = "CompanySearchSummary:" + Convert.ToHexString(SHA256.HashData(
@@ -112,11 +114,12 @@ public partial class CompaniesController : ControllerBase
                     if (hasNotes)
                     {
                         var allResults = modifiedWithinDays.HasValue
-                            ? await search.BuildAsync(criteria, pkdIds, null, addressLocality) : query;
+                            ? await search.BuildCompaniesAsync(criteria, pkdIds, null, addressLocality,
+                                token: HttpContext.RequestAborted) : query;
                         hasNotes = await search.WithUserNotes(allResults, user.Id).AnyAsync(HttpContext.RequestAborted);
                     }
                     if (notesOnly) query = search.WithUserNotes(query, user.Id);
-                    totalWithoutLimit = await query.CountAsync(HttpContext.RequestAborted);
+                    totalWithoutLimit = await query.TagWith("CompanySearch.Count").CountAsync(HttpContext.RequestAborted);
                     _searchCache.Set(summaryKey, new SearchSummary(totalWithoutLimit, hasNotes),
                         new MemoryCacheEntryOptions().SetSlidingExpiration(TimeSpan.FromMinutes(2))
                             .SetAbsoluteExpiration(TimeSpan.FromMinutes(10)));
@@ -133,9 +136,10 @@ public partial class CompaniesController : ControllerBase
             List<CompanyShortDto> items;
             var take = Math.Min(pageSize, total - offset);
             // Page on narrow keys before resolving formatted address/business type.
-            var orderedIds = await new CompanySearchQuery(_db).OrderedIds(query, sortBy, direction)
-                .Skip(offset).Take(take).ToArrayAsync(HttpContext.RequestAborted);
-            items = await query.Where(row => orderedIds.Contains(row.Id)).ToListAsync(HttpContext.RequestAborted);
+            var orderedIds = await search.OrderedIds(query, sortBy, direction)
+                .Skip(offset).Take(take).TagWith("CompanySearch.PageIds").ToArrayAsync(HttpContext.RequestAborted);
+            items = await search.SelectDetails(query.Where(row => orderedIds.Contains(row.Id)))
+                .TagWith("CompanySearch.PageDetails").ToListAsync(HttpContext.RequestAborted);
             var positions = orderedIds.Select((id, position) => new { id, position })
                 .ToDictionary(row => row.id, row => row.position);
             items.Sort((left, right) => positions[left.Id].CompareTo(positions[right.Id]));
@@ -155,6 +159,14 @@ public partial class CompaniesController : ControllerBase
         catch (SqlException exception) when (SqlRequestCancellation.IsExpected(exception, HttpContext.RequestAborted))
         {
             return new EmptyResult();
+        }
+        catch (SqlException exception) when (exception.Number == -2)
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                code = "SearchTimeout",
+                message = "Wyszukiwanie przekroczyło limit czasu. Spróbuj ponownie lub zawęź kryteria."
+            });
         }
     }
 

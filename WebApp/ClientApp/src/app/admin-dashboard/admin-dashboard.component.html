@@ -125,6 +125,8 @@
         <div *ngIf="filterError" class="error" role="alert">{{ filterError }}</div>
       </div>
       <div class="admin-company-grid" [attr.aria-busy]="loading">
+        <app-company-search-progress [active]="loading" [startedAt]="searchStartedAt"></app-company-search-progress>
+        <div *ngIf="companySearchError && !loading" class="error" role="alert">{{ companySearchError }}</div>
         <table>
           <colgroup>
             <col class="grid-number"><col class="grid-name"><col class="grid-nip"><col class="grid-address"><col class="grid-phone">
