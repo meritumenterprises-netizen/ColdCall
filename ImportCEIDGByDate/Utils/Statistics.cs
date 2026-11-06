@@ -22,6 +22,7 @@ namespace ImportCEIDGByDate
                     ProcessEnd = DateTime.Now;
                 }
                 StringBuilder sb = new StringBuilder();
+                sb.AppendLine($"ImportCEIDGByDate version {typeof(Statistics).Assembly.GetName().Version}");
                 sb.AppendLine($"Import statistics: {Description}");
                 sb.AppendLine($"New date: {NewDate}");
                 //sb.AppendLine($"Old date: {OldDate}");

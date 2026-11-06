@@ -77,7 +77,8 @@ var wojewodztwa = await firmyTempRepository.Wojewodztwa.AsNoTracking().ToListAsy
 var import = new ImportByDate
 {
     ImportDate = statistics.NewDate,
-    StartedAt = statistics.ProcessStart
+    StartedAt = statistics.ProcessStart,
+    Version = ImporterVersion.Current
 };
 firmyTempDbContext.ImportByDates.Add(import);
 await firmyTempDbContext.SaveChangesAsync();
