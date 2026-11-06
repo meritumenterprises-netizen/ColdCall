@@ -6,10 +6,10 @@
     <button class="search-item" [class.active]="tab === 'payments'" (click)="openAdminTab('payments')">Płatności</button>
     <button class="search-item" [class.active]="tab === 'plans'" (click)="openAdminTab('plans')">Plany</button>
     <button class="search-item" [class.active]="tab === 'imports'" (click)="openAdminTab('imports')">Importy</button>
-    <button class="search-item" [class.active]="tab === 'global-settings'" (click)="openAdminTab('global-settings')">Ustawienia globalne</button>
     <button class="search-item" [class.active]="tab === 'logins' && !publicPageTitle" (click)="openAdminTab('logins')">Loginy</button>
     <button class="search-item" [class.active]="tab === 'regulamin' && !publicPageTitle" (click)="openAdminTab('regulamin')">Regulamin</button>
     <button class="search-item" [class.active]="tab === 'regulamin-beta' && !publicPageTitle" (click)="openAdminTab('regulamin-beta')">Regulamin Beta</button>
+    <button class="search-item" [class.active]="tab === 'global-settings'" (click)="openAdminTab('global-settings')">Ustawienia globalne</button>
   </aside>
 
   <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><app-feedback *ngIf="publicPageTitle === 'Feedback'"></app-feedback><app-feedback *ngIf="publicPageTitle === 'RODO'" [rodo]="true"></app-feedback><app-feedback *ngIf="publicPageTitle === 'Wsparcie techniczne'" [support]="true"></app-feedback><app-public-regulamin *ngIf="publicPageTitle === 'Regulamin'"></app-public-regulamin></main>
@@ -18,7 +18,7 @@
     <header class="workspace-head" *ngIf="tab !== 'users'">
       <div>
         <h1 *ngIf="tab === 'companies'">Wyszukiwanie firm</h1>
-        <h1 *ngIf="tab === 'payments'">Płatności</h1>
+        <h1 *ngIf="tab === 'payments'">Płatności użytkowników</h1>
         <h1 *ngIf="tab === 'plans'">Plany</h1>
         <h1 *ngIf="tab === 'imports'">Importy</h1>
         <h1 *ngIf="tab === 'global-settings'">Ustawienia globalne</h1>

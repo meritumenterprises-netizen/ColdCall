@@ -2,6 +2,7 @@ import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/cor
 import { Subscription } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { ApiService, AdminGlobalSetting } from '../services/api.service';
+import { ANGULAR_APP_VERSION } from '../version';
 
 interface SettingsRow extends AdminGlobalSetting {
   savedParallelism: number;
@@ -18,6 +19,7 @@ interface SettingsRow extends AdminGlobalSetting {
   styleUrls: ['./admin-global-settings.component.css']
 })
 export class AdminGlobalSettingsComponent implements OnInit, OnDestroy {
+  readonly frontendVersion = ANGULAR_APP_VERSION;
   @Output() settingsSaved = new EventEmitter<void>();
   rows: SettingsRow[] = [];
   loading = false;

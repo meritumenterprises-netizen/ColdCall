@@ -3,7 +3,11 @@
 <form *ngIf="!loading && rows[0] as row" class="settings-panel" [attr.aria-busy]="row.saving" (ngSubmit)="save(row)">
   <fieldset [disabled]="row.saving">
     <div class="version-field">
-      <span id="application-version-label">Wersja FindMyClient</span>
+      <span id="frontend-version-label">Wersja FindMyClient</span>
+      <output aria-labelledby="frontend-version-label">{{ frontendVersion }}</output>
+    </div>
+    <div class="version-field">
+      <span id="application-version-label">Wersja backendu API</span>
       <output aria-labelledby="application-version-label">{{ row.applicationVersion ? row.applicationVersion.split('.').slice(0, 3).join('.') : '—' }}</output>
     </div>
     <div class="parallelism-field">
