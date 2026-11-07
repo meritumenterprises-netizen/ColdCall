@@ -277,10 +277,11 @@ public partial class CompaniesController : ControllerBase
                 return StatusCode(429, new { code = "CsvExportCooldown", message = "Po usuni\u0119ciu 3 plik\u00f3w CSV eksport jest zablokowany na 24 godziny.", quota.ExportBlockedUntilUtc });
             if (quota.Remaining == 0)
                 return StatusCode(409, new { message = "Osiagnieto limit eksportow CSV dla tego wyszukiwania." });
-            var query = await new CompanySearchQuery(_db).BuildAsync(profile.Criteria ?? new SearchProfileCriteria(),
-                profile.PkdCodes.Select(x => x.PkdCodeId).ToArray(), days);
-            if (notesOnly) query = new CompanySearchQuery(_db).WithUserNotes(query, user.Id);
-            var ids = await new CompanySearchQuery(_db).OrderedIds(query, request.SortBy, request.Direction)
+            var search = new CompanySearchQuery(_db);
+            var query = await search.BuildCompaniesAsync(profile.Criteria ?? new SearchProfileCriteria(),
+                profile.PkdCodes.Select(x => x.PkdCodeId).ToArray(), days, token: cancellationToken);
+            if (notesOnly) query = search.WithUserNotes(query, user.Id);
+            var ids = await search.OrderedIds(query, request.SortBy, request.Direction)
                 .Take(limit).ToListAsync(cancellationToken);
             if (ids.Count == 0) return BadRequest(new { message = "Brak rekordow do eksportu." });
             var csv = await _csvExporter.ExportAsync(user, profile, ids, days, cancellationToken, request.SearchName, notesOnly);

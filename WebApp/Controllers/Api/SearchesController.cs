@@ -59,7 +59,7 @@ public class SearchesController : ControllerBase
     }
 
     [HttpPost("{id:int}/check-csv-export")]
-    public async Task<ActionResult> CheckCsvExport(int id, CancellationToken cancellationToken)
+    public async Task<ActionResult> CheckCsvExport(int id, CheckCsvExportRequest request, CancellationToken cancellationToken)
     {
         var user = await _currentUserService.GetOrCreateAsync(User);
         var profile = await _db.SearchProfiles.Include(p => p.Criteria).Include(p => p.PkdCodes)
@@ -73,9 +73,13 @@ public class SearchesController : ControllerBase
         foreach (var exported in exportedProfiles)
             await SearchProfileHashCalculator.FreezeLegacyExportsAsync(_db, exported, cancellationToken);
         await _db.SaveChangesAsync(cancellationToken);
-        var exists = await _db.CsvExports.AnyAsync(e => e.SearchProfile != null && e.SearchProfile.AppUserId == user.Id
-            && e.SearchProfileHash == profile.SearchProfileHash, cancellationToken);
-        return Ok(new { hash = profile.SearchProfileHash, exists });
+        var hash = SearchProfileHashCalculator.CalculateExport(profile, request.ResultTab);
+        var candidates = await _db.CsvExports.Where(e => e.SearchProfile != null && e.SearchProfile.AppUserId == user.Id
+            && (e.SearchProfileHash == hash || e.SearchProfileHash == profile.SearchProfileHash))
+            .Select(e => new { e.SearchProfileHash, e.CsvFileName }).ToListAsync(cancellationToken);
+        var exists = candidates.Any(e => e.SearchProfileHash == hash
+            || SearchProfileHashCalculator.LegacyExportMatchesTab(e.CsvFileName, request.ResultTab));
+        return Ok(new { hash, exists });
     }
 
     [HttpPut("{id:int}")]

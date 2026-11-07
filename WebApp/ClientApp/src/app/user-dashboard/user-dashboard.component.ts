@@ -33,6 +33,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   @ViewChild('pkdErrorDialog', { static: true }) pkdErrorDialog: ElementRef;
   @ViewChild('replacePkdDialog', { static: true }) replacePkdDialog: ElementRef;
   @ViewChild('duplicateExportDialog', { static: true }) duplicateExportDialog: ElementRef;
+  @ViewChild('csvProgressDialog', { static: true }) csvProgressDialog: ElementRef;
   @ViewChild('duplicateSearchDialog', { static: true }) duplicateSearchDialog: ElementRef;
   pkdClassificationMessage = '';
   pkdClassificationError = '';
@@ -685,6 +686,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.showCsvProgress(false);
     this.companiesDestroyed = true;
     this.pendingCompaniesLoad = null;
     this.preserveSearchDrafts();
@@ -1206,6 +1208,12 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private csvRequest: Subscription | null = null;
   private pendingCsvExport: (() => void) | null = null;
 
+  private showCsvProgress(show: boolean) {
+    const dialog = this.csvProgressDialog.nativeElement as HTMLDialogElement;
+    if (show && !dialog.open) { dialog.showModal(); }
+    if (!show && dialog.open) { dialog.close(); }
+  }
+
   confirmDuplicateExport() {
     this.duplicateExportDialog.nativeElement.close();
     const exportAction = this.pendingCsvExport;
@@ -1214,6 +1222,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   cancelDuplicateExport() {
+    this.showCsvProgress(false);
     this.duplicateExportDialog.nativeElement.close();
     this.pendingCsvExport = null;
     this.exportingCsv = false;
@@ -1229,6 +1238,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     }
     this.error = '';
     this.exportingCsv = true;
+    this.showCsvProgress(true);
     const searchId = this.currentSearchId;
     const searchName = this.searchName.trim();
     const days = this.activeResultTab.days;
@@ -1247,21 +1257,24 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
           return profile;
         }))
       : of(null);
-    this.csvRequest = prepareSearch.pipe(switchMap(() => this.api.checkCsvExport(searchId))).subscribe(result => {
+    this.csvRequest = prepareSearch.pipe(switchMap(() => this.api.checkCsvExport(searchId, resultTab))).subscribe(result => {
       const exportAction = () => this.performCsvExport(searchId, days, sortBy, direction, searchName, notesOnly, resultTab);
       if (result.exists) {
+        this.showCsvProgress(false);
         this.pendingCsvExport = exportAction;
         this.duplicateExportDialog.nativeElement.showModal();
       } else { exportAction(); }
     }, () => {
+      this.showCsvProgress(false);
       this.exportingCsv = false;
       this.error = 'Nie udalo sie sprawdzic poprzednich eksportow CSV.';
     });
   }
 
   private performCsvExport(searchId: number, days: number | undefined, sortBy: string, direction: string, searchName: string, notesOnly = false, resultTab?: string) {
+    this.showCsvProgress(true);
     this.csvRequest = this.api.exportCompanies(searchId, days, sortBy, direction, searchName, notesOnly, resultTab)
-      .pipe(finalize(() => this.exportingCsv = false)).subscribe(response => {
+      .pipe(finalize(() => { this.exportingCsv = false; this.showCsvProgress(false); })).subscribe(response => {
       if (!response.body) { return; }
       const profile = this.searches.find(search => search.id === searchId);
       if (profile) { profile.hasCsvExports = true; }
