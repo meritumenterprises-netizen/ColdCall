@@ -629,7 +629,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   selectedPkds: Pkd[] = [];
   pkdTerm = '';
   pkdSuggestions: Pkd[] = [];
-  maxSelectedPkds = 10;
+  maxSelectedPkds = 20;
   foundPkdId: number | null = null;
   selectedPkdId: number | null = null;
   sortBy = 'startedAt';

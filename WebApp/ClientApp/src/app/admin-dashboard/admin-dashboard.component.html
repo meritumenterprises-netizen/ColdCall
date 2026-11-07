@@ -119,7 +119,7 @@
               <button type="button" class="ghost-button" [disabled]="loading || !selectedPkdId" (click)="removeSelectedPkd()">&lt;</button>
               <button type="button" class="ghost-button admin-pkd-clear" [disabled]="loading || !selectedPkds.length" (click)="clearPkds()">Wyczy&#347;&#263;</button>
             </div>
-            <label>Wybrane PKD (max.10)<select size="6" [(ngModel)]="selectedPkdId" aria-label="Wybrane PKD"><option *ngFor="let pkd of selectedPkds" [ngValue]="pkd.id" [title]="pkdLabel(pkd)">{{ pkdLabel(pkd) }}</option></select></label>
+            <label>Wybrane PKD (max.20)<select size="6" [(ngModel)]="selectedPkdId" aria-label="Wybrane PKD"><option *ngFor="let pkd of selectedPkds" [ngValue]="pkd.id" [title]="pkdLabel(pkd)">{{ pkdLabel(pkd) }}</option></select></label>
           </div>
         </section>
         <div *ngIf="filterError" class="error" role="alert">{{ filterError }}</div>

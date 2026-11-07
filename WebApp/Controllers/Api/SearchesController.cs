@@ -143,8 +143,8 @@ public class SearchesController : ControllerBase
                 HasFirmyWPromieniu = criteria.HasFirmyWPromieniu, FirmyWPromieniu = criteria.FirmyWPromieniu
             });
         var pkdIds = request.PkdCodeIds.Distinct().ToArray();
-        if (pkdIds.Length > 10 || await _db.PkdCodes.CountAsync(x => pkdIds.Contains(x.Id)) != pkdIds.Length)
-            return BadRequest(new { message = "Wybierz maksymalnie 10 istniejacych kodow PKD." });
+        if (pkdIds.Length > 20 || await _db.PkdCodes.CountAsync(x => pkdIds.Contains(x.Id)) != pkdIds.Length)
+            return BadRequest(new { message = "Wybierz maksymalnie 20 istniejacych kodow PKD." });
         foreach (var removed in profile.PkdCodes.Where(x => !pkdIds.Contains(x.PkdCodeId)).ToArray())
         {
             profile.PkdCodes.Remove(removed);
