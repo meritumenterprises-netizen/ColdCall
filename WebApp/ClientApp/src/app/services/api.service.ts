@@ -416,9 +416,9 @@ export class ApiService {
       { ...this.headers(), responseType: 'blob', observe: 'response' });
   }
 
-  checkCsvExport(searchProfileId: number): Observable<{ hash: string; exists: boolean }> {
+  checkCsvExport(searchProfileId: number, resultTab = 'all'): Observable<{ hash: string; exists: boolean }> {
     return this.http.post<{ hash: string; exists: boolean }>(
-      this.url('/api/searches/' + searchProfileId + '/check-csv-export'), {}, this.headers());
+      this.url('/api/searches/' + searchProfileId + '/check-csv-export'), { resultTab }, this.headers());
   }
 
   csvExports(searchProfileId: number, sortBy: string, direction: string): Observable<CsvExportRow[]> {

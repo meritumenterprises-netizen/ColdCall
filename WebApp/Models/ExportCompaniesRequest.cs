@@ -10,7 +10,7 @@ public class ExportCompaniesRequest
     public string? SearchName { get; set; }
     public int? ModifiedWithinDays { get; set; }
     public bool NotesOnly { get; set; }
-    [RegularExpression("^(all|30|7|notes)$")]
+    [RegularExpression("^(all|3|7|notes)$")]
     public string? ResultTab { get; set; }
     [Required, RegularExpression("^(name|nip|fullAddress|phone|email|www|dataAktywnosci|dataModifiedOn)$")]
     public string SortBy { get; set; } = "dataAktywnosci";

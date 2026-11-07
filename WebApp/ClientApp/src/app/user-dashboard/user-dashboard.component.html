@@ -27,6 +27,10 @@
     <button type="button" class="ghost-button" autofocus (click)="cancelPkdReplacement()">Nie</button>
   </div>
 </dialog>
+<dialog #csvProgressDialog class="save-search-dialog" aria-labelledby="csv-progress-title"
+        aria-busy="true" (cancel)="$event.preventDefault()">
+  <h2 id="csv-progress-title" role="status" aria-live="polite">Eksportowanie do CSV...</h2>
+</dialog>
 <div class="app-layout">
   <aside class="sidebar">
     <nav aria-label="Nawigacja użytkownika">
@@ -345,7 +349,7 @@
 
     <ng-template #resultsPager>
     <footer class="pager">
-      <button type="button" class="export-csv" [disabled]="loading || total <= 0 || exportingCsv || csvQuotaLoading || csvExportsRemaining === 0 || csvExportBlocked" (click)="exportCsv()">Eksport do CSV</button>
+      <button type="button" class="export-csv" [disabled]="loading || total <= 0 || exportingCsv || csvQuotaLoading || csvExportsRemaining === 0 || csvExportBlocked" (click)="exportCsv()"><img src="assets/icons/export-csv.png" width="16" height="16" alt="" aria-hidden="true"><span>Eksport do CSV</span></button>
       <span *ngIf="csvExportBlocked" role="status">Eksport CSV zablokowany do {{ csvExportBlockedUntilUtc | date:'dd.MM.yyyy HH:mm' }}.</span>
       <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
       <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>

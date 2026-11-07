@@ -9,6 +9,20 @@ namespace ColdCall.Services;
 
 public static class SearchProfileHashCalculator
 {
+    public static string CalculateExport(SearchProfile profile, string resultTab) =>
+        Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(Calculate(profile) + ":" + resultTab)));
+
+    public static bool LegacyExportMatchesTab(string fileName, string resultTab)
+    {
+        var suffix = resultTab switch
+        {
+            "all" => "all", "3" => "3 days", "7" => "7 days", "notes" => "notes",
+            _ => throw new ArgumentException("Niepoprawna zakladka eksportu.")
+        };
+        return System.Text.RegularExpressions.Regex.IsMatch(fileName,
+            "_" + suffix + @"_[0-9]{8}_[0-9]{6}\.CSV$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
+
     public static async Task FreezeLegacyExportsAsync(ColdCallDbContext db, SearchProfile profile,
         CancellationToken cancellationToken = default)
     {

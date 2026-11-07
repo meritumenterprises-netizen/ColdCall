@@ -69,7 +69,8 @@ public class CompanyCsvExportService
                     SearchProfileId = profile.Id,
                     CsvFileName = name,
                     NumberOfRecords = rows.Length,
-                    SearchProfileHash = SearchProfileHashCalculator.Calculate(profile)
+                    SearchProfileHash = SearchProfileHashCalculator.CalculateExport(profile,
+                        notesOnly ? "notes" : days?.ToString(CultureInfo.InvariantCulture) ?? "all")
                 };
                 try
                 {
@@ -108,7 +109,7 @@ public class CompanyCsvExportService
         var name = Regex.Replace(searchName.Normalize(NormalizationForm.FormC), "[<>:\"/\\\\|?*\\x00-\\x1F]", "_").Trim(' ', '.');
         if (name.Length > 80) name = name[..80].TrimEnd(' ', '.');
         if (string.IsNullOrWhiteSpace(name)) name = "wyszukiwanie";
-        var tab = notesOnly ? "notes" : days switch { null => "all", 30 => "30 days", 7 => "7 days", _ => throw new ArgumentException("Niepoprawna zakladka eksportu.") };
+        var tab = notesOnly ? "notes" : days switch { null => "all", 3 => "3 days", 7 => "7 days", _ => throw new ArgumentException("Niepoprawna zakladka eksportu.") };
         return $"{name}_{tab}_{date.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture)}.CSV";
     }
 
@@ -119,7 +120,7 @@ public class CompanyCsvExportService
         {
             "Import date", "Nazwa", "Typ Działalności", "Imię", "Nazwisko", "KRS", "NIP", "Regon", "Województwo",
             "Miejscowość", "Gmina", "Powiat", "Ulica", "Nr Budynku", "Nr lokalu", "Telefon",
-            "Email", "Witryna WWW", "Data Aktywności", "PKD", "Notatki"
+            "Email", "Witryna WWW", "Data rozpoczęcia działalności", "Data zawieszenia aktywności", "Data wznowienia aktywności", "PKD", "Notatki"
         };
         var csv = new StringBuilder();
         csv.AppendLine(string.Join(',', headers.Select(Cell)));
@@ -133,6 +134,8 @@ public class CompanyCsvExportService
                 company.Miejscowosc?.Name, company.Gmina?.Name, company.Powiat?.Name,
                 company.Street, company.BuildingNumber, company.ApartmentNumber, company.Phone,
                 company.Email, company.Website, company.StartedAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                company.SuspendedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                company.ResumedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 pkds.TryGetValue(company.Id, out var pkd) ? pkd : "",
                 notes != null && notes.TryGetValue(company.Id, out var note)
                     ? Regex.Replace(note, @"\r\n|[\r\n\u0085\u2028\u2029]", " ") : ""
