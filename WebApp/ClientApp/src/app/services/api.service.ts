@@ -469,6 +469,10 @@ export class ApiService {
   adminUserPayments(id: number): Observable<AdminUserPayment[]> {
     return this.http.get<AdminUserPayment[]>(this.url('/api/admin/users/' + id + '/payments'), this.headers());
   }
+
+  updateAdminUserDetails(id: number, details: Partial<AppUser> & { expiresInDays?: number | null }): Observable<Partial<AppUser> & { expiresAtUtc?: string | null }> {
+    return this.http.put<Partial<AppUser> & { expiresAtUtc?: string | null }>(this.url('/api/admin/users/' + id + '/details'), details, this.headers());
+  }
   updateUserBeta(id: number, isBetaUser: boolean): Observable<{ isBetaUser: boolean }> {
     return this.http.put<{ isBetaUser: boolean }>(this.url('/api/admin/users/' + id + '/beta'), { isBetaUser }, this.headers());
   }
