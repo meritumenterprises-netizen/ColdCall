@@ -75,7 +75,14 @@ export class AdminPaymentsComponent implements OnInit, OnDestroy {
     if (this.request) { this.request.unsubscribe(); }
     this.loading = true; this.error = ''; this.selectedUser = null;
     this.request = this.api.users().subscribe(users => {
-      this.users = users; this.page = Math.min(this.page, this.totalPages); this.loading = false;
+      this.users = users.filter(user => {
+        if (user.isBetaUser) { return false; }
+        const plan = (user.plans || []).slice().sort((a, b) =>
+          new Date(this.dateUtc(b.expiresAtUtc)).getTime() - new Date(this.dateUtc(a.expiresAtUtc)).getTime())[0];
+        const code = plan && (plan.planCode || '').trim().toUpperCase();
+        return !!code && code !== 'PX0';
+      });
+      this.page = Math.min(this.page, this.totalPages); this.loading = false;
     }, () => {
       this.users = []; this.loading = false;
       this.error = 'Nie udało się pobrać użytkowników.';

@@ -1,4 +1,4 @@
-<section aria-label="Płatności użytkowników" [attr.aria-busy]="loading">
+<section aria-label="Płatne plany" [attr.aria-busy]="loading">
   <div *ngIf="error" class="error" role="alert">{{ error }}
     <button type="button" class="ghost-button" (click)="load()">Ponów</button>
   </div>
@@ -39,7 +39,6 @@
   </footer>
 </section>
 <section *ngIf="selectedUser" class="selected-user-payments" aria-label="Historia płatności wybranego użytkownika">
-  <p><strong>{{ selectedUser.displayName || selectedUser.googleEmail }}</strong> — {{ selectedUser.googleEmail }}</p>
   <app-admin-user-payments [userId]="selectedUser.id"></app-admin-user-payments>
 </section>
 <p *ngIf="!selectedUser && !loading && users.length" class="selection-hint">Wybierz użytkownika, aby wyświetlić jego historię płatności.</p>

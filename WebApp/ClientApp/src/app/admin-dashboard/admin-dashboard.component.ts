@@ -485,19 +485,20 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   tab: 'companies' | 'users' | 'payments' | 'plans' | 'imports' | 'global-settings' | 'regulamin' | 'regulamin-beta' | 'logins' = 'companies';
   companies: Company[] = [];
   users: AppUser[] = [];
-  usersTab: 'all' | 'beta' | 'admins' = 'all';
-  readonly usersTabs: { key: 'all' | 'beta' | 'admins'; label: string }[] = [
+  usersTab: 'all' | 'beta' | 'trial' | 'admins' = 'all';
+  readonly usersTabs: { key: 'all' | 'beta' | 'trial' | 'admins'; label: string }[] = [
     { key: 'all', label: 'Wszyscy' },
     { key: 'beta', label: 'Beta użytkownicy' },
+    { key: 'trial', label: 'Trial użytkownicy' },
     { key: 'admins', label: 'Administratorzy' }
   ];
-  selectUsersTab(tab: 'all' | 'beta' | 'admins') {
+  selectUsersTab(tab: 'all' | 'beta' | 'trial' | 'admins') {
     this.usersTab = tab;
     this.usersPage = 1;
     this.selectedUserId = null;
     this.planHint = null;
   }
-  navigateUsersTabs(event: KeyboardEvent, tab: 'all' | 'beta' | 'admins') {
+  navigateUsersTabs(event: KeyboardEvent, tab: 'all' | 'beta' | 'trial' | 'admins') {
     const keys = this.usersTabs.map(item => item.key);
     const position = keys.indexOf(tab);
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? keys.length - 1
@@ -637,7 +638,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         expired: !expiresAtUtc || !Number.isFinite(new Date(expiresAtUtc).getTime()) || new Date(expiresAtUtc).getTime() <= now };
     });
     const email = this.userEmailFilter.trim().toLowerCase();
-    return rows.filter(row => (this.usersTab === 'all' || (this.usersTab === 'beta' ? row.isBetaUser : row.isAdmin))
+    return rows.filter(row => (this.usersTab === 'all' || (this.usersTab === 'beta' ? row.isBetaUser
+      : this.usersTab === 'trial' ? row.planCode.trim().toUpperCase() === 'PX0' : row.isAdmin))
       && (!email || row.googleEmail.toLowerCase().includes(email))).sort((a, b) => {
       let comparison = 0;
       if (this.usersSortBy === 'expiresAtUtc' || this.usersSortBy === 'createdAtUtc') {
