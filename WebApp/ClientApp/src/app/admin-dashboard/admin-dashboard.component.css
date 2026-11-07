@@ -44,9 +44,11 @@
 .admin-users-grid .selectable-user:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .admin-user-details { margin-top: 16px; padding: 20px 0; border-top: 1px solid var(--border); }
 .admin-user-details h2 { margin: 0 0 16px; font-size: 18px; }
+.admin-user-details fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.admin-user-details-actions { display: flex; gap: 10px; margin-top: 16px; }
 .admin-user-details-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px 20px; }
 .admin-user-details-fields label { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; font-size: 13px; }
-.admin-user-details-fields input { width: 100%; min-width: 0; padding: 6px 10px; background: var(--surface-muted); }
+.admin-user-details-fields input { width: 100%; min-width: 0; padding: 6px 10px; background: #fff; }
 .admin-users-grid .admin-plan-purchase-cell { text-align: center; }
 .admin-plan-purchase-cell input { width: 18px; height: 18px; margin: 0; padding: 0; accent-color: var(--accent); cursor: pointer; }
 .admin-plan-purchase-cell input:disabled { cursor: wait; }

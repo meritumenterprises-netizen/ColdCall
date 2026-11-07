@@ -267,19 +267,31 @@
       <button type="button" (click)="changeUsersPage(usersPage + 1)" [disabled]="usersLoading || usersPage >= usersTotalPages">Nast&#281;pna</button>
     </footer>
     <ng-container *ngIf="tab === 'users'">
-      <section *ngIf="selectedUser as user" class="admin-user-details" aria-labelledby="admin-user-details-title">
+      <section *ngIf="editableUserDetails as user" class="admin-user-details" aria-labelledby="admin-user-details-title">
         <h2 id="admin-user-details-title">Dane u&#380;ytkownika</h2>
-        <div class="admin-user-details-fields">
-          <label>Imi&#281;<input type="text" readonly [value]="user.firstName || ''"></label>
-          <label>Nazwisko<input type="text" readonly [value]="user.lastName || ''"></label>
-          <label *ngIf="user.companyName && user.companyName.trim()">Nazwa firmy<input type="text" readonly [value]="user.companyName"></label>
-          <label>NIP<input type="text" readonly [value]="user.nip || ''"></label>
-          <label>Telefon<input type="tel" readonly [value]="user.phone || ''"></label>
-          <label>Kod pocztowy<input type="text" readonly [value]="user.postalCode || ''"></label>
-          <label>Miasto<input type="text" readonly [value]="user.city || ''"></label>
-          <label>Ulica<input type="text" readonly [value]="user.street || ''"></label>
-          <label>Nr ulicy/lokalu<input type="text" readonly [value]="user.streetNumber || ''"></label>
-        </div>
+        <form #userDetailsForm="ngForm" (ngSubmit)="userDetailsForm.valid && saveUserDetails()">
+          <fieldset [disabled]="savingUserDetails">
+            <div class="admin-user-details-fields">
+              <label>Imi&#281;<input type="text" name="detailsFirstName" maxlength="100" [(ngModel)]="user.firstName"></label>
+              <label>Nazwisko<input type="text" name="detailsLastName" maxlength="100" [(ngModel)]="user.lastName"></label>
+              <label>Nazwa firmy<input type="text" name="detailsCompanyName" maxlength="200" [(ngModel)]="user.companyName"></label>
+              <label>NIP<input type="text" name="detailsNip" maxlength="10" pattern="[0-9]{10}" [(ngModel)]="user.nip"></label>
+              <label>Telefon<input type="tel" name="detailsPhone" maxlength="32" [(ngModel)]="user.phone"></label>
+              <label>Kod pocztowy<input type="text" name="detailsPostalCode" maxlength="20" pattern="[0-9]{2}-[0-9]{3}" [(ngModel)]="user.postalCode"></label>
+              <label>Miasto<input type="text" name="detailsCity" maxlength="100" [(ngModel)]="user.city"></label>
+              <label>Ulica<input type="text" name="detailsStreet" maxlength="200" [(ngModel)]="user.street"></label>
+              <label>Nr ulicy/lokalu<input type="text" name="detailsStreetNumber" maxlength="50" [(ngModel)]="user.streetNumber"></label>
+              <label>Data wyga&#347;ni&#281;cia za dni<input type="number" name="detailsExpiresInDays" min="0" max="36500" step="1" [(ngModel)]="user.expiresInDays"></label>
+            </div>
+            <p *ngIf="userDetailsForm.invalid" class="error" role="alert">Sprawd&#378; format NIP (10 cyfr) i kodu pocztowego (XX-XXX).</p>
+            <p *ngIf="userDetailsError" class="error" role="alert">{{ userDetailsError }}</p>
+            <p *ngIf="userDetailsMessage" role="status">{{ userDetailsMessage }}</p>
+            <div class="admin-user-details-actions">
+              <button type="submit" class="primary-button" [disabled]="userDetailsForm.invalid || savingUserDetails">{{ savingUserDetails ? 'Zapisywanie...' : 'Zapisz' }}</button>
+              <button type="button" class="ghost-button" [disabled]="savingUserDetails" (click)="cancelUserDetails()">Anuluj</button>
+            </div>
+          </fieldset>
+        </form>
 
       </section>
     </ng-container>

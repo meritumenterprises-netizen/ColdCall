@@ -467,6 +467,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }, () => this.filterError = 'Nie udalo sie rozpoznac kodow PKD.');
   }
   ngOnDestroy() {
+    if (this.userDetailsRequest) { this.userDetailsRequest.unsubscribe(); }
     this.companiesDestroyed = true;
     this.pendingCompaniesLoad = null;
     this.userPassword = '';
@@ -510,6 +511,75 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   }
 
   selectedUserId: number | null = null;
+  private userDetailsDraft: (AppUser & { expiresInDays: number | null }) | null = null;
+  savingUserDetails = false;
+  userDetailsError = '';
+  userDetailsMessage = '';
+  private userDetailsRequest: Subscription | null = null;
+
+  private createUserDetailsDraft(user: AppUser): AppUser & { expiresInDays: number | null } {
+    const plan = (user.plans || []).slice().sort((a, b) => Date.parse(this.dateUtc(b.expiresAtUtc)) - Date.parse(this.dateUtc(a.expiresAtUtc)))[0];
+    const expiration = plan ? Date.parse(this.dateUtc(plan.expiresAtUtc)) : NaN;
+    const expiresInDays = !user.isAdmin && expiration > Date.now() ? Math.ceil((expiration - Date.now()) / 86400000) : null;
+    return { ...user, expiresInDays };
+  }
+
+  get editableUserDetails(): (AppUser & { expiresInDays: number | null }) | null {
+    const user = this.selectedUser;
+    if (!user) { this.userDetailsDraft = null; return null; }
+    if (!this.userDetailsDraft || this.userDetailsDraft.id !== user.id) {
+      this.userDetailsDraft = this.createUserDetailsDraft(user);
+      this.userDetailsError = ''; this.userDetailsMessage = '';
+    }
+    return this.userDetailsDraft;
+  }
+
+  cancelUserDetails() {
+    if (this.savingUserDetails) { return; }
+    this.userDetailsDraft = this.selectedUser ? this.createUserDetailsDraft(this.selectedUser) : null;
+    this.userDetailsError = ''; this.userDetailsMessage = '';
+  }
+
+  saveUserDetails() {
+    const draft = this.editableUserDetails;
+    const user = this.selectedUser;
+    if (!draft || !user || this.savingUserDetails) { return; }
+    if (draft.expiresInDays != null && (!Number.isInteger(draft.expiresInDays) || draft.expiresInDays < 0 || draft.expiresInDays > 36500)) {
+      this.userDetailsError = 'Podaj liczbe calkowita dni od 0 do 36500.';
+      return;
+    }
+    const details = { firstName: draft.firstName, lastName: draft.lastName, companyName: draft.companyName,
+      nip: draft.nip, phone: draft.phone, postalCode: draft.postalCode, city: draft.city,
+      street: draft.street, streetNumber: draft.streetNumber, expiresInDays: draft.expiresInDays };
+    this.savingUserDetails = true;
+    this.userDetailsError = ''; this.userDetailsMessage = '';
+    this.userDetailsRequest = this.api.updateAdminUserDetails(user.id, details)
+      .pipe(finalize(() => this.savingUserDetails = false)).subscribe(saved => {
+        const { expiresAtUtc, ...savedDetails } = saved;
+        Object.assign(user, savedDetails);
+        if (expiresAtUtc) {
+          const plan = (user.plans || []).slice().sort((a, b) => Date.parse(this.dateUtc(b.expiresAtUtc)) - Date.parse(this.dateUtc(a.expiresAtUtc)))[0];
+          if (plan) { plan.expiresAtUtc = expiresAtUtc; }
+        }
+        if (this.selectedUserId === user.id) {
+          this.userDetailsDraft = this.createUserDetailsDraft(user);
+          this.userDetailsMessage = 'Dane uzytkownika zostaly zapisane.';
+        }
+        this.loadUsers(user.id);
+      }, err => {
+        if (this.selectedUserId !== user.id) { return; }
+        const body = err.error;
+        const validation = body && body.errors && typeof body.errors === 'object'
+          ? Object.keys(body.errors).map(key => key + ': ' + [].concat(body.errors[key]).join(' ')).join(' ') : '';
+        this.userDetailsError = body && typeof body.message === 'string' ? body.message
+          : validation ? validation
+          : err.status === 404 ? 'Nie znaleziono uzytkownika lub endpointu zapisu. Odswiez liste; jesli blad pozostaje, przebuduj i uruchom ponownie backend.'
+          : err.status === 401 ? 'Sesja wygasla. Zaloguj sie ponownie.'
+          : err.status === 403 ? 'Brak uprawnien administratora do zapisu danych.'
+          : err.status === 0 ? 'Brak polaczenia z serwerem.'
+          : 'Nie udalo sie zapisac danych uzytkownika (HTTP ' + err.status + ').';
+      });
+  }
   get selectedUser(): AppUser | null {
     return this.pagedUserRows.some(row => row.id === this.selectedUserId)
       ? this.users.find(user => user.id === this.selectedUserId) || null : null;
@@ -716,10 +786,18 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  loadUsers() {
+  loadUsers(highlightUserId?: number) {
     this.usersLoading = true;
     this.api.users().pipe(finalize(() => this.usersLoading = false)).subscribe(x => {
       this.users = x;
+      if (highlightUserId !== undefined) {
+        const position = this.userRows.findIndex(row => row.id === highlightUserId);
+        if (position >= 0) {
+          this.selectedUserId = highlightUserId;
+          this.changeUsersPage(Math.floor(position / this.usersPageSize) + 1);
+          return;
+        }
+      }
       this.changeUsersPage(this.usersPage);
     },
       () => this.message = 'Nie udalo sie pobrac uzytkownikow.');
