@@ -84,7 +84,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   maxRecordLimit = 0;
   readonly radiusOptions = [1, 5, 10, 20, 50, 100, 200, 500];
   pkdSuggestions: Pkd[] = [];
-  maxSelectedPkds = 10;
+  maxSelectedPkds = 20;
   foundPkdId: number | null = null;
   selectedPkdId: number | null = null;
   pkdHint: { text: string; left: number; top: number | null; bottom: number | null } | null = null;
@@ -875,7 +875,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         const additions = result.pkdCodes.filter(pkd => !this.selectedPkds.some(selected => selected.id === pkd.id));
         const available = this.maxSelectedPkds - this.selectedPkds.length;
         if (additions.length > available) {
-          this.pkdClassificationError = 'Lista Wybrane PKD moze zawierac maksymalnie 10 kodow. Usun kody, aby dodac pozostale.';
+          this.pkdClassificationError = 'Lista Wybrane PKD moze zawierac maksymalnie 20 kodow. Usun kody, aby dodac pozostale.';
         }
         if (available > 0 && additions.length) {
           this.selectedPkds = this.selectedPkds.concat(additions.slice(0, available));
