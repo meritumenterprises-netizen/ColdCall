@@ -3,12 +3,14 @@ using ColdCall.Models;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using NetTopologySuite.Geometries;
+using System.Text.Json;
 
 namespace ColdCall.Services;
 
 public class CompanySearchQuery
 {
     private readonly ColdCallDbContext _db;
+    private readonly Dictionary<string, IQueryable<int>> _pkdCandidates = new();
     public CompanySearchQuery(ColdCallDbContext db) => _db = db;
 
     public async Task<IQueryable<CompanyShortDto>> BuildAsync(SearchProfileCriteria criteria, int[]? pkdIds,
@@ -44,7 +46,7 @@ public class CompanySearchQuery
         if (radiusKm.HasValue && (!new[] { 1, 5, 10, 20, 50, 100, 200, 500 }.Contains(radiusKm.Value)
             || !miejscowoscId.HasValue))
             throw new ArgumentException("Wybierz miejscowosc i poprawny promien.");
-        var companies = source ?? _db.Companies.AsNoTracking();
+        var companies = await ApplyPkdFilterAsync(source ?? _db.Companies.AsNoTracking(), pkdIds, token);
         if (!includeAllCompanies || criteria.CompanyStatusIds != null)
         {
             var statuses = CompanyStatusSelection.Parse(criteria.CompanyStatusIds).Select(status => (byte)status).ToArray();
@@ -63,7 +65,7 @@ public class CompanySearchQuery
             if (gminaId.HasValue) companies = companies.Where(c => c.GminaId == gminaId);
             if (miejscowoscId.HasValue) companies = companies.Where(c => c.MiejscowoscId == miejscowoscId);
         }
-        companies = ApplyDetailFilters(ApplyPkdFilter(companies, pkdIds),
+        companies = ApplyDetailFilters(companies,
             radiusKm.HasValue ? null : address, includeAllCompanies, hasPhone, hasEmail, hasWebsite, startedFrom, startedTo);
         if (radiusKm.HasValue)
         {
@@ -76,9 +78,13 @@ public class CompanySearchQuery
             companies = companies.Where(company => _db.CompanyAddresses.Any(link => link.CompanyId == company.Id
                 && link.Address.MiejscowoscId == miejscowoscId
                 && (!gminaId.HasValue || link.Address.GminaId == gminaId)));
+        var recentMatches = await MaterializeRecentPkdMatchesAsync(companies, pkdIds, modifiedWithinDays, token);
+        companies = recentMatches.Query;
         if (!string.IsNullOrWhiteSpace(companyName) && companyName.Trim().Length >= 3)
         {
             var name = companyName.Trim();
+            if (recentMatches.Materialized)
+                return companies.Where(company => company.Name.Contains(name));
             var indexReady = await _db.Database.SqlQuery<int>(
                 $"SELECT CONVERT(int, IsReady) AS [Value] FROM ColdCall.CompanyNameGramBuild WHERE Id = 1")
                 .SingleAsync(token);
@@ -99,8 +105,64 @@ public class CompanySearchQuery
             {
                 var candidateIds = _db.Database.SqlQuery<int>(
                     $"SELECT CompanyId AS [Value] FROM ColdCall.CompanyNameCandidates({name})");
-                // The function intersects selective grams and verifies the complete literal substring.
-                companies = companies.Where(x => candidateIds.Contains(x.Id));
+                // Resolve sparse name matches once, before TOP/ORDER BY can choose
+                // a full company-index scan. Reuse them for count, page and details.
+                const int nameCandidateLimit = 50000;
+                // Apply PKD/contact/status/address filters before the materialization limit:
+                // a common name can still have only a small number of eligible companies.
+                var matchingCompanies = companies.Where(company => candidateIds.Contains(company.Id));
+                var matchingIds = await matchingCompanies.Select(company => company.Id)
+                    .Take(nameCandidateLimit + 1).ToArrayAsync(token);
+                companies = matchingIds.Length <= nameCandidateLimit
+                    ? _db.Companies.AsNoTracking().Where(company => matchingIds.Contains(company.Id))
+                    : matchingCompanies;
+            }
+            else if (hasPhone.HasValue || hasEmail.HasValue || hasWebsite.HasValue)
+            {
+                var selectedFlags = ContactFlags(hasPhone, hasEmail, hasWebsite);
+                var contactCount = await _db.Companies.AsNoTracking()
+                    .Where(company => selectedFlags.Contains(EF.Property<byte>(company, "ContactFlags")))
+                    .Take(150001).CountAsync(token);
+                if (contactCount > 150000)
+                {
+                    companies = companies.Where(company => company.Name.Contains(name));
+                    return companies;
+                }
+                // Broad names are cheaper to verify in the contact index's smaller set.
+                // Bound materialization so TOP/ORDER BY cannot scan all names for sparse matches.
+                var flags = string.Join(",", selectedFlags);
+                var pattern = "%" + name.Replace("~", "~~").Replace("%", "~%")
+                    .Replace("_", "~_").Replace("[", "~[") + "%";
+                var predicates = "";
+                var parameters = new List<object>
+                {
+                    new SqlParameter("@Pattern", System.Data.SqlDbType.NVarChar, -1) { Value = pattern }
+                };
+                if (!includeAllCompanies || criteria.CompanyStatusIds != null)
+                {
+                    var statuses = CompanyStatusSelection.Parse(criteria.CompanyStatusIds).Select(status => (byte)status);
+                    predicates += $" AND StatusDzialalnosciId IN ({string.Join(",", statuses)})";
+                }
+                if (startedFrom.HasValue && startedTo.HasValue)
+                {
+                    predicates += " AND StartedAt >= @StartedFrom AND StartedAt "
+                        + (startedTo.Value == DateOnly.MaxValue ? "<= @StartedTo" : "< @StartedTo");
+                    parameters.Add(new SqlParameter("@StartedFrom", System.Data.SqlDbType.DateTime2)
+                        { Value = startedFrom.Value.ToDateTime(TimeOnly.MinValue) });
+                    parameters.Add(new SqlParameter("@StartedTo", System.Data.SqlDbType.DateTime2)
+                        { Value = startedTo.Value == DateOnly.MaxValue ? DateTime.MaxValue
+                            : startedTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue) });
+                }
+                var contactNameIds = _db.Database.SqlQueryRaw<int>($"""
+                    SELECT Id AS [Value]
+                    FROM ColdCall.Companies WITH (INDEX(IX_Companies_ContactFlags_Status_StartedAt_Id))
+                    WHERE ContactFlags IN ({flags}) AND Name LIKE @Pattern ESCAPE N'~' {predicates}
+                    """, parameters.ToArray());
+                const int candidateLimit = 50000;
+                var ids = await contactNameIds.Take(candidateLimit + 1).ToArrayAsync(token);
+                companies = ids.Length <= candidateLimit
+                    ? companies.Where(company => ids.Contains(company.Id))
+                    : companies.Where(company => contactNameIds.Contains(company.Id));
             }
             else
                 companies = companies.Where(x => x.Name.Contains(name));
@@ -108,10 +170,32 @@ public class CompanySearchQuery
         return companies;
     }
 
+    private async Task<(IQueryable<Company> Query, bool Materialized)> MaterializeRecentPkdMatchesAsync(
+        IQueryable<Company> query, int[]? pkdIds, int? modifiedWithinDays, CancellationToken token)
+    {
+        if (!modifiedWithinDays.HasValue || pkdIds == null || !pkdIds.Any(id => id > 0)) return (query, false);
+        // Check the expensive PKD/recent intersection once; count/page/details then seek by ID.
+        const int limit = 50000;
+        var ids = new List<int>();
+        // Do not send TOP: its row goal can favor scanning PKD/company indexes
+        // for sparse matches. Stop the stream instead, keeping memory bounded.
+        await foreach (var id in query.TagWith("CompanySearch.PrepareRecentPkd")
+            .Select(company => company.Id).AsAsyncEnumerable().WithCancellation(token))
+        {
+            ids.Add(id);
+            if (ids.Count > limit) return (query, false);
+        }
+        var matchingIds = ids.ToArray();
+        return (_db.Companies.AsNoTracking().Where(company => matchingIds.Contains(company.Id)), true);
+    }
+
     public IQueryable<CompanyShortDto> SelectDetails(IQueryable<Company> companies, bool includeAllCompanies = false) =>
         BaseCompanyQuery(companies, includeAllCompanies);
 
     public IQueryable<int> OrderedIds(IQueryable<Company> query, string? sortBy, string? direction)
+        => OrderedCompanies(query, sortBy, direction).Select(company => company.Id);
+
+    public IOrderedQueryable<Company> OrderedCompanies(IQueryable<Company> query, string? sortBy, string? direction)
     {
         var key = (sortBy ?? "name").ToLowerInvariant() switch
         {
@@ -122,9 +206,8 @@ public class CompanySearchQuery
         };
         if (string.Equals(sortBy, "id", StringComparison.OrdinalIgnoreCase))
             return (string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase)
-                ? query.OrderByDescending(company => company.Id) : query.OrderBy(company => company.Id))
-                .Select(company => company.Id);
-        return query.ApplyCompanySort(key, direction).ThenBy(company => company.Id).Select(company => company.Id);
+                ? query.OrderByDescending(company => company.Id) : query.OrderBy(company => company.Id));
+        return query.ApplyCompanySort(key, direction).ThenBy(company => company.Id);
     }
 
     public IQueryable<Company> WithUserNotes(IQueryable<Company> query, int userId) =>
@@ -173,13 +256,34 @@ public class CompanySearchQuery
             TypyDzialalnosci = c.BusinessType!.TypDzialalnosci
         });
 
-    private IQueryable<Company> ApplyPkdFilter(IQueryable<Company> query, int[]? pkdIds)
+    private async Task<IQueryable<Company>> ApplyPkdFilterAsync(
+        IQueryable<Company> query, int[]? pkdIds, CancellationToken token)
     {
-        var selectedPkdIds = pkdIds?.Where(x => x > 0).Distinct().ToArray() ?? Array.Empty<int>();
-        return selectedPkdIds.Length == 0
-            ? query
-            : query.Where(company => _db.CompanyPkds.Any(companyPkd =>
-                companyPkd.CompanyId == company.Id && selectedPkdIds.Contains(companyPkd.PkdCodeId)));
+        var selectedPkdIds = pkdIds?.Where(x => x > 0).Distinct().OrderBy(x => x).ToArray() ?? Array.Empty<int>();
+        if (selectedPkdIds.Length == 0) return query;
+        var key = JsonSerializer.Serialize(selectedPkdIds);
+        if (!_pkdCandidates.TryGetValue(key, out var ids))
+        {
+            // Complete the PKD-only stage before SQL sees any other company criteria.
+            // The scoped DbContext keeps this connection open and cleans up on disposal.
+            if (_db.Database.GetDbConnection().State != System.Data.ConnectionState.Open)
+                await _db.Database.OpenConnectionAsync(token);
+            var table = "#PkdCompanies_" + Guid.NewGuid().ToString("N");
+            // Create outside the parameterized batch so the table outlives sp_executesql.
+            await ExecuteSearchSqlAsync(
+                $"CREATE TABLE [{table}] ([Value] int NOT NULL PRIMARY KEY)", token);
+            await ExecuteSearchSqlAsync($"""
+                -- CompanySearch.PkdCandidates
+                INSERT INTO [{table}] ([Value])
+                SELECT DISTINCT p.CompanyId
+                FROM ColdCall.CompanyPkds AS p WITH (INDEX(IX_CompanyPkds_PkdCodeId_CompanyId))
+                WHERE p.PkdCodeId IN (SELECT [Value] FROM OPENJSON(@PkdIds) WITH ([Value] int '$'))
+                OPTION (RECOMPILE);
+                """, new object[] { new SqlParameter("@PkdIds", System.Data.SqlDbType.NVarChar, -1) { Value = key } }, token);
+            ids = _db.Database.SqlQueryRaw<int>($"SELECT [Value] FROM [{table}]");
+            _pkdCandidates.Add(key, ids);
+        }
+        return query.Where(company => ids.Contains(company.Id));
     }
 
     private async Task<Point?> LocalityCenter(int? wojewodztwoId, int? powiatId, int? gminaId, int miejscowoscId, CancellationToken token)
@@ -241,9 +345,9 @@ public class CompanySearchQuery
             ? 0 : Math.Min(Math.Abs(minLatitude), Math.Abs(maxLatitude));
         var longitudeHalfWidth = Math.Min(180, latitudeHalfWidth /
             Math.Cos(closestLatitudeToEquator * Math.PI / 180));
-        await _db.Database.ExecuteSqlRawAsync(
+        await ExecuteSearchSqlAsync(
             $"CREATE TABLE [{table}] ([Value] int NOT NULL PRIMARY KEY)", token);
-        await _db.Database.ExecuteSqlRawAsync($"""
+        await ExecuteSearchSqlAsync($"""
             DECLARE @Center geography = geography::Point(@Latitude, @Longitude, 4326);
             INSERT INTO [{table}] ([Value])
             SELECT DISTINCT link.CompanyId
@@ -270,6 +374,22 @@ public class CompanySearchQuery
         return query.Where(company => ids.Contains(company.Id));
     }
 
+    private Task ExecuteSearchSqlAsync(string sql, CancellationToken token) =>
+        ExecuteSearchSqlAsync(sql, Array.Empty<object>(), token);
+
+    private async Task ExecuteSearchSqlAsync(string sql, object[] parameters, CancellationToken token)
+    {
+        try
+        {
+            await _db.Database.ExecuteSqlRawAsync(sql, parameters, token);
+        }
+        catch (SqlException exception) when (SqlRequestCancellation.IsExpected(exception, token))
+        {
+            // A newer filter canceled this request; keep real SQL failures visible.
+            throw new OperationCanceledException("Company search was canceled.", exception, token);
+        }
+    }
+
     private IQueryable<Company> ApplyDetailFilters(
         IQueryable<Company> query, string? address, bool includeAllCompanies, bool? hasPhone, bool? hasEmail,
         bool? hasWebsite, DateOnly? startedFrom, DateOnly? startedTo)
@@ -282,15 +402,12 @@ public class CompanySearchQuery
                     + (c.BuildingNumber ?? "") + (c.ApartmentNumber == null ? "" : "/" + c.ApartmentNumber)).Contains(term))
                 : query.Where(c => _db.CompaniesShort.Any(row => row.Id == c.Id && row.FullAddress.Contains(term)));
         }
-        if (hasPhone.HasValue)
-            query = hasPhone.Value ? query.Where(x => x.Phone != null && x.Phone.Trim() != "")
-                : query.Where(x => x.Phone == null || x.Phone.Trim() == "");
-        if (hasEmail.HasValue)
-            query = hasEmail.Value ? query.Where(x => x.Email != null && x.Email.Trim() != "")
-                : query.Where(x => x.Email == null || x.Email.Trim() == "");
-        if (hasWebsite.HasValue)
-            query = hasWebsite.Value ? query.Where(x => x.Website != null && x.Website.Trim() != "")
-                : query.Where(x => x.Website == null || x.Website.Trim() == "");
+        if (hasPhone.HasValue || hasEmail.HasValue || hasWebsite.HasValue)
+        {
+            // Enumerate the eight presence combinations so SQL can seek the contact index.
+            var flags = ContactFlags(hasPhone, hasEmail, hasWebsite);
+            query = query.Where(company => flags.Contains(EF.Property<byte>(company, "ContactFlags")));
+        }
         if (startedFrom.HasValue && startedTo.HasValue)
         {
             var from = startedFrom.Value.ToDateTime(TimeOnly.MinValue);
@@ -305,5 +422,12 @@ public class CompanySearchQuery
         }
         return query;
     }
+
+    private static byte[] ContactFlags(bool? phone, bool? email, bool? website) =>
+        Enumerable.Range(0, 8)
+            .Where(value => (!phone.HasValue || ((value & 1) != 0) == phone.Value)
+                && (!email.HasValue || ((value & 2) != 0) == email.Value)
+                && (!website.HasValue || ((value & 4) != 0) == website.Value))
+            .Select(value => (byte)value).ToArray();
 
 }

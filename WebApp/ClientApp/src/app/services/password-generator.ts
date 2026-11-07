@@ -1,5 +1,6 @@
 export class PasswordGenerator {
-  static generate(): string {
+  static generate(length = 12): string {
+    if (!Number.isInteger(length) || length < 12 || length > 128) { throw new RangeError('Invalid password length'); }
     const groups = ['ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz', '0123456789', '!@#$%^&*()-_=+?'];
     const alphabet = groups.join('');
     const limit = Math.floor(256 / alphabet.length) * alphabet.length;
@@ -7,9 +8,9 @@ export class PasswordGenerator {
     let password: string;
     do {
       password = '';
-      while (password.length < 12) {
+      while (password.length < length) {
         window.crypto.getRandomValues(bytes);
-        for (let i = 0; i < bytes.length && password.length < 12; i++) {
+        for (let i = 0; i < bytes.length && password.length < length; i++) {
           if (bytes[i] < limit) { password += alphabet[bytes[i] % alphabet.length]; }
         }
       }

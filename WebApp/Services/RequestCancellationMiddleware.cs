@@ -11,5 +11,11 @@ public sealed class RequestCancellationMiddleware(RequestDelegate next)
             if (!context.Response.HasStarted)
                 context.Response.StatusCode = StatusCodes.Status499ClientClosedRequest;
         }
+        catch (Microsoft.Data.SqlClient.SqlException exception)
+            when (SqlRequestCancellation.IsExpected(exception, context.RequestAborted))
+        {
+            if (!context.Response.HasStarted)
+                context.Response.StatusCode = StatusCodes.Status499ClientClosedRequest;
+        }
     }
 }

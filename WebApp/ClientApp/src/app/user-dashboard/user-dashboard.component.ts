@@ -31,6 +31,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   pkdDescription = '';
   classifyingPkd = false;
   @ViewChild('pkdErrorDialog', { static: true }) pkdErrorDialog: ElementRef;
+  @ViewChild('replacePkdDialog', { static: true }) replacePkdDialog: ElementRef;
   @ViewChild('duplicateExportDialog', { static: true }) duplicateExportDialog: ElementRef;
   @ViewChild('duplicateSearchDialog', { static: true }) duplicateSearchDialog: ElementRef;
   pkdClassificationMessage = '';
@@ -99,6 +100,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   searchFinishedAt = 0;
   private refreshingSearchCount = false;
   private companiesRequest: Subscription | null = null;
+  private pendingCompaniesLoad: { refresh: boolean; startedAt: number } | null = null;
+  private companiesDestroyed = false;
+  private companiesGeneration = 0;
   page = 1;
   sortBy = 'dataAktywnosci';
   direction = 'desc';
@@ -265,7 +269,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private refreshSearchCounts(profiles: SearchProfile[]) {
     if (this.searchCountsRequest) { this.searchCountsRequest.unsubscribe(); }
     // Sequential background requests avoid blocking the first grid or flooding SQL.
-    const pendingFirst = profiles.filter(profile => typeof this.searchRecordCounts[profile.id] !== 'number').sort((a, b) =>
+    // Refresh stored counts too: older saves may contain the plan-capped total.
+    const pendingFirst = profiles.slice().sort((a, b) =>
       Number(typeof this.searchRecordCounts[a.id] === 'number') - Number(typeof this.searchRecordCounts[b.id] === 'number'));
     this.searchCountsRequest = from(pendingFirst).pipe(concatMap(profile => {
       if (profile.id === this.currentSearchId) { return of(undefined); }
@@ -287,7 +292,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       return this.api.companies(1, criteria && criteria.sortColumn || 'dataAktywnosci',
         criteria && criteria.sortDirection || 'desc', profile.pkdCodes.map(pkd => pkd.id), filters).pipe(
         map(result => {
-          if (profile.id !== this.currentSearchId) { this.rememberRecordCount(profile.id, result.total); }
+          if (profile.id !== this.currentSearchId) { this.rememberRecordCount(profile.id, result.totalWithoutLimit == null ? result.total : result.totalWithoutLimit); }
         }),
         catchError(() => {
           if (profile.id !== this.currentSearchId) { this.searchRecordCounts[profile.id] = null; }
@@ -330,6 +335,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.activeDashboardTab = 'search';
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
+    this.pendingCompaniesLoad = null;
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     this.addressFields.forEach(field => {
       if (field.request) { field.request.unsubscribe(); field.request = null; }
@@ -614,17 +620,28 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     buttons[tabs.indexOf(tab)].focus();
   }
 
-  loadCompanies(refreshSearchCount = true) {
-    if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
-    if (refreshSearchCount && this.allResultsCountRequest) { this.allResultsCountRequest.unsubscribe(); }
+  loadCompanies(refreshSearchCount = true, startedAt = Date.now()) {
+    if (this.companiesDestroyed) { return; }
+    const generation = ++this.companiesGeneration;
     this.error = '';
-    this.searchStartedAt = Date.now();
+    this.searchStartedAt = startedAt;
     this.searchFinishedAt = 0;
+    if (this.companiesRequest && !this.companiesRequest.closed) {
+      this.pendingCompaniesLoad = { refresh: refreshSearchCount || !!(this.pendingCompaniesLoad && this.pendingCompaniesLoad.refresh), startedAt };
+      return;
+    }
     this.loading = true;
     this.refreshingSearchCount = refreshSearchCount;
     this.companiesRequest = this.api.companies(this.page, this.sortBy, this.direction, this.selectedPkds.map(x => x.id), this.appliedFilters, this.activeResultTab.days, this.activeResultTab.key === 'notes', refreshSearchCount)
-      .pipe(finalize(() => { this.loading = false; this.refreshingSearchCount = false; }))
+      .pipe(finalize(() => {
+        this.loading = false; this.refreshingSearchCount = false;
+        this.companiesRequest = null;
+        const pending = this.pendingCompaniesLoad;
+        this.pendingCompaniesLoad = null;
+        if (pending && !this.companiesDestroyed) { this.loadCompanies(pending.refresh, pending.startedAt); }
+      }))
       .subscribe(result => {
+      if (this.pendingCompaniesLoad || this.companiesDestroyed) { return; }
       this.searchFinishedAt = Date.now();
       this.hasNotes = result.hasNotes === true;
       if (this.activeResultTab.key === 'notes' && !this.hasNotes) {
@@ -637,19 +654,20 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       if (!this.companies.some(row => row.id === this.selectedCompanyId)) { this.selectedCompanyId = null; }
       this.total = result.total;
       this.totalWithoutLimit = result.totalWithoutLimit == null ? result.total : result.totalWithoutLimit;
-      if (this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.rememberRecordCount(this.currentSearchId, result.total); }
+      if (this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.rememberRecordCount(this.currentSearchId, this.totalWithoutLimit); }
       this.page = result.page;
       this.activeResultTab.page = this.page;
       if (refreshSearchCount && this.activeResultTab.key !== 'all' && this.currentSearchId !== null) {
         const searchId = this.currentSearchId;
         this.allResultsCountRequest = this.api.companies(1, this.sortBy, this.direction,
           this.selectedPkds.map(x => x.id), this.appliedFilters).subscribe(count => {
-            if (this.currentSearchId === searchId) { this.rememberRecordCount(searchId, count.total); }
+            if (!this.companiesDestroyed && generation === this.companiesGeneration && this.currentSearchId === searchId) { this.rememberRecordCount(searchId, count.totalWithoutLimit == null ? count.total : count.totalWithoutLimit); }
           }, () => {
-            if (this.currentSearchId === searchId) { this.searchRecordCounts[searchId] = null; }
+            if (!this.companiesDestroyed && generation === this.companiesGeneration && this.currentSearchId === searchId) { this.searchRecordCounts[searchId] = null; }
           });
       }
     }, err => {
+      if (this.pendingCompaniesLoad || this.companiesDestroyed) { return; }
       this.companies = [];
       this.total = 0;
       this.totalWithoutLimit = 0;
@@ -667,6 +685,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    this.companiesDestroyed = true;
+    this.pendingCompaniesLoad = null;
     this.preserveSearchDrafts();
     if (this.deletionQuotaRequest) { this.deletionQuotaRequest.unsubscribe(); }
     this.cancelCsvDeletion();
@@ -819,6 +839,25 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   checkPkdDescription() {
     if (!this.pkdDescription.length || this.filtersLocked) { return; }
+    if (this.selectedPkds.length) {
+      if (!this.replacePkdDialog.nativeElement.open) { this.replacePkdDialog.nativeElement.showModal(); }
+      return;
+    }
+    this.classifyPkdDescription();
+  }
+
+  cancelPkdReplacement() {
+    this.replacePkdDialog.nativeElement.close();
+  }
+
+  confirmPkdReplacement() {
+    if (!this.replacePkdDialog.nativeElement.open) { return; }
+    this.cancelPkdReplacement();
+    this.classifyPkdDescription();
+  }
+
+  private classifyPkdDescription() {
+    if (!this.pkdDescription.length || this.filtersLocked) { return; }
     this.clearPkds();
     this.classifyingPkd = true;
     this.pkdClassificationMessage = '';
@@ -952,6 +991,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.loadCsvExports();
     this.activeResultTab = this.resultTabs[0];
     if (this.restoreSearchRequest) { this.restoreSearchRequest.unsubscribe(); }
+    this.pendingCompaniesLoad = null;
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     this.restoringSearch = true;
     this.addressFields.forEach(field => {

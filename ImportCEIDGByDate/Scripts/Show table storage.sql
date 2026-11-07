@@ -1,6 +1,4 @@
-﻿USE [Firmy_temp];
-
-SELECT
+﻿SELECT
     s.name AS SchemaName,
     t.name AS TableName,
     SUM(CASE WHEN p.index_id IN (0, 1)

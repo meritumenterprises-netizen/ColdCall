@@ -1,0 +1,16 @@
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+SET ANSI_PADDING ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
+SET NUMERIC_ROUNDABORT OFF;
+SET NOCOUNT ON;
+SET LOCK_TIMEOUT 15000;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes
+    WHERE object_id = OBJECT_ID(N'ColdCall.CompanyPkds')
+      AND name = N'IX_CompanyPkds_PkdCodeId_CompanyId')
+    CREATE INDEX IX_CompanyPkds_PkdCodeId_CompanyId
+        ON ColdCall.CompanyPkds (PkdCodeId, CompanyId)
+        WITH (MAXDOP = 2);

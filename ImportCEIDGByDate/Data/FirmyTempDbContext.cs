@@ -186,6 +186,11 @@ public partial class FirmyTempDbContext : DbContext
             entity.Property(e => e.BuildingNumber).HasMaxLength(32);
             entity.Property(e => e.ApartmentNumber).HasMaxLength(32);
             entity.Property(e => e.Phone).HasMaxLength(32);
+            entity.Property<byte>("ContactFlags").HasComputedColumnSql(
+                "CONVERT(tinyint, (CASE WHEN [Phone] IS NOT NULL AND LTRIM(RTRIM([Phone])) <> '' THEN 1 ELSE 0 END) + (CASE WHEN [Email] IS NOT NULL AND LTRIM(RTRIM([Email])) <> '' THEN 2 ELSE 0 END) + (CASE WHEN [Website] IS NOT NULL AND LTRIM(RTRIM([Website])) <> '' THEN 4 ELSE 0 END))", stored: false);
+            entity.HasIndex("ContactFlags", nameof(Company.StatusDzialalnosciId), nameof(Company.StartedAt), nameof(Company.Id))
+                .HasDatabaseName("IX_Companies_ContactFlags_Status_StartedAt_Id")
+                .IsDescending(false, false, true, false).IncludeProperties(nameof(Company.ImportedOn));
             entity.Property(e => e.Email).HasMaxLength(256);
             entity.Property(e => e.GoogleEmail).HasMaxLength(256);
             entity.Property(e => e.Website).HasMaxLength(512);
@@ -250,6 +255,8 @@ public partial class FirmyTempDbContext : DbContext
                     join.HasIndex("CompanyId", "PkdCodeId")
                         .HasDatabaseName("IX_CompanyPkds_CompanyId_PkdCodeId").IsUnique();
                     join.HasIndex("PkdCodeId").HasDatabaseName("IX_CompanyPkds_PkdCodeId");
+                    join.HasIndex("PkdCodeId", "CompanyId")
+                        .HasDatabaseName("IX_CompanyPkds_PkdCodeId_CompanyId");
                 });
 
         modelBuilder.Entity<CompanyStatus>(entity =>

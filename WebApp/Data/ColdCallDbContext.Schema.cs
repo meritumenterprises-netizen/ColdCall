@@ -191,6 +191,11 @@ public partial class ColdCallDbContext
             entity.Property(x => x.BuildingNumber).HasMaxLength(32);
             entity.Property(x => x.ApartmentNumber).HasMaxLength(32);
             entity.Property(x => x.Phone).HasMaxLength(32);
+            entity.Property<byte>("ContactFlags").HasComputedColumnSql(
+                "CONVERT(tinyint, (CASE WHEN [Phone] IS NOT NULL AND LTRIM(RTRIM([Phone])) <> '' THEN 1 ELSE 0 END) + (CASE WHEN [Email] IS NOT NULL AND LTRIM(RTRIM([Email])) <> '' THEN 2 ELSE 0 END) + (CASE WHEN [Website] IS NOT NULL AND LTRIM(RTRIM([Website])) <> '' THEN 4 ELSE 0 END))", stored: false);
+            entity.HasIndex("ContactFlags", nameof(Company.StatusDzialalnosciId), nameof(Company.StartedAt), nameof(Company.Id))
+                .HasDatabaseName("IX_Companies_ContactFlags_Status_StartedAt_Id")
+                .IsDescending(false, false, true, false).IncludeProperties(nameof(Company.ImportedOn));
             entity.Property(x => x.Email).HasMaxLength(256);
             entity.HasIndex(x => x.Phone).HasDatabaseName("IX_Companies_Phone").IsUnique(false).IsClustered(false);
             entity.HasIndex(x => new { x.Phone, x.Id }).HasDatabaseName("IX_Companies_PhoneDesc_Id")
@@ -229,6 +234,8 @@ public partial class ColdCallDbContext
         modelBuilder.Entity<PkdCode>().Property(x => x.NeedsClarification).HasDefaultValue(false);
         modelBuilder.Entity<PkdCode>().Property(x => x.CodeWithoutDots).HasMaxLength(4000).IsRequired(false);
         modelBuilder.Entity<CompanyPkd>().HasIndex(x => x.PkdCodeId);
+        modelBuilder.Entity<CompanyPkd>().HasIndex(x => new { x.PkdCodeId, x.CompanyId })
+            .HasDatabaseName("IX_CompanyPkds_PkdCodeId_CompanyId");
         modelBuilder.Entity<CompanyPkd>().Property(x => x.Prevailing)
             .HasColumnType("bit").IsRequired().HasDefaultValue(false);
         modelBuilder.Entity<SearchProfilePkd>().HasIndex(x => x.PkdCodeId);

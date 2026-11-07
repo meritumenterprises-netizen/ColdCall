@@ -220,7 +220,7 @@
                         (focus)="showPlanHint($event, row.descriptionHtml)" (blur)="planHint = null" (keydown.escape)="planHint = null"
                         [attr.aria-describedby]="planHint ? 'admin-plan-tooltip' : null">{{ row.planCode }}</span><ng-template #noUserPlan>-</ng-template></td>
               <td>{{ row.createdAtUtc ? (row.createdAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
-              <td [class.expired]="row.expired">{{ row.expiresAtUtc ? (row.expiresAtUtc | date:'dd.MM.yyyy HH:mm') : '-' }}</td>
+              <td [class.expired]="!row.isAdmin && row.expired">{{ row.isAdmin ? 'N/A' : formatUserExpiry(row.expiresAtUtc) }}</td>
               <td class="admin-plan-purchase-cell">
                 <input type="checkbox" [checked]="row.disablePlanPurchase"
                        [disabled]="busyUserIds.has(row.id)"
@@ -364,9 +364,10 @@
       <form #setUserPasswordForm="ngForm" (ngSubmit)="confirmSetUserPassword()">
         <fieldset [disabled]="settingUserPassword">
           <label for="admin-user-password">Nowe has&#322;o</label>
-          <input id="admin-user-password" name="password" type="password" required minlength="12" maxlength="128"
-                 [(ngModel)]="userPassword" autocomplete="new-password" autofocus aria-describedby="admin-user-password-hint">
-          <p id="admin-user-password-hint">Has&#322;o musi mie&#263; od 12 do 128 znak&#243;w.</p>
+          <input id="admin-user-password" name="password" type="text" required minlength="12" maxlength="128"
+                 [pattern]="userPasswordPattern" [(ngModel)]="userPassword" autocomplete="new-password" autofocus aria-describedby="admin-user-password-hint">
+          <button type="button" class="ghost-button compact" (click)="generateSetUserPassword()">Wygeneruj</button>
+          <p id="admin-user-password-hint">Has&#322;o musi mie&#263; od 12 do 128 znak&#243;w oraz zawiera&#263; litery, cyfry i znaki specjalne.</p>
           <p *ngIf="userPasswordError" class="error" role="alert">{{ userPasswordError }}</p>
           <div class="delete-csv-actions">
             <button type="submit" class="primary-button" [disabled]="settingUserPassword || setUserPasswordForm.invalid">{{ settingUserPassword ? 'Zapisywanie...' : 'Ustaw hasło' }}</button>
