@@ -17,6 +17,16 @@
     <button type="button" class="ghost-button" autofocus (click)="cancelCsvDeletion()">Nie</button>
   </div>
 </dialog>
+<dialog #replacePkdDialog class="save-search-dialog" role="alertdialog"
+        aria-labelledby="replace-pkd-title" aria-describedby="replace-pkd-message"
+        (cancel)="$event.preventDefault(); cancelPkdReplacement()">
+  <h2 id="replace-pkd-title">Zmiana kod&#243;w PKD</h2>
+  <p id="replace-pkd-message">Masz wybrane kody PKD. Zapytanie o typ dzia&#322;alno&#347;ci usunie istniej&#261;ce kody PKD i doda nowe. Czy potwierdzasz, &#380;e chcesz usun&#261;&#263; istniej&#261;ce kody PKD?</p>
+  <div class="save-search-dialog-actions">
+    <button type="button" class="primary-button" (click)="confirmPkdReplacement()">Tak</button>
+    <button type="button" class="ghost-button" autofocus (click)="cancelPkdReplacement()">Nie</button>
+  </div>
+</dialog>
 <div class="app-layout">
   <aside class="sidebar">
     <nav aria-label="Nawigacja użytkownika">

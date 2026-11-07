@@ -21,6 +21,7 @@ var builder = WebApplication.CreateBuilder(args.Where(arg =>
 
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<CompanySearchSnapshotCache>();
 builder.Services.AddSingleton<LandingStatisticsService>();
 builder.Services.AddHostedService(services => services.GetRequiredService<LandingStatisticsService>());
 builder.Services.AddDbContext<ColdCallDbContext>(options =>

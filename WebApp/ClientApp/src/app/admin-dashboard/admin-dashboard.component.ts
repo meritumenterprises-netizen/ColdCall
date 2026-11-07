@@ -21,6 +21,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   busyUserIds = new Set<number>();
   passwordUser: { id: number; googleEmail: string } | null = null;
   userPassword = '';
+  readonly userPasswordPattern = new RegExp('^(?=[\\s\\S]*\\p{L})(?=[\\s\\S]*[0-9])(?=[\\s\\S]*[^\\p{L}\\p{N}\\s])[\\s\\S]*$', 'u');
   settingUserPassword = false;
   userPasswordError = '';
   private userActionRequests = new Set<Subscription>();
@@ -326,9 +327,18 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.userPassword = '';
     this.userPasswordError = '';
   }
+  generateSetUserPassword() {
+    if (this.settingUserPassword) { return; }
+    try {
+      this.userPassword = PasswordGenerator.generate(16);
+      this.userPasswordError = '';
+    } catch {
+      this.userPasswordError = 'Nie uda\u0142o si\u0119 wygenerowa\u0107 has\u0142a. Wpisz has\u0142o r\u0119cznie.';
+    }
+  }
   confirmSetUserPassword() {
     if (!this.passwordUser || this.settingUserPassword || this.userPassword.length < 12
-        || this.userPassword.length > 128) { return; }
+        || this.userPassword.length > 128 || !this.userPasswordPattern.test(this.userPassword)) { return; }
     const userId = this.passwordUser.id;
     this.settingUserPassword = true;
     this.busyUserIds.add(userId);
@@ -389,6 +399,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { level: 'miejscowosci', label: 'Miejscowość', selectedId: null, term: '', options: [], loading: false, error: '', request: null }
   ];
   private companiesRequest: Subscription | null = null;
+  private pendingCompaniesLoad: { refresh: boolean; startedAt: number } | null = null;
+  private companiesDestroyed = false;
   searchStartedAt = 0;
   searchFinishedAt = 0;
   companySearchError = '';
@@ -455,6 +467,8 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }, () => this.filterError = 'Nie udalo sie rozpoznac kodow PKD.');
   }
   ngOnDestroy() {
+    this.companiesDestroyed = true;
+    this.pendingCompaniesLoad = null;
     this.userPassword = '';
     this.newUserPassword = '';
     if (this.newUserPlansRequest) { this.newUserPlansRequest.unsubscribe(); }
@@ -531,19 +545,26 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   ];
   get visibleUserColumns() { return this.usersTab === 'beta' ? this.userColumns.filter(column => column.key !== 'isAdmin') : this.userColumns; }
   private dateUtc(value: string) { return /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + 'Z'; }
+  formatUserExpiry(value: string): string {
+    const remaining = value ? new Date(value).getTime() - Date.now() : NaN;
+    if (!Number.isFinite(remaining) || remaining <= 0) { return 'Wygas\u0142a'; }
+    const days = Math.ceil(remaining / 86400000);
+    return days === 1 ? 'za 1 dzie\u0144' : 'za ' + days + ' dni';
+  }
   get userRows() {
     const now = Date.now();
     const rows = this.users.map(user => {
       const plans = (user.plans || []).slice().sort((a, b) => new Date(this.dateUtc(b.expiresAtUtc)).getTime() - new Date(this.dateUtc(a.expiresAtUtc)).getTime());
       const plan = plans[0];
-      const expiresAtUtc = plan ? this.dateUtc(plan.expiresAtUtc) : '';
+      const expiresAtUtc = plan && plan.expiresAtUtc ? this.dateUtc(plan.expiresAtUtc) : '';
       return { id: user.id, displayName: user.displayName || '', googleEmail: user.googleEmail,
         disablePlanPurchase: !!user.disablePlanPurchase,
         isEnabled: !!user.isEnabled,
         isAdmin: !!user.isAdmin,
         isBetaUser: !!user.isBetaUser,
         createdAtUtc: user.createdAtUtc ? this.dateUtc(user.createdAtUtc) : '',
-        planCode: plan ? plan.planCode : '', descriptionHtml: plan ? plan.descriptionHtml || '' : '', expiresAtUtc, expired: !!plan && new Date(expiresAtUtc).getTime() < now };
+        planCode: plan ? plan.planCode : '', descriptionHtml: plan ? plan.descriptionHtml || '' : '', expiresAtUtc,
+        expired: !expiresAtUtc || !Number.isFinite(new Date(expiresAtUtc).getTime()) || new Date(expiresAtUtc).getTime() <= now };
     });
     const email = this.userEmailFilter.trim().toLowerCase();
     return rows.filter(row => (this.usersTab === 'all' || (this.usersTab === 'beta' ? row.isBetaUser : row.isAdmin))
@@ -667,18 +688,32 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.loadUsers();
   }
 
-  loadCompanies(refreshCount = true) {
-    if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
+  loadCompanies(refreshCount = true, startedAt = Date.now()) {
+    if (this.companiesDestroyed) { return; }
     this.companySearchError = '';
-    this.searchStartedAt = Date.now();
+    this.searchStartedAt = startedAt;
     this.searchFinishedAt = 0;
+    if (this.companiesRequest && !this.companiesRequest.closed) {
+      this.pendingCompaniesLoad = { refresh: refreshCount || !!(this.pendingCompaniesLoad && this.pendingCompaniesLoad.refresh), startedAt };
+      return;
+    }
     this.loading = true;
-    this.companiesRequest = this.api.adminCompanies(this.page, this.sortBy, this.direction, '', this.selectedPkds.map(p => p.id), this.filters, this.nipTerm.replace(/[-\s]/g, ''), this.blockedByRodoFilter, refreshCount).pipe(finalize(() => this.loading = false)).subscribe(x => {
+    this.companiesRequest = this.api.adminCompanies(this.page, this.sortBy, this.direction, '', this.selectedPkds.map(p => p.id), this.filters, this.nipTerm.replace(/[-\s]/g, ''), this.blockedByRodoFilter, refreshCount).pipe(finalize(() => {
+      this.loading = false;
+      this.companiesRequest = null;
+      const pending = this.pendingCompaniesLoad;
+      this.pendingCompaniesLoad = null;
+      if (pending && !this.companiesDestroyed) { this.loadCompanies(pending.refresh, pending.startedAt); }
+    })).subscribe(x => {
+      if (this.pendingCompaniesLoad || this.companiesDestroyed) { return; }
       this.searchFinishedAt = Date.now();
       this.companies = x.items;
       this.total = x.total;
       this.pageSize = x.pageSize;
-    }, err => this.companySearchError = err.error && err.error.message ? err.error.message : 'Nie udalo sie pobrac firm.');
+    }, err => {
+      if (this.pendingCompaniesLoad || this.companiesDestroyed) { return; }
+      this.companySearchError = err.error && err.error.message ? err.error.message : 'Nie udalo sie pobrac firm.';
+    });
   }
 
   loadUsers() {

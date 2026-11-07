@@ -157,9 +157,9 @@ public class SearchesController : ControllerBase
             return Conflict(new { code = "DuplicateSearchCriteria", message = "Wyszukiwanie z takimi samymi kryteriami ju\u017c istnieje. Czy na pewno chcesz je zapisa\u0107?" });
         try
         {
-            var query = await new CompanySearchQuery(_db).BuildAsync(profile.Criteria, request.PkdCodeIds.ToArray(), null);
-            profile.RecordCount = await query.Select(company => company.Id).Take(maximumRecordLimit)
-                .CountAsync(HttpContext.RequestAborted);
+            var query = await new CompanySearchQuery(_db).BuildCompaniesAsync(profile.Criteria,
+                request.PkdCodeIds.ToArray(), null, token: HttpContext.RequestAborted);
+            profile.RecordCount = await query.CountAsync(HttpContext.RequestAborted);
         }
         catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); }
         profile.LastSavedAtUtc = DateTime.UtcNow;
