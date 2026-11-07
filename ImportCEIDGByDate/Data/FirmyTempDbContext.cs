@@ -47,6 +47,8 @@ public partial class FirmyTempDbContext : DbContext
             entity.HasKey(e => e.UserLoginId).HasName("PK_UserLogin");
             entity.Property(e => e.UserLoginId).UseIdentityColumn();
             entity.Property(e => e.LoginDate).HasColumnType("datetime");
+            entity.Property(e => e.IpAddress).HasMaxLength(50).IsUnicode(false).IsRequired(false);
+            entity.Property(e => e.DnsAddress).HasMaxLength(2048).IsUnicode(false).IsRequired(false);
         });
         modelBuilder.Entity<GlobalSetting>(entity =>
         {
