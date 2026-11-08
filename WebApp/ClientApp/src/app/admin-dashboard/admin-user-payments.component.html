@@ -8,10 +8,11 @@
             <span *ngIf="sortBy === column.key">{{ direction === 'asc' ? '&#9650;' : '&#9660;' }}</span>
           </button>
         </th>
-        <th class="payment-invoice">Faktura</th>
+        <th class="payment-invoice">Faktura VAT</th>
+        <th class="payment-delete">Usu&#324;</th>
       </tr></thead>
       <tbody>
-        <tr *ngIf="loading"><td colspan="4" role="status">Wczytywanie...</td></tr>
+        <tr *ngIf="loading"><td colspan="5" role="status">Wczytywanie...</td></tr>
         <tr *ngFor="let payment of sortedPayments">
           <td>{{ payment.paidAtUtc | date:'dd.MM.yyyy HH:mm' }}</td>
           <td>{{ payment.planCode }}</td>
@@ -21,22 +22,29 @@
                     title="Pobierz faktur&#281; PDF" aria-label="Pobierz faktur&#281; PDF"
                     [disabled]="downloadingInvoice !== null" [attr.aria-busy]="downloadingInvoice === payment.stripeSessionId"
                     (click)="downloadInvoice(payment)">
-              <img src="assets/icons/file-down.svg" width="20" height="20" alt=""><span>PDF</span>
+              <img src="assets/icons/invoice-pdf.png" width="16" height="16" alt="">
             </button>
             <ng-template #noInvoice>-</ng-template>
           </td>
+          <td class="payment-delete">
+            <button *ngIf="payment !== latestPayment" type="button" class="delete-payment" title="Usu&#324; p&#322;atno&#347;&#263;" aria-label="Usu&#324; p&#322;atno&#347;&#263;"
+                    [disabled]="loading || deletingPayment !== null" [attr.aria-busy]="deletingPayment === payment.stripeSessionId"
+                    (click)="deletePayment(payment)"><span aria-hidden="true">&#215;</span></button>
+          </td>
         </tr>
-        <tr *ngIf="!loading && !error && !payments.length"><td colspan="4">Brak p&#322;atno&#347;ci.</td></tr>
+        <tr *ngIf="!loading && !error && !payments.length"><td colspan="5">Brak p&#322;atno&#347;ci.</td></tr>
       </tbody>
       <tfoot *ngIf="!loading && !error">
         <tr>
           <th colspan="2" scope="row">Suma</th>
           <td class="payment-amount"><strong>{{ totalAmountPaid | number:'1.2-2' }} PLN</strong></td>
           <td></td>
+          <td></td>
         </tr>
       </tfoot>
     </table>
   </div>
   <p *ngIf="invoiceError" class="error" role="alert">{{ invoiceError }}</p>
+  <p *ngIf="deleteError" class="error" role="alert">{{ deleteError }}</p>
   <div *ngIf="error" class="error" role="alert">{{ error }} <button type="button" class="ghost-button" (click)="load()">Pon&#243;w</button></div>
 </section>

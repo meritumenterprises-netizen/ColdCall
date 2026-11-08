@@ -5,21 +5,22 @@
          (mouseenter)="planHintOpen = true" (mouseleave)="planHintOpen = false"
          (focus)="planHintOpen = true" (blur)="planHintOpen = false"
          [attr.aria-describedby]="planHintOpen && plan.descriptionHtml ? 'current-plan-tooltip' : null">
-      Plan: {{ plan.code }}<ng-container *ngIf="plan.isTrial"> (pr&#243;bny)</ng-container>
+      Plan: <a routerLink="/profile/plan" class="current-plan-link"><strong>{{ plan.code }}<ng-container *ngIf="plan.isTrial"> (pr&#243;bny)</ng-container></strong></a>
       <div *ngIf="planHintOpen && plan.descriptionHtml" id="current-plan-tooltip"
            role="tooltip" class="current-plan-tooltip" [innerHTML]="plan.descriptionHtml"></div>
     </div>
-    <span>Wygasa: {{ plan.expiresAtUtc | slice:0:10 }} (za {{ planDaysRemaining }} {{ planDaysRemaining === 1 ? 'dzie&#324;' : 'dni' }})</span>
+    <span>Wygasa: <strong>{{ plan.expiresAtUtc | slice:0:10 }} (za {{ planDaysRemaining }} {{ planDaysRemaining === 1 ? 'dzie&#324;' : 'dni' }})</strong></span>
   </div>
   <nav *ngIf="showAuthenticatedMenu()">
     <app-landing-menu [embedded]="true"></app-landing-menu>
     <a *ngIf="api.isAdmin()" routerLink="/admin" routerLinkActive="active">Admin</a>
+    <span *ngIf="!api.isAdmin() && api.user()?.isBetaUser" class="beta-badge">Beta user</span>
     <div class="user-menu" *ngIf="api.user()">
       <button #userMenuButton type="button" class="user-chip" [attr.aria-expanded]="userMenuOpen" aria-controls="user-menu-links"
               (click)="userMenuOpen = !userMenuOpen">
         <img *ngIf="avatarUrl" [src]="avatarUrl" referrerpolicy="no-referrer" (error)="avatarFailed()" alt="">
         <span *ngIf="!avatarUrl" class="avatar-fallback" aria-hidden="true">{{ avatarInitials }}</span>
-        <span>{{ api.user()?.displayName || api.user()?.googleEmail }}<ng-container *ngIf="api.user()?.isBetaUser"> (beta)</ng-container></span>
+        <span>{{ api.user()?.displayName || api.user()?.googleEmail }}</span>
         <span aria-hidden="true">&#9662;</span>
       </button>
       <div id="user-menu-links" class="user-menu-links" *ngIf="userMenuOpen">

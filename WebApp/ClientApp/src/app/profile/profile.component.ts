@@ -3,6 +3,8 @@ import { Subscription } from 'rxjs';
 import { finalize, switchMap } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, CurrentPlan, StripePurchase, UserProfile, ProfileDetails } from '../services/api.service';
+import { isValidNip } from '../services/nip-validation';
+import { NipGenerator } from '../services/nip-generator';
 
 @Component({
   selector: 'app-profile',
@@ -16,6 +18,11 @@ export class ProfileComponent implements OnInit, OnDestroy {
   profile: UserProfile | null = null;
   details: ProfileDetails = { firstName: '', lastName: '', companyName: '', nip: '', phone: '', postalCode: '', city: '', street: '', streetNumber: '' };
   saving = false;
+  private savedDetails: ProfileDetails | null = null;
+
+  get hasDetailsChanges(): boolean {
+    return !this.savedDetails || this.detailFields.some(field => this.details[field.key] !== this.savedDetails[field.key]);
+  }
   saveError = '';
   saveMessage = '';
   private saveRequest: Subscription | null = null;
@@ -32,10 +39,13 @@ export class ProfileComponent implements OnInit, OnDestroy {
   ];
 
   saveDetails() {
-    if (this.saving) { return; }
+    if (this.saving || !this.hasDetailsChanges) { return; }
     this.saveError = ''; this.saveMessage = '';
+    if (!isValidNip(this.details.nip)) {
+      this.saveError = 'NIP musi zawiera\u0107 10 cyfr i mie\u0107 poprawn\u0105 cyfr\u0119 kontroln\u0105 albo pozosta\u0107 pusty.';
+      return;
+    }
     if (this.detailFields.some(field => field.key !== 'companyName' && field.key !== 'nip' && !this.details[field.key].trim())
-      || (!!this.details.nip && !/^[0-9]{10}$/.test(this.details.nip))
       || !/^[0-9]{2}-[0-9]{3}$/.test(this.details.postalCode)) {
       this.saveError = 'Uzupelnij wymagane pola, kod pocztowy (00-000) oraz NIP (10 cyfr), jesli podano.'; return;
     }
@@ -45,8 +55,19 @@ export class ProfileComponent implements OnInit, OnDestroy {
     this.saveRequest = this.api.updateProfile(details).pipe(switchMap(() => this.api.me(false)), finalize(() => this.saving = false)).subscribe(user => {
       if (this.profile) { Object.assign(this.profile, details, { displayName: details.firstName.trim() + ' ' + details.lastName.trim() }); }
       this.saveMessage = 'Dane zostaly zapisane.';
+      this.savedDetails = { ...details };
       if (completingProfile && !user.requiresProfileCompletion) { this.router.navigateByUrl(user.hasActivePlan ? '/dashboard' : '/plans'); }
     }, () => this.saveError = 'Nie udalo sie zapisac danych. Sprobuj ponownie.');
+  }
+
+  get canGenerateNip(): boolean {
+    return !!this.profile && (this.profile.isBetaUser || !!(this.profile.plan && this.profile.plan.isTrial));
+  }
+
+  generateNip() {
+    if (this.saving || !this.canGenerateNip) { return; }
+    this.details.nip = NipGenerator.generate();
+    this.saveError = ''; this.saveMessage = '';
   }
   loading = true;
   error = '';
@@ -132,6 +153,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
     this.request = this.api.profile().pipe(finalize(() => this.loading = false)).subscribe(user => {
       this.profile = user;
       this.detailFields.forEach(field => this.details[field.key] = user[field.key] || '');
+      this.savedDetails = { ...this.details };
       this.plan = user.plan || null;
       if (this.isPurchasesPanel) {
         if (user.isAdmin) { this.router.navigateByUrl('/profile/data', { replaceUrl: true }); return; }

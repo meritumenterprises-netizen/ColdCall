@@ -42,12 +42,16 @@ button {
 }
 .avatar-fallback { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; }
 .topbar { gap: 24px; }
+.beta-badge { padding: 9px 12px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-strong); font: inherit; white-space: nowrap; }
 .topbar nav { align-items: center; margin-left: auto; }
 .topbar nav a.plans-menu-link,
 .topbar nav a.plans-menu-link:hover,
 .topbar nav a.plans-menu-link.active,
 .topbar nav a.plans-menu-link:focus { background: transparent; }
-.plan-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 32px; color: #4b5563; font-size: 12px; font-weight: 600; min-width: 0; }
+.plan-summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 32px; color: #4b5563; font-size: 14px; font-weight: 400; min-width: 0; }
+.plan-summary strong { font-weight: 700; }
+.current-plan-link { color: inherit; text-decoration: underline; }
+.current-plan-link:hover { color: var(--accent-strong); }
 .plan-summary span { overflow-wrap: anywhere; }
 .plan-summary.admin-mode { color: #dc2626; }
 .current-plan-label { position: relative; cursor: help; }

@@ -29,8 +29,11 @@ public static class PlanOfferRules
         if (current == null || current.IsTrial) return !target.IsUpgrade;
         if (current.Id == target.Id || EffectiveCode(current.Code) == HighestPlanCode) return false;
         var codes = UpgradeCodesFor(current.Code);
+        var targetCode = target.Code.Trim();
+        if (targetCode.StartsWith("Upgrade ", StringComparison.OrdinalIgnoreCase))
+            targetCode = targetCode[8..].Trim();
         if (codes.Length > 0)
-            return target.IsUpgrade && codes.Contains(target.Code.Trim(), StringComparer.OrdinalIgnoreCase);
+            return target.IsUpgrade && codes.Contains(targetCode, StringComparer.OrdinalIgnoreCase);
         return target.IsUpgrade
             && target.UpgradeFrom == (current.IsUpgrade ? current.UpgradeFrom : current.Id)
             && target.MaxNumberOfSearches > current.MaxNumberOfSearches;

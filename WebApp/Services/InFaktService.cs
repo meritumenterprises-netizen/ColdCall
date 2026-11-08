@@ -16,7 +16,14 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
         using var request = CreateRequest(HttpMethod.Post);
         request.Content = JsonContent.Create(new { client = company });
         using var response = await client.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var details = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (details.Length > 8192) details = details[..8192];
+            throw new HttpRequestException(
+                $"inFakt CreateCompany failed (HTTP {(int)response.StatusCode}): {details}",
+                null, response.StatusCode);
+        }
         return await response.Content.ReadFromJsonAsync<InFaktClient>(cancellationToken)
             ?? throw new InvalidDataException("inFakt returned an empty response.");
     }
