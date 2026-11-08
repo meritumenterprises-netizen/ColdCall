@@ -1,6 +1,0 @@
-﻿# Limit sterty GC: 4 GiB, wartość szesnastkowa.
-$env:DOTNET_GCHeapHardLimit = '0x100000000'
-
-dotnet .\ImportCEIDGByDate.dll 2026-10-29
-
-Remove-Item Env:DOTNET_GCHeapHardLimit
