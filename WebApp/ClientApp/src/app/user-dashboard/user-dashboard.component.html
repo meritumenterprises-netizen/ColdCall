@@ -31,6 +31,16 @@
         aria-busy="true" (cancel)="$event.preventDefault()">
   <h2 id="csv-progress-title" role="status" aria-live="polite">Eksportowanie do CSV...</h2>
 </dialog>
+<dialog #saveNewSearchDialog class="save-search-dialog" aria-labelledby="save-new-search-title"
+        (cancel)="$event.preventDefault(); cancelSearchSwitch()">
+  <h2 id="save-new-search-title">Zapis wyszukiwania</h2>
+  <p>Czy chcesz zapisa&#263; {{ currentSearchId === null || currentSearchId <= 0 ? 'nowe wyszukiwanie' : 'zmiany w wyszukiwaniu' }} „{{ searchName }}” przed przej&#347;ciem do innego wyszukiwania?</p>
+  <div class="save-search-dialog-actions">
+    <button type="button" class="primary-button" [disabled]="!canSaveSearch" (click)="saveBeforeSwitching()">Zapisz</button>
+    <button type="button" class="ghost-button" (click)="switchWithoutSaving()">Nie zapisuj</button>
+    <button type="button" class="ghost-button" autofocus (click)="cancelSearchSwitch()">Anuluj</button>
+  </div>
+</dialog>
 <div class="app-layout">
   <aside class="sidebar">
     <nav aria-label="Nawigacja użytkownika">
