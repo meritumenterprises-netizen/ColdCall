@@ -476,6 +476,12 @@ export class ApiService {
       { ...this.headers(), params: { sessionId }, responseType: 'blob' });
   }
 
+  deleteAdminUserPayment(id: number, sessionId: string): Observable<void> {
+    const csrf = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
+    return csrf.pipe(switchMap(() => this.http.delete<void>(this.url('/api/admin/users/' + id + '/payments'),
+      { ...this.headers(), params: { sessionId } })));
+  }
+
   purchaseInvoice(sessionId: string): Observable<Blob> {
     return this.http.get(this.url('/api/auth/purchases/invoice'),
       { ...this.headers(), params: { sessionId }, responseType: 'blob' });

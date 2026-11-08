@@ -10,7 +10,7 @@
     <article *ngFor="let plan of plans" class="plan-card">
       <h2 class="plan-title">{{ plan.code | uppercase }}</h2>
       <div class="plan-description" [innerHTML]="plan.descriptionHtml"></div>
-      <div class="price">{{ plan.price | number:'1.2-2' }} {{ plan.currency }}</div>
+      <div class="price">{{ plan.price | number:'1.2-2' }} {{ plan.currency }} netto + 23% VAT</div>
     </article>
   </section>
   <p *ngIf="!loading && !error && plans.length && showRegistrationPrompt" class="registration-prompt">Zarejestruj się na stronie głównej, a następnie wykup dowolny plan!</p>

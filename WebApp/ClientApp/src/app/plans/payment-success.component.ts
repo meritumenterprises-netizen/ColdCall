@@ -28,7 +28,7 @@ export class PaymentSuccessComponent implements OnInit, OnDestroy {
     this.loading = true; this.error = ''; this.paid = false;
     this.request = timer(0, 2000).pipe(
       take(15),
-      exhaustMap(() => this.api.confirmCheckout(id).pipe(timeout(15000))),
+      exhaustMap(() => this.api.confirmCheckout(id).pipe(timeout(120000))),
       takeWhile(result => !result.paid, true),
       switchMap(result => result.paid ? this.api.me(false).pipe(switchMap(() => of(true))) : of(false))
     ).subscribe(paid => {

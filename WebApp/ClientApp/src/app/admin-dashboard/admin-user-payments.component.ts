@@ -21,6 +21,35 @@ export class AdminUserPaymentsComponent implements OnChanges, OnDestroy {
   private invoiceRequest: Subscription | null = null;
   downloadingInvoice: string | null = null;
   invoiceError = '';
+  deletingPayment: string | null = null;
+  deleteError = '';
+  private deleteRequest: Subscription | null = null;
+
+  get latestPayment(): AdminUserPayment | null {
+    return this.payments.reduce((latest, payment) => !latest
+      || Date.parse(payment.paidAtUtc) > Date.parse(latest.paidAtUtc) ? payment : latest, null);
+  }
+
+  deletePayment(payment: AdminUserPayment) {
+    if (this.loading || this.deletingPayment !== null || payment === this.latestPayment) { return; }
+    if (!window.confirm('Czy na pewno usun\u0105\u0107 zapis tej p\u0142atno\u015bci? Nie spowoduje to zwrotu pieni\u0119dzy ani usuni\u0119cia p\u0142atno\u015bci w Stripe.')) { return; }
+    const userId = this.userId;
+    this.deletingPayment = payment.stripeSessionId;
+    this.deleteError = '';
+    this.deleteRequest = this.api.deleteAdminUserPayment(userId, payment.stripeSessionId)
+      .pipe(finalize(() => this.deletingPayment = null)).subscribe(() => {
+        if (this.userId === userId) {
+          this.payments = this.payments.filter(row => row.stripeSessionId !== payment.stripeSessionId);
+        }
+      }, err => {
+        if (this.userId !== userId) { return; }
+        this.deleteError = err.error && typeof err.error.message === 'string' ? err.error.message
+          : err.status === 404 || err.status === 405 ? 'Nie znaleziono platnosci lub endpointu usuwania. Odswiez liste; jesli blad pozostaje, przebuduj i uruchom ponownie backend.'
+          : err.status === 401 ? 'Sesja wygasla. Zaloguj sie ponownie.'
+          : err.status === 403 ? 'Brak uprawnien administratora do usuniecia platnosci.'
+          : 'Nie udalo sie usunac platnosci (HTTP ' + err.status + ').';
+      });
+  }
 
   downloadInvoice(payment: AdminUserPayment) {
     if (!payment.hasInvoice || this.downloadingInvoice !== null) { return; }
@@ -45,10 +74,13 @@ export class AdminUserPaymentsComponent implements OnChanges, OnDestroy {
   }
   ngOnChanges() { this.sortBy = 'paidAtUtc'; this.direction = 'desc'; this.load(); }
   ngOnDestroy() {
+    if (this.deleteRequest) { this.deleteRequest.unsubscribe(); }
     if (this.request) { this.request.unsubscribe(); }
     if (this.invoiceRequest) { this.invoiceRequest.unsubscribe(); }
   }
   load() {
+    if (this.deleteRequest) { this.deleteRequest.unsubscribe(); }
+    this.deleteError = '';
     if (this.invoiceRequest) { this.invoiceRequest.unsubscribe(); }
     this.invoiceError = '';
     if (this.request) { this.request.unsubscribe(); }

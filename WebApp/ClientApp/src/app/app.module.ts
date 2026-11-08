@@ -1,6 +1,7 @@
 import { BrowserModule } from '@angular/platform-browser';
 import { NgModule } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { NipValidatorDirective } from './services/nip-validator.directive';
 import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { BlockedAccountInterceptor } from './services/blocked-account.interceptor';
 import { RouterModule } from '@angular/router';
@@ -41,6 +42,7 @@ import { CompanySearchProgressComponent } from './company-search-progress/compan
 
 @NgModule({
   declarations: [
+    NipValidatorDirective,
     AppComponent,
     NavMenuComponent,
     LoginComponent,

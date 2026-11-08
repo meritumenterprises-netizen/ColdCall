@@ -4,6 +4,10 @@
 .profile-details { max-width: 650px; margin-top: 24px; }
 .profile-details fieldset { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; align-items: center; }
 .profile-details input { min-width: 0; width: 100%; box-sizing: border-box; }
+.profile-field { min-width: 0; }
+.beta-nip-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.profile-details #profile-nip { width: calc(10ch + 28px); max-width: 100%; flex-shrink: 0; }
+.beta-nip-controls .error { flex-basis: 100%; }
 .profile-details #profile-postalCode { width: calc(6ch + 28px); }
 .profile-save { grid-column: 1 / -1; }
 .profile-save button { margin-top: 12px; }
@@ -36,7 +40,9 @@ dd { margin: 6px 0 0; overflow-wrap: anywhere; }
 .purchases-table th button { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; white-space: normal; text-align: left; border: 0; padding: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
 .purchases-table td { overflow-wrap: anywhere; }
 .purchases-table .purchase-invoice { width: 90px; text-align: center; }
-.invoice-download { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 64px; height: 36px; padding: 4px; }
+.invoice-download { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #dc2626; font-size: 16px; text-decoration: underline; cursor: pointer; }
+.invoice-download:hover:not(:disabled) { color: #b91c1c; background: transparent; }
+.invoice-download:disabled { opacity: .5; cursor: default; }
 .purchase-amount { font-variant-numeric: tabular-nums; }
 .purchase-sort { display: inline-block; width: 10px; flex-shrink: 0; font-size: 10px; visibility: hidden; }
 .purchase-sort.selected { visibility: visible; }

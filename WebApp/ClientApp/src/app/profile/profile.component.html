@@ -18,23 +18,27 @@
     </div>
     <ng-container *ngIf="!loading && !error">
       <p *ngIf="requiresProfileCompletion" class="message" role="status"><strong>Uzupe&#322;nij wymagane dane u&#380;ytkownika, aby kontynuowa&#263;.</strong> Dane b&#281;d&#261; potrzebne do faktury</p>
-      <dl *ngIf="isDataPanel && profile">
-        <dt>Email</dt><dd>{{ profile.googleEmail }}</dd>
-      </dl>
       <form *ngIf="isDataPanel && profile" #detailsForm="ngForm" (ngSubmit)="saveDetails()" class="profile-details">
         <fieldset [disabled]="saving">
+          <label for="profile-email">Email</label>
+          <input id="profile-email" type="email" [value]="profile.googleEmail || ''" disabled>
           <ng-container *ngFor="let field of detailFields">
             <label [for]="'profile-' + field.key">{{ field.label }}</label>
+            <div class="profile-field" [class.beta-nip-controls]="field.key === 'nip' && canGenerateNip">
             <input [id]="'profile-' + field.key" [name]="field.key" [(ngModel)]="details[field.key]" #detailInput="ngModel"
               [type]="field.key === 'phone' ? 'tel' : 'text'"
+              [appNip]="field.key === 'nip'" [attr.aria-invalid]="detailInput.invalid && (detailInput.dirty || detailInput.touched) ? 'true' : null"
               [required]="field.key !== 'companyName' && field.key !== 'nip'" [maxlength]="field.max" [attr.autocomplete]="field.autocomplete"
               [pattern]="field.key === 'nip' ? '[0-9]{10}' : field.key === 'postalCode' ? '[0-9]{2}-[0-9]{3}' : field.key === 'companyName' ? '.*' : '.*\\S.*'">
-            <span *ngIf="field.key === 'nip' && detailInput.invalid && detailInput.touched" class="error" role="alert">NIP musi zawiera&#263; 10 cyfr.</span>
+            <button *ngIf="field.key === 'nip' && canGenerateNip" type="button" class="ghost-button"
+                    [disabled]="saving" (click)="generateNip()">Generuj losowy NIP</button>
+            <span *ngIf="field.key === 'nip' && detailInput.invalid && (detailInput.dirty || detailInput.touched)" class="error" role="alert">NIP musi zawiera&#263; 10 cyfr i mie&#263; poprawn&#261; cyfr&#281; kontroln&#261; albo pozosta&#263; pusty.</span>
+            </div>
           </ng-container>
           <div class="profile-save">
             <div *ngIf="saveError" class="error" role="alert">{{ saveError }}</div>
             <div *ngIf="saveMessage" role="status">{{ saveMessage }}</div>
-            <button type="submit" class="primary-button" [disabled]="saving || detailsForm.invalid">{{ saving ? 'Zapisywanie...' : 'Zapisz' }}</button>
+            <button type="submit" class="primary-button" [disabled]="saving || detailsForm.invalid || !hasDetailsChanges">{{ saving ? 'Zapisywanie...' : 'Zapisz' }}</button>
           </div>
         </fieldset>
       </form>
@@ -75,7 +79,7 @@
                             title="Pobierz faktur&#281; PDF" aria-label="Pobierz faktur&#281; PDF"
                             [disabled]="downloadingInvoice !== null" [attr.aria-busy]="downloadingInvoice === purchase.stripeSessionId"
                             (click)="downloadInvoice(purchase)">
-                      <img src="assets/icons/file-down.svg" width="20" height="20" alt=""><span>PDF</span>
+                      <img src="assets/icons/invoice-pdf.png" width="16" height="16" alt="">
                     </button>
                     <ng-template #noInvoice>-</ng-template>
                   </td>

@@ -14,6 +14,7 @@ button, a { font: inherit; font-size: 14px; letter-spacing: 0; border: 0; backgr
 button:focus-visible, a:focus-visible { outline: 2px solid #243bce; outline-offset: 2px; }
 button:disabled { cursor: default; }
 .contact-menu { position: relative; }
+.user-navigation .plans-menu-link { order: 1; }
 .contact-options { position: absolute; right: 0; top: calc(100% + 4px); width: 210px; max-width: calc(100vw - 32px); padding: 4px; border: 1px solid #e5e7eb; border-radius: 4px; box-shadow: 0 6px 18px #0000001a; background: #fff; z-index: 30; }
 .contact-options a { display: block; width: 100%; padding: 10px 12px; text-align: left; }
 .contact-options a:hover { background: #eef2ff; color: #243bce; }

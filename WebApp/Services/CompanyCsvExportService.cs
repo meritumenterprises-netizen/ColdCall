@@ -31,7 +31,7 @@ public class CompanyCsvExportService
         if (user.Id <= 0 || profile.Id <= 0)
             throw new ArgumentException("Brak identyfikatora uzytkownika lub wyszukiwania.");
         var companies = await _db.Companies.AsNoTracking().Where(x => ids.Contains(x.Id))
-            .Include(x => x.BusinessType).Include(x => x.Wojewodztwo).Include(x => x.Miejscowosc)
+            .Include(x => x.BusinessType).Include(x => x.StatusDzialalnosci).Include(x => x.Wojewodztwo).Include(x => x.Miejscowosc)
             .Include(x => x.Gmina).Include(x => x.Powiat).ToDictionaryAsync(x => x.Id, cancellationToken);
         var pkdRows = await _db.CompanyPkds.AsNoTracking().Where(x => ids.Contains(x.CompanyId))
             .Select(x => new { x.CompanyId, x.PkdCode.Code, x.PkdCode.Name }).Distinct()
@@ -120,7 +120,7 @@ public class CompanyCsvExportService
         {
             "Import date", "Nazwa", "Typ Działalności", "Imię", "Nazwisko", "KRS", "NIP", "Regon", "Województwo",
             "Miejscowość", "Gmina", "Powiat", "Ulica", "Nr Budynku", "Nr lokalu", "Telefon",
-            "Email", "Witryna WWW", "Data rozpoczęcia działalności", "Data zawieszenia aktywności", "Data wznowienia aktywności", "PKD", "Notatki"
+            "Email", "Witryna WWW", "Data rozpoczęcia działalności", "Data zawieszenia aktywności", "Data wznowienia aktywności", "PKD", "Notatki", "Status działalności"
         };
         var csv = new StringBuilder();
         csv.AppendLine(string.Join(',', headers.Select(Cell)));
@@ -138,7 +138,8 @@ public class CompanyCsvExportService
                 company.ResumedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 pkds.TryGetValue(company.Id, out var pkd) ? pkd : "",
                 notes != null && notes.TryGetValue(company.Id, out var note)
-                    ? Regex.Replace(note, @"\r\n|[\r\n\u0085\u2028\u2029]", " ") : ""
+                    ? Regex.Replace(note, @"\r\n|[\r\n\u0085\u2028\u2029]", " ") : "",
+                company.StatusDzialalnosci?.Nazwa
             };
             csv.AppendLine(string.Join(',', values.Select((value, index) => index switch
             {

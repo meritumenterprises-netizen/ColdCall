@@ -2,6 +2,8 @@ import { Component, ElementRef, Input, OnDestroy, OnInit, ViewChild } from '@ang
 import { ActivatedRoute, Router } from '@angular/router';
 import { isFutureActivityDate } from '../services/activity-date';
 import { PasswordGenerator } from '../services/password-generator';
+import { NipGenerator } from '../services/nip-generator';
+import { isValidNip } from '../services/nip-validation';
 import { Subscription, timer } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { AddressLevel, AddressOption, ApiService, AppUser, BusinessType, Company, CompanyFilters, Pkd, PlanDefinitionOption, SortableColumn } from '../services/api.service';
@@ -538,6 +540,18 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   cancelUserDetails() {
     if (this.savingUserDetails) { return; }
     this.userDetailsDraft = this.selectedUser ? this.createUserDetailsDraft(this.selectedUser) : null;
+    this.userDetailsError = ''; this.userDetailsMessage = '';
+  }
+
+  isUserNipInvalid(nip: string | null | undefined): boolean {
+    return !isValidNip(nip);
+  }
+
+  generateUserNip() {
+    if (this.savingUserDetails) { return; }
+    const draft = this.editableUserDetails;
+    if (!draft) { return; }
+    draft.nip = NipGenerator.generate();
     this.userDetailsError = ''; this.userDetailsMessage = '';
   }
 

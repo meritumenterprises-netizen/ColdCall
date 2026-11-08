@@ -14,26 +14,48 @@ public interface IStripeCheckoutGateway
     Task<Session> GetAsync(string id, CancellationToken token);
 }
 
-public class StripeCheckoutGateway(IConfiguration configuration) : IStripeCheckoutGateway
+public class StripeCheckoutGateway(IConfiguration configuration, HttpClient httpClient) : IStripeCheckoutGateway
 {
-    private SessionService Sessions()
+    private StripeClient CreateClient()
     {
         var key = configuration["Stripe:SecretKey"];
         if (string.IsNullOrWhiteSpace(key)) throw new InvalidOperationException("Nie skonfigurowano klucza Stripe.");
-        return new SessionService(new StripeClient(key));
+        return new StripeClient(new StripeClientOptions { ApiKey = key, HttpClient = new SystemNetHttpClient(httpClient) });
     }
 
-    public Task<Session> CreateAsync(SessionCreateOptions options, CancellationToken token) =>
-        Sessions().CreateAsync(options, cancellationToken: token);
+    public async Task<Session> CreateAsync(SessionCreateOptions options, CancellationToken token)
+    {
+        var taxRateId = configuration["Stripe:Vat23TaxRateId"];
+        var key = configuration["Stripe:SecretKey"];
+        if (string.IsNullOrWhiteSpace(key)) throw new InvalidOperationException("Nie skonfigurowano klucza Stripe.");
+        var client = CreateClient();
+        TaxRate rate;
+        try
+        {
+            rate = await new TaxRateService(client).GetAsync(taxRateId, cancellationToken: token);
+        }
+        catch (StripeException exception) when (exception.StripeError?.Code == "resource_missing")
+        {
+            var environment = key.Contains("_test_", StringComparison.Ordinal) ? "testowym" : "produkcyjnym";
+            throw new InvalidOperationException(
+                $"Nie znaleziono stawki VAT w srodowisku {environment} Stripe. Ustaw Stripe:Vat23TaxRateId na stawke 23% Exclusive z tego samego srodowiska.", exception);
+        }
+        if (!rate.Active || rate.Inclusive || rate.Percentage != 23m)
+            throw new InvalidOperationException("Stawka Stripe VAT musi byc aktywna, wynosic 23% i byc doliczana do ceny netto (exclusive).");
+        return await new SessionService(client).CreateAsync(options, cancellationToken: token);
+    }
 
     public Task<Session> GetAsync(string id, CancellationToken token) =>
-        Sessions().GetAsync(id, cancellationToken: token);
+        new SessionService(CreateClient()).GetAsync(id, cancellationToken: token);
 }
 
 public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway stripe, IConfiguration configuration, InFaktService inFakt)
 {
     public async Task<Session> CreateAsync(AppUser user, string planCode, CancellationToken token)
     {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(120));
+        token = timeout.Token;
         if (user.DisablePlanPurchase)
             throw new InvalidOperationException("Zakup planow jest wylaczony dla tego konta.");
         if (user.IsBetaUser && UserProfileCompletion.IsRequired(user))
@@ -51,6 +73,11 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             throw new InvalidOperationException("Nie skonfigurowano adresu HTTPS witryny dla Stripe.");
         var amount = checked((long)(plan.Price * 100));
         if (amount != plan.Price * 100) throw new InvalidOperationException("Niepoprawna cena planu.");
+        var taxRateId = configuration["Stripe:Vat23TaxRateId"]?.Trim();
+        if (string.IsNullOrWhiteSpace(taxRateId) || !taxRateId.StartsWith("txr_", StringComparison.Ordinal))
+            throw new InvalidOperationException("Ustaw Stripe:Vat23TaxRateId na identyfikator stawki VAT 23% exclusive w Stripe.");
+        var vatAmount = checked((long)decimal.Round(amount * 0.23m, 0, MidpointRounding.AwayFromZero));
+        var grossAmount = checked(amount + vatAmount);
         return await stripe.CreateAsync(new SessionCreateOptions
         {
             Mode = "payment",
@@ -61,9 +88,9 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             PaymentMethodTypes = new List<string> { "card", "blik" },
             LineItems = new List<SessionLineItemOptions>
             {
-                new() { Quantity = 1, PriceData = new SessionLineItemPriceDataOptions
+                new() { Quantity = 1, TaxRates = new List<string> { taxRateId }, PriceData = new SessionLineItemPriceDataOptions
                 {
-                    Currency = "pln", UnitAmount = amount,
+                    Currency = "pln", UnitAmount = amount, TaxBehavior = "exclusive",
                     ProductData = new SessionLineItemPriceDataProductDataOptions { Name = plan.Code }
                 } }
             },
@@ -73,13 +100,18 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
                 ["userId"] = user.Id.ToString(CultureInfo.InvariantCulture),
                 ["planId"] = plan.Id.ToString(CultureInfo.InvariantCulture),
                 ["expiresAfterDays"] = plan.ExpiresAfterDays.Value.ToString(CultureInfo.InvariantCulture),
-                ["amount"] = amount.ToString(CultureInfo.InvariantCulture)
+                ["amount"] = grossAmount.ToString(CultureInfo.InvariantCulture),
+                ["netAmount"] = amount.ToString(CultureInfo.InvariantCulture),
+                ["vatPercent"] = "23"
             }
         }, token);
     }
 
     public async Task<bool> FulfillAsync(string sessionId, int? expectedUserId, CancellationToken token)
     {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
+        timeout.CancelAfter(TimeSpan.FromSeconds(120));
+        token = timeout.Token;
         if (string.IsNullOrWhiteSpace(sessionId) || sessionId.Length > 255 || !sessionId.StartsWith("cs_", StringComparison.Ordinal))
             throw new InvalidOperationException("Niepoprawna sesja platnosci.");
         var session = await stripe.GetAsync(sessionId, token);
@@ -95,6 +127,18 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
         if (session.PaymentStatus != "paid" || session.Status != "complete") return false;
         if (session.AmountTotal != amount || session.Currency != "pln")
             throw new InvalidOperationException("Kwota lub waluta platnosci nie zgadza sie z zakupem.");
+        var netAmount = amount;
+        if (metadata.ContainsKey("netAmount"))
+        {
+            if (!long.TryParse(metadata["netAmount"], out netAmount) || netAmount <= 0
+                || metadata.GetValueOrDefault("vatPercent") != "23")
+                throw new InvalidOperationException("Niepoprawne dane VAT sesji Stripe.");
+            var vatAmount = checked((long)decimal.Round(netAmount * 0.23m, 0, MidpointRounding.AwayFromZero));
+            if (amount != checked(netAmount + vatAmount) || session.AmountSubtotal != netAmount
+                || session.TotalDetails?.AmountTax != vatAmount
+                || session.TotalDetails.AmountDiscount != 0 || session.TotalDetails.AmountShipping != 0)
+                throw new InvalidOperationException("Kwoty netto, VAT i brutto sesji Stripe nie zgadzaja sie z zakupem.");
+        }
         await using (var transaction = await db.Database.BeginTransactionAsync(token))
         {
             foreach (var resource in new[] { "StripeSession:" + sessionId, "TrialPlan:" + userId })
@@ -106,7 +150,8 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             {
                 var purchasedPlan = await db.PlanDefinitions.AsNoTracking()
                     .SingleOrDefaultAsync(p => p.Id == planId && !p.IsTrial, token);
-                if (!await db.Users.AnyAsync(u => u.Id == userId && u.IsEnabled && !u.IsAdmin, token)
+                var purchasingUser = await db.Users.SingleOrDefaultAsync(u => u.Id == userId && u.IsEnabled && !u.IsAdmin, token);
+                if (purchasingUser == null
                     || purchasedPlan == null || purchasedPlan.ExpiresAfterDays is not > 0)
                     throw new InvalidOperationException("Nie znaleziono uzytkownika lub zakupionego planu.");
                 var now = DateTime.UtcNow;
@@ -119,7 +164,7 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
                         AppUserId = legacy.AppUserId,
                         PlanDefinitionId = legacy.PlanDefinitionId,
                         PaidAtUtc = legacy.PurchasedAtUtc,
-                        AmountPaid = legacy.PricePaid
+                        AmountPaid = amount / 100m
                     });
                 }
                 else
@@ -161,6 +206,7 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
                         AmountPaid = amount / 100m
                     });
                 }
+                purchasingUser.IsBetaUser = false;
                 await db.SaveChangesAsync(token);
             }
             await transaction.CommitAsync(token);
@@ -168,11 +214,11 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
         var invoicingEnabled = await db.GlobalSettings.AsNoTracking()
             .OrderBy(settings => settings.GlobalSettingsId)
             .Select(settings => settings.InFaktInvoicing).FirstOrDefaultAsync(token);
-        if (invoicingEnabled) await EnsureInvoiceAsync(sessionId, inFakt, token);
+        if (invoicingEnabled) await EnsureInvoiceAsync(sessionId, netAmount / 100m, inFakt, token);
         return true;
     }
 
-    private async Task EnsureInvoiceAsync(string sessionId, InFaktService inFakt, CancellationToken token)
+    private async Task EnsureInvoiceAsync(string sessionId, decimal netPrice, InFaktService inFakt, CancellationToken token)
     {
         try
         {
@@ -181,28 +227,27 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             var planDefinition = await db.PlanDefinitions.AsNoTracking()
                 .SingleAsync(plan => plan.Id == payment.PlanDefinitionId, token);
             var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == payment.AppUserId, token);
-            var companyName = (user.CompanyName ?? (user.FirstName + " " + user.LastName)).Trim();
+            user.DisplayName = user.FirstName + " " + user.LastName; // forcing user display name instead of email
+            var companyName = user.CompanyName ??  user.DisplayName;
             var Nip = user.Nip?.Trim();
             if (string.IsNullOrWhiteSpace(companyName))
-                throw new InvalidOperationException("The user's company name or first and last name is required for invoicing.");
+                throw new InvalidOperationException("The user's company name or display name is required for invoicing.");
 
             InFaktCompaniesResponse companies = await inFakt.RetrieveCompanies(token);
+            // search for the company by NIP first, then by company name, then by user display name
             InFaktClient client = null;
-            foreach (var companyInfakt in companies.Entities)
+            client = companies.Entities.Where((companyInfakt) => companyInfakt.Nip == user.Nip && !string.IsNullOrEmpty(user.Nip)).SingleOrDefault();
+            if (client == null)
             {
-                if (string.Equals(companyInfakt.Nip?.Trim(), Nip, StringComparison.OrdinalIgnoreCase))
-                {
-                    client = companyInfakt;
-                    break;
-                }
+                client = companies.Entities.Where((companyInfakt) => companyInfakt.CompanyName == user.DisplayName && !string.IsNullOrEmpty(user.DisplayName)).SingleOrDefault();
             }
             if (client == null)
             {
                 var inFaktCreateCompanyRequest = new InFaktCreateCompanyRequest()
                 {
-                    CompanyName = user.CompanyName!,
-                    Nip = user.Nip!,
+                    CompanyName = companyName,
                     Street = user.Street!,
+                    Nip = user.Nip ?? null,
                     StreetNumber = user.StreetNumber!,
                     City = user.City!,
                     PostCode = user.PostalCode!,
@@ -210,10 +255,10 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
                 };
                 client = await inFakt.CreateCompany(inFaktCreateCompanyRequest, token);
             }
-            companyName = client.CompanyName;
+
             var maximumInvoiceId = checked(await db.StripePayments.CountAsync(token) + 1);
             var invoiceId = maximumInvoiceId;
-            var jsonElement = await inFakt.CreateInvoice(companyName, invoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd"), planDefinition.Code, payment.AmountPaid, token);
+            var jsonElement = await inFakt.CreateInvoice(companyName, invoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd"), planDefinition.Code, netPrice, token);
 
             if (!jsonElement.TryGetProperty("uuid", out var uuidElement)
                 || uuidElement.ValueKind != JsonValueKind.String
@@ -236,73 +281,15 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             {
                 throw new InvalidDataException("inFakt returned an empty invoice PDF.");
             }
-            //    if (!payment.ClientId.HasValue)
-            //    {
-            //        InFaktClient? company = null;
-            //        string? pageUrl = null;
-            //        var visited = new HashSet<string>(StringComparer.Ordinal);
-            //        do
-            //        {
-            //            if (!visited.Add(pageUrl ?? "first"))
-            //                throw new InvalidDataException("inFakt returned a repeated client pagination URL.");
-            //            var clients = await inFakt.RetrieveCompanies(token, pageUrl);
-            //            company = clients.Entities.FirstOrDefault(client =>
-            //                string.Equals(client.CompanyName?.Trim(), companyName, StringComparison.OrdinalIgnoreCase));
-            //            pageUrl = string.IsNullOrWhiteSpace(clients.Metainfo.Next) ? null : clients.Metainfo.Next;
-            //        } while (company == null && pageUrl != null);
-            //        company ??= await inFakt.CreateCompany(new InFaktCreateCompanyRequest
-            //        {
-            //            CompanyName = companyName, Street = user.Street ?? "", StreetNumber = user.StreetNumber ?? "",
-            //            City = user.City ?? "", Nip = user.Nip ?? "", PostCode = user.PostalCode ?? "", Country = "PL"
-            //        }, token);
-            //        if (company.Id <= 0 || company.Id > int.MaxValue)
-            //            throw new InvalidDataException("inFakt returned an invalid client ID.");
-            //        payment.ClientId = (int)company.Id;
-            //        await db.SaveChangesAsync(token);
-            //    }
-            //    if (string.IsNullOrWhiteSpace(payment.InvoiceId))
-            //    {
-            //        if (string.IsNullOrWhiteSpace(payment.InvoiceNumber))
-            //        {
-            //            // Reserve MAX + 1 across all payments and persist it before calling inFakt.
-            //            await using (var numbering = await db.Database.BeginTransactionAsync(token))
-            //            {
-            //                await db.Database.ExecuteSqlRawAsync(@"
-            //                    DECLARE @result int;
-            //                    EXEC @result=sys.sp_getapplock @Resource='StripePayments:InvoiceNumber', @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
-            //                    IF @result < 0 THROW 50001, 'Invoice numbering lock unavailable', 1;", token);
-            //                var maximum = await db.Database.SqlQuery<int?>($"SELECT MAX(TRY_CONVERT(int, InvoiceNumber)) AS [Value] FROM ColdCall.StripePayments").SingleAsync(token) ?? 0;
-            //                payment.InvoiceNumber = checked(maximum + 1).ToString(CultureInfo.InvariantCulture);
-            //                await db.SaveChangesAsync(token);
-            //                await numbering.CommitAsync(token);
-            //            }
-            //        }
-            //        var planCode = await db.PlanDefinitions.Where(plan => plan.Id == payment.PlanDefinitionId)
-            //            .Select(plan => plan.Code).SingleAsync(token);
-            //        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
-            //            TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw")));
-            //        var invoice = await inFakt.CreateInvoice(companyName, payment.InvoiceNumber,
-            //            today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), planCode, payment.AmountPaid, token);
-            //        if (!invoice.TryGetProperty("uuid", out var uuid) || uuid.ValueKind != System.Text.Json.JsonValueKind.String
-            //            || !Guid.TryParse(uuid.GetString(), out var invoiceId))
-            //            throw new InvalidDataException("inFakt returned an invalid invoice UUID.");
-            //        payment.InvoiceId = invoiceId.ToString();
-            //        await db.SaveChangesAsync(token);
-            //    }
-            //    var pdf = await inFakt.GetInvoice(payment.InvoiceId, token);
-            //    if (pdf.Length == 0) throw new InvalidDataException("inFakt returned an empty invoice PDF.");
-            //    payment.PDFInvoice = pdf;
-            //    await db.SaveChangesAsync(token);
-            //}
-            //finally
-            //{
-            //    try
-            //    {
-            //        if (acquired)
-            //            await db.Database.ExecuteSqlInterpolatedAsync($"EXEC sys.sp_releaseapplock @Resource={resource}, @LockOwner='Session';", CancellationToken.None);
-            //    }
-            //    finally { await db.Database.CloseConnectionAsync(); }
-            //}
+
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            Console.WriteLine("InFakt invoicing canceled because the confirmation request was aborted. The payment may already be recorded.");
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("InFakt HTTP request timed out. Its outcome is unknown; check inFakt before retrying invoice creation.");
         }
         catch (Exception exc)
         {

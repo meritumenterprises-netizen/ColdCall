@@ -6,6 +6,16 @@ namespace ColdCall.Controllers.Api;
 
 public partial class AdminController
 {
+    [HttpDelete("users/{id:int}/payments")]
+    public async Task<IActionResult> DeleteUserPayment(int id, [FromQuery] string sessionId, CancellationToken token)
+    {
+        if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
+        if (string.IsNullOrWhiteSpace(sessionId)) return BadRequest();
+        var deleted = await _db.StripePayments.Where(p => p.AppUserId == id && p.StripeSessionId == sessionId)
+            .ExecuteDeleteAsync(token);
+        return deleted == 1 ? NoContent() : NotFound();
+    }
+
     [HttpGet("users/{id:int}/payments")]
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> UserPayments(int id, CancellationToken token)

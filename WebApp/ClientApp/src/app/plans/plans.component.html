@@ -20,7 +20,7 @@
         <small>aktywny do {{ plan.activeUntil | date:'dd.MM.yyyy HH:mm' }}</small>
       </div>
       <div class="plan-description" [innerHTML]="plan.descriptionHtml"></div>
-      <div *ngIf="!plan.activeUntil" class="price">{{ plan.price | number:'1.0-0' }} {{ plan.currency }}</div>
+      <div *ngIf="!plan.activeUntil" class="price">{{ plan.price | number:'1.2-2' }} {{ plan.currency }} netto + 23% VAT</div>
       <button *ngIf="!plan.activeUntil" class="primary-button" [disabled]="!plan.canPurchase || buying" (click)="buy(plan)">Kup</button>
     </article>
   </section>
