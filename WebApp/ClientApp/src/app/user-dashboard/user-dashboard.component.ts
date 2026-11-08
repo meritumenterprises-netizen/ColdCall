@@ -35,6 +35,26 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   @ViewChild('duplicateExportDialog', { static: true }) duplicateExportDialog: ElementRef;
   @ViewChild('csvProgressDialog', { static: true }) csvProgressDialog: ElementRef;
   @ViewChild('duplicateSearchDialog', { static: true }) duplicateSearchDialog: ElementRef;
+  @ViewChild('saveNewSearchDialog', { static: true }) saveNewSearchDialog: ElementRef;
+  private pendingSearchSwitch: SearchProfile | null = null;
+  private switchAfterSave: SearchProfile | null = null;
+
+  cancelSearchSwitch() {
+    this.saveNewSearchDialog.nativeElement.close();
+    this.pendingSearchSwitch = null;
+  }
+
+  switchWithoutSaving() {
+    const target = this.pendingSearchSwitch;
+    this.cancelSearchSwitch();
+    if (target) { this.selectSearch(target, true); }
+  }
+
+  saveBeforeSwitching() {
+    if (!this.pendingSearchSwitch || !this.canSaveSearch || !this.validateFilters()) { return; }
+    this.saveNewSearchDialog.nativeElement.close();
+    this.saveSearch();
+  }
   pkdClassificationMessage = '';
   pkdClassificationError = '';
   private pkdClassificationRequest: Subscription | null = null;
@@ -979,10 +999,17 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.updatePkdSuggestions();
   }
 
-  selectSearch(profile: SearchProfile) {
+  selectSearch(profile: SearchProfile, skipSavePrompt = false) {
     if (this.publicPageTitle) { this.router.navigate(['/dashboard'], { queryParams: { searchId: profile.id } }); return; }
     if (this.savingSearch || this.classifyingPkd || this.exportingCsv) { return; }
     if (profile.id === this.currentSearchId) { this.selectDashboardTab('search'); return; }
+    const isNewSearch = this.currentSearchId === null || this.currentSearchId <= 0;
+    const hasUnsavedChanges = this.savedSearchState !== null && this.searchState() !== this.savedSearchState;
+    if (!skipSavePrompt && this.searchName.trim() && (isNewSearch || hasUnsavedChanges)) {
+      this.pendingSearchSwitch = profile;
+      if (!this.saveNewSearchDialog.nativeElement.open) { this.saveNewSearchDialog.nativeElement.showModal(); }
+      return;
+    }
     this.rememberDraft();
     if (this.searchCountsRequest) { this.searchCountsRequest.unsubscribe(); }
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
@@ -1099,7 +1126,12 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     const criteria = this.currentCriteria();
     this.savingSearch = true;
     this.saveSearchRequest = this.api.saveSearch(this.searchName.trim(), this.selectedPkds.map(x => x.id), criteria, persistedId, confirmDuplicateCriteria)
-      .pipe(finalize(() => this.savingSearch = false)).subscribe(profile => {
+      .pipe(finalize(() => {
+        this.savingSearch = false;
+        const target = this.switchAfterSave;
+        this.switchAfterSave = null;
+        if (target) { this.selectSearch(target, true); }
+      })).subscribe(profile => {
         const index = this.searches.findIndex(search => search.id === draftId || search.id === profile.id);
         if (index >= 0) { this.searches.splice(index, 1); }
         this.searches.unshift(profile);
@@ -1112,20 +1144,26 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         this.loadCsvExports();
         this.savedSearchState = savedState;
         this.searchSaved = true;
-        this.loadCompanies();
+        this.switchAfterSave = this.pendingSearchSwitch;
+        this.pendingSearchSwitch = null;
+        if (!this.switchAfterSave) { this.loadCompanies(); }
       }, err => {
         if (persistedId === null && err.status === 409 && err.error && err.error.code === 'DuplicateSearchCriteria') {
           this.duplicateSearchDialog.nativeElement.showModal();
           return;
         }
+        this.pendingSearchSwitch = null;
         this.error = err.error && err.error.message ? err.error.message : 'Nie udalo sie zapisac wyszukiwania.';
       });
   }
 
-  closeDuplicateSearch() { this.duplicateSearchDialog.nativeElement.close(); }
+  closeDuplicateSearch(cancelSwitch = true) {
+    this.duplicateSearchDialog.nativeElement.close();
+    if (cancelSwitch) { this.pendingSearchSwitch = null; }
+  }
 
   confirmDuplicateSearch() {
-    this.closeDuplicateSearch();
+    this.closeDuplicateSearch(false);
     this.saveSearch(true);
   }
 
