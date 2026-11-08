@@ -38,7 +38,7 @@ public partial class AuthController
         }
         var completingLogin = request.Accepted.Value && !current.IsAdmin && current.TermsOfServiceAccepted != true;
         user.TermsOfServiceAccepted = request.Accepted.Value;
-        if (completingLogin) UserLoginHistory.Add(_db, user);
+        if (completingLogin) await UserLoginHistory.AddAsync(_db, user, HttpContext);
         await _db.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
         if (!request.Accepted.Value)

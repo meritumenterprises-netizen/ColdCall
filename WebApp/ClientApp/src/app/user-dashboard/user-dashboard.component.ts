@@ -310,7 +310,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   get addSearchHint() {
     const user = this.api.user();
     const remaining = user && user.hasActivePlan ? Math.max(0, user.maxNumberOfSearches - this.searches.length) : 0;
-    return 'Dodaj nowe wyszukiwanie. PozostaÅ‚a liczba dodatkowych wyszukiwaÅ„ w aktualnym planie: ' + remaining;
+    return 'Dodaj nowe wyszukiwanie. Pozosta\u0142a liczba dodatkowych wyszukiwa\u0144 w aktualnym planie: ' + remaining;
   }
 
   private get canPersistNewSearch() {

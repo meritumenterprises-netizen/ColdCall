@@ -8,6 +8,7 @@ interface SettingsRow extends AdminGlobalSetting {
   savedParallelism: number;
   savedInService: boolean;
   savedRegistrationSuspended: boolean;
+  savedInFaktInvoicing: boolean;
   saving: boolean;
   error: string;
   saved: boolean;
@@ -35,12 +36,13 @@ export class AdminGlobalSettingsComponent implements OnInit, OnDestroy {
     this.error = '';
     this.requests.add(this.api.adminGlobalSettings().pipe(finalize(() => this.loading = false)).subscribe(rows => {
       this.rows = rows.map(row => ({ ...row, savedParallelism: row.globalDegreeOfParallelismImportByDate,
-        savedInService: row.applicationInService, savedRegistrationSuspended: row.registrationSuspended, saving: false, error: '', saved: false }));
+        savedInService: row.applicationInService, savedRegistrationSuspended: row.registrationSuspended,
+        savedInFaktInvoicing: row.inFaktInvoicing, saving: false, error: '', saved: false }));
     }, () => this.error = 'Nie udalo sie pobrac ustawien.'));
   }
   changed(row: SettingsRow) {
     return row.globalDegreeOfParallelismImportByDate !== row.savedParallelism || row.applicationInService !== row.savedInService
-      || row.registrationSuspended !== row.savedRegistrationSuspended;
+      || row.registrationSuspended !== row.savedRegistrationSuspended || row.inFaktInvoicing !== row.savedInFaktInvoicing;
   }
   valid(row: SettingsRow) {
     return Number.isInteger(row.globalDegreeOfParallelismImportByDate)
@@ -51,6 +53,7 @@ export class AdminGlobalSettingsComponent implements OnInit, OnDestroy {
     row.globalDegreeOfParallelismImportByDate = row.savedParallelism;
     row.applicationInService = row.savedInService;
     row.registrationSuspended = row.savedRegistrationSuspended;
+    row.inFaktInvoicing = row.savedInFaktInvoicing;
     row.error = ''; row.saved = false;
   }
   save(row: SettingsRow) {
@@ -58,11 +61,13 @@ export class AdminGlobalSettingsComponent implements OnInit, OnDestroy {
     row.saving = true; row.error = ''; row.saved = false;
     const value: AdminGlobalSetting = { globalSettingsId: row.globalSettingsId,
       globalDegreeOfParallelismImportByDate: row.globalDegreeOfParallelismImportByDate,
-      applicationInService: row.applicationInService, registrationSuspended: row.registrationSuspended };
+      applicationInService: row.applicationInService, registrationSuspended: row.registrationSuspended,
+      inFaktInvoicing: row.inFaktInvoicing };
     this.requests.add(this.api.saveAdminGlobalSettings(value).pipe(finalize(() => row.saving = false)).subscribe(() => {
       row.savedParallelism = value.globalDegreeOfParallelismImportByDate;
       row.savedInService = value.applicationInService;
       row.savedRegistrationSuspended = value.registrationSuspended;
+      row.savedInFaktInvoicing = value.inFaktInvoicing;
       row.saved = true;
       this.settingsSaved.emit();
     }, () => row.error = 'Nie udalo sie zapisac ustawien.'));

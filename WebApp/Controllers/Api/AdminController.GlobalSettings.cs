@@ -20,7 +20,8 @@ public partial class AdminController
                 ApplicationVersion = applicationVersion,
                 GlobalDegreeOfParallelismImportByDate = row.GlobalDegreeOfParallelismImportByDate,
                 ApplicationInService = row.ApplicationInService,
-                RegistrationSuspended = row.RegistrationSuspended
+                RegistrationSuspended = row.RegistrationSuspended,
+                InFaktInvoicing = row.InFaktInvoicing
             }).ToListAsync(token));
     }
 
@@ -34,6 +35,7 @@ public partial class AdminController
         row.GlobalDegreeOfParallelismImportByDate = request.GlobalDegreeOfParallelismImportByDate;
         row.ApplicationInService = request.ApplicationInService;
         row.RegistrationSuspended = request.RegistrationSuspended;
+        row.InFaktInvoicing = request.InFaktInvoicing;
         await _db.SaveChangesAsync(token);
         return NoContent();
     }

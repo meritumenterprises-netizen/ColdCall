@@ -28,6 +28,10 @@ export class AuthGuard implements CanActivate {
     );
   }
   private allowUser(user: Me | null, url: string): boolean {
+    if (user && user.isAdmin && url.split(/[?#]/)[0].replace(/\/$/, '') === '/dashboard') {
+      this.router.navigateByUrl('/admin', { replaceUrl: true });
+      return false;
+    }
     if (user && !user.isAdmin && user.applicationInService) {
       this.router.navigateByUrl('/maintenance');
       return false;

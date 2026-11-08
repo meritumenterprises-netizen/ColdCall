@@ -28,7 +28,8 @@ public partial class AdminController
                     {
                         UserLoginId = login.UserLoginId, UserId = login.UserId, LoginDate = login.LoginDate,
                         UserName = user == null ? null : user.DisplayName == null || user.DisplayName.Trim() == "" ? user.GoogleEmail : user.DisplayName,
-                        Email = user == null ? null : user.GoogleEmail
+                        Email = user == null ? null : user.GoogleEmail,
+                        IpAddress = login.IpAddress, DnsAddress = login.DnsAddress
                     };
         if (!string.IsNullOrWhiteSpace(email))
         {

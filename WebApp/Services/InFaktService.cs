@@ -60,7 +60,14 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
             }
         });
         using var response = await client.SendAsync(request, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var details = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (details.Length > 8192) details = details[..8192];
+            throw new HttpRequestException(
+                $"inFakt CreateInvoice failed (HTTP {(int)response.StatusCode}): {details}",
+                null, response.StatusCode);
+        }
         var invoice = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
         if (invoice.ValueKind == JsonValueKind.Null)
             throw new InvalidDataException("inFakt returned an empty invoice response.");

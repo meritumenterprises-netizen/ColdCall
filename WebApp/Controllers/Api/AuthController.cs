@@ -34,8 +34,9 @@ public partial class AuthController : ControllerBase
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<IActionResult> CreateSession()
     {
-        var user = await _currentUserService.GetOrCreateAsync(User);
-        UserLoginHistory.Add(_db, user);
+        var user = await _currentUserService.TryGetOrCreateAsync(User);
+        if (user == null) return RegistrationSuspendedResponse();
+        await UserLoginHistory.AddAsync(_db, user, HttpContext);
         await _db.SaveChangesAsync(HttpContext.RequestAborted);
         var claims = new List<Claim>
         {
@@ -56,7 +57,8 @@ public partial class AuthController : ControllerBase
     [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> Me()
     {
-        var user = await _currentUserService.GetOrCreateAsync(User);
+        var user = await _currentUserService.TryGetOrCreateAsync(User);
+        if (user == null) return RegistrationSuspendedResponse();
         var isAdmin = user.IsAdmin;
         var requiresProfileCompletion = UserProfileCompletion.IsRequired(user);
         if (!user.IsAdmin && user.TermsOfServiceAccepted != true)
@@ -154,7 +156,7 @@ public partial class AuthController : ControllerBase
         var purchases = await ordered.ThenBy(p => p.StripeSessionId)
             .Select(p => new StripePurchaseDto(p.PlanDefinition.Code, p.PlanDefinition.MaxNumberOfSearches,
                 p.PlanDefinition.MaxNumberOfCSVExportsPerSearch, p.PlanDefinition.MaxNumberOfExportedRecords,
-                p.AmountPaid, p.PaidAtUtc)).ToListAsync(token);
+                p.AmountPaid, p.PaidAtUtc, p.StripeSessionId, p.PDFInvoice != null && p.PDFInvoice.Length > 0)).ToListAsync(token);
         return Ok(purchases.Select(p => p with { PaidAtUtc = DateTime.SpecifyKind(p.PaidAtUtc, DateTimeKind.Utc) }).ToArray());
     }
 

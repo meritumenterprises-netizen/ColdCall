@@ -19,6 +19,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   @ViewChild('registrationMaintenanceDialog', { static: true }) registrationMaintenanceDialog: ElementRef;
   checkingRegistration = false;
   registrationSuspended = true;
+  registrationUnavailableMessage = 'System w trybie konserwacji. Spr\u00f3buj za kilka minut';
   private registrationAvailabilityRequest: Subscription | null = null;
   private registrationStatusRequest: Subscription | null = null;
   localMode: 'login' | 'register' | 'forgot' | 'reset' = 'login';
@@ -77,7 +78,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
       this.registrationStatusRequest = this.api.maintenanceStatus().pipe(timeout(10000),
         finalize(() => this.checkingRegistration = false)).subscribe(status => {
           this.registrationSuspended = status.registrationSuspended;
-          if (this.registrationSuspended) { this.applyLocalMode('login'); }
+          if (this.registrationSuspended) { this.showRegistrationMaintenance('Rejestracja nowych u\u017cytkownik\u00f3w jest wstrzymana. Spr\u00f3buj ponownie p\u00f3\u017aniej.'); }
           else if (status.applicationInService) { this.showRegistrationMaintenance(); }
           else { this.applyLocalMode(mode); }
         }, () => this.localError = 'Nie udalo sie sprawdzic dostepnosci rejestracji. Sprobuj ponownie.');
@@ -86,7 +87,8 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
     this.applyLocalMode(mode);
   }
 
-  private showRegistrationMaintenance() {
+  private showRegistrationMaintenance(message = 'System w trybie konserwacji. Spr\u00f3buj za kilka minut') {
+    this.registrationUnavailableMessage = message;
     this.applyLocalMode('login');
     const dialog = this.registrationMaintenanceDialog.nativeElement as HTMLDialogElement;
     if (!dialog.open) { dialog.showModal(); }
@@ -386,6 +388,12 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
       this.handleAuthenticated(me);
     }, error => {
       this.api.logout();
+      if (error && error.error && error.error.code === 'RegistrationSuspended') {
+        this.registrationSuspended = true;
+        this.router.navigateByUrl('/', { replaceUrl: true }).then(() =>
+          this.showRegistrationMaintenance('Rejestracja nowych u\u017cytkownik\u00f3w jest wstrzymana. Spr\u00f3buj ponownie p\u00f3\u017aniej.'));
+        return;
+      }
       this.error = this.describeLoginError(error);
     });
   }

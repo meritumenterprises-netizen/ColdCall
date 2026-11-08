@@ -65,6 +65,26 @@ export class ProfileComponent implements OnInit, OnDestroy {
     { key: 'paidAtUtc', label: 'Data zakupu' }
   ];
   private purchasesRequest: Subscription | null = null;
+  downloadingInvoice: string | null = null;
+  invoiceError = '';
+  private invoiceRequest: Subscription | null = null;
+
+  downloadInvoice(purchase: StripePurchase) {
+    if (!purchase.hasInvoice || this.downloadingInvoice !== null) { return; }
+    this.downloadingInvoice = purchase.stripeSessionId;
+    this.invoiceError = '';
+    this.invoiceRequest = this.api.purchaseInvoice(purchase.stripeSessionId)
+      .pipe(finalize(() => this.downloadingInvoice = null)).subscribe(pdf => {
+        const url = URL.createObjectURL(pdf);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'faktura-' + purchase.planCode.replace(/[^A-Za-z0-9_-]/g, '') + '-' + purchase.paidAtUtc.slice(0, 10) + '.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }, () => this.invoiceError = 'Nie udalo sie pobrac faktury.');
+  }
 
   constructor(private api: ApiService, private route: ActivatedRoute, private router: Router,
     private changeDetector: ChangeDetectorRef) {}
@@ -129,6 +149,7 @@ export class ProfileComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.invoiceRequest) { this.invoiceRequest.unsubscribe(); }
     if (this.saveRequest) { this.saveRequest.unsubscribe(); }
     if (this.request) { this.request.unsubscribe(); }
     if (this.purchasesRequest) { this.purchasesRequest.unsubscribe(); }
