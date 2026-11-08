@@ -48,6 +48,7 @@
         <div *ngIf="purchasesError" class="error" role="alert">
           {{ purchasesError }} <button type="button" class="ghost-button" (click)="loadPurchases()">Ponów</button>
         </div>
+        <p *ngIf="invoiceError" class="error" role="alert">{{ invoiceError }}</p>
         <div class="purchases-grid" [attr.aria-busy]="purchasesLoading">
           <table class="purchases-table">
             <thead><tr>
@@ -57,9 +58,10 @@
                   {{ column.label }}<span class="purchase-sort" [class.selected]="purchasesSortBy === column.key" aria-hidden="true">{{ purchasesDirection === 'asc' ? '&#9650;' : '&#9660;' }}</span>
                 </button>
               </th>
+              <th scope="col" class="purchase-invoice">Faktura</th>
             </tr></thead>
             <tbody>
-              <tr *ngIf="purchasesLoading"><td [attr.colspan]="purchaseColumns.length" role="status">Wczytywanie...</td></tr>
+              <tr *ngIf="purchasesLoading"><td [attr.colspan]="purchaseColumns.length + 1" role="status">Wczytywanie...</td></tr>
               <ng-container *ngIf="!purchasesLoading && !purchasesError">
                 <tr *ngFor="let purchase of purchases">
                   <td>{{ purchase.planCode }}</td>
@@ -68,8 +70,17 @@
                   <td>{{ formatLimit(purchase.maxNumberOfExportedRecords) }}</td>
                   <td class="purchase-amount">{{ formatAmount(purchase.amountPaid) }}</td>
                   <td>{{ purchase.paidAtUtc | date:'dd.MM.yyyy HH:mm' }}</td>
+                  <td class="purchase-invoice">
+                    <button *ngIf="purchase.hasInvoice; else noInvoice" type="button" class="invoice-download"
+                            title="Pobierz faktur&#281; PDF" aria-label="Pobierz faktur&#281; PDF"
+                            [disabled]="downloadingInvoice !== null" [attr.aria-busy]="downloadingInvoice === purchase.stripeSessionId"
+                            (click)="downloadInvoice(purchase)">
+                      <img src="assets/icons/file-down.svg" width="20" height="20" alt=""><span>PDF</span>
+                    </button>
+                    <ng-template #noInvoice>-</ng-template>
+                  </td>
                 </tr>
-                <tr *ngIf="purchases.length === 0"><td [attr.colspan]="purchaseColumns.length">Brak zakupów.</td></tr>
+                <tr *ngIf="purchases.length === 0"><td [attr.colspan]="purchaseColumns.length + 1">Brak zakupów.</td></tr>
               </ng-container>
             </tbody>
           </table>

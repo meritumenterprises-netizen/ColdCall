@@ -8,7 +8,7 @@ import { TermsConsentService } from './terms-consent.service';
 export interface SortableColumn { key: string; label: string; }
 export interface FeedbackRequest { firstName: string; lastName: string; email: string; comment: string; turnstileToken: string; nip?: string; }
 export interface PublicPlan { id: number; code: string; descriptionHtml: string; price: number; currency: string; }
-export interface AdminUserLogin { userLoginId: number; userId: number; userName: string | null; email: string | null; loginDate: string; }
+export interface AdminUserLogin { userLoginId: number; userId: number; userName: string | null; email: string | null; loginDate: string; ipAddress: string | null; dnsAddress: string | null; }
 export interface PagedResult<T> { items: T[]; total: number; page: number; pageSize: number; sortableColumns?: SortableColumn[]; totalWithoutLimit?: number; hasNotes?: boolean; }
 export interface Pkd { id: number; code: string; name: string; }
 export interface PkdClassification { status: string; text: string; pkdCodes: Pkd[]; }
@@ -42,8 +42,8 @@ export interface Company {
   addressIsMissing: boolean | null; blockedByRODO: boolean;
   wojewodztwoId?: number | null; miejscowoscId?: number | null; gminaId?: number | null; powiatId?: number | null;
 }
-export interface AdminGlobalSetting { globalSettingsId: number; applicationVersion?: string; globalDegreeOfParallelismImportByDate: number; applicationInService: boolean; registrationSuspended: boolean; }
-export interface AdminUserPayment { planCode: string; paidAtUtc: string; amountPaid: number; }
+export interface AdminGlobalSetting { globalSettingsId: number; applicationVersion?: string; globalDegreeOfParallelismImportByDate: number; applicationInService: boolean; registrationSuspended: boolean; inFaktInvoicing: boolean; }
+export interface AdminUserPayment { planCode: string; paidAtUtc: string; amountPaid: number; stripeSessionId: string; hasInvoice: boolean; }
 export interface CompanyAddress { companyAdresId: number; companyId: number; addressId: number; }
 export interface CompanyAddressDetails extends CompanyAddress {
   wojewodztwoId: number; powiatId: number; gminaId: number; miejscowoscId: number;
@@ -85,6 +85,7 @@ export interface UserProfile extends ProfileDetails { displayName: string | null
 export interface StripePurchase {
   planCode: string; maxNumberOfSearches: number; maxNumberOfCSVExportsPerSearch: number | null;
   maxNumberOfExportedRecords: number | null; amountPaid: number; paidAtUtc: string;
+  stripeSessionId: string; hasInvoice: boolean;
 }
 export interface TrialOffer { code: string; descriptionHtml: string; expiresAtUtc: string; token: string; }
 export interface Me { id: number; googleEmail: string; usesGmail?: boolean; isBetaUser?: boolean; disablePlanPurchase?: boolean; displayName?: string; pictureUrl?: string; isAdmin: boolean; termsOfServiceAccepted?: boolean | null; requiresProfileCompletion?: boolean; applicationInService?: boolean; hasActivePlan: boolean; hasExpiredTrial?: boolean; hasExpiredPlan?: boolean; maxNumberOfExportedRecords: number; maxNumberOfSearches: number; plan?: CurrentPlan; trialOffer?: TrialOffer; }
@@ -468,6 +469,16 @@ export class ApiService {
   users(): Observable<AppUser[]> { return this.http.get<AppUser[]>(this.url('/api/admin/users'), this.headers()); }
   adminUserPayments(id: number): Observable<AdminUserPayment[]> {
     return this.http.get<AdminUserPayment[]>(this.url('/api/admin/users/' + id + '/payments'), this.headers());
+  }
+
+  adminUserInvoice(id: number, sessionId: string): Observable<Blob> {
+    return this.http.get(this.url('/api/admin/users/' + id + '/payments/invoice'),
+      { ...this.headers(), params: { sessionId }, responseType: 'blob' });
+  }
+
+  purchaseInvoice(sessionId: string): Observable<Blob> {
+    return this.http.get(this.url('/api/auth/purchases/invoice'),
+      { ...this.headers(), params: { sessionId }, responseType: 'blob' });
   }
 
   updateAdminUserDetails(id: number, details: Partial<AppUser> & { expiresInDays?: number | null }): Observable<Partial<AppUser> & { expiresAtUtc?: string | null }> {

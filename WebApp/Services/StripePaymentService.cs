@@ -1,9 +1,10 @@
-using System.Globalization;
 using ColdCall.Data;
 using ColdCall.Models;
 using Microsoft.EntityFrameworkCore;
 using Stripe;
 using Stripe.Checkout;
+using System.Globalization;
+using System.Text.Json;
 
 namespace ColdCall.Services;
 
@@ -52,7 +53,8 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
         if (amount != plan.Price * 100) throw new InvalidOperationException("Niepoprawna cena planu.");
         return await stripe.CreateAsync(new SessionCreateOptions
         {
-            Mode = "payment", CustomerEmail = user.GoogleEmail,
+            Mode = "payment",
+            CustomerEmail = user.GoogleEmail,
             ClientReferenceId = user.Id.ToString(CultureInfo.InvariantCulture),
             SuccessUrl = new Uri(frontend, "payment/success").AbsoluteUri + "?session_id={CHECKOUT_SESSION_ID}",
             CancelUrl = new Uri(frontend, "plans").AbsoluteUri + "?canceled=true",
@@ -67,7 +69,8 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             },
             Metadata = new Dictionary<string, string>
             {
-                ["application"] = "ColdCall", ["userId"] = user.Id.ToString(CultureInfo.InvariantCulture),
+                ["application"] = "ColdCall",
+                ["userId"] = user.Id.ToString(CultureInfo.InvariantCulture),
                 ["planId"] = plan.Id.ToString(CultureInfo.InvariantCulture),
                 ["expiresAfterDays"] = plan.ExpiresAfterDays.Value.ToString(CultureInfo.InvariantCulture),
                 ["amount"] = amount.ToString(CultureInfo.InvariantCulture)
@@ -112,8 +115,11 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
                 {
                     db.StripePayments.Add(new StripePayment
                     {
-                        StripeSessionId = sessionId, AppUserId = legacy.AppUserId, PlanDefinitionId = legacy.PlanDefinitionId,
-                        PaidAtUtc = legacy.PurchasedAtUtc, AmountPaid = legacy.PricePaid
+                        StripeSessionId = sessionId,
+                        AppUserId = legacy.AppUserId,
+                        PlanDefinitionId = legacy.PlanDefinitionId,
+                        PaidAtUtc = legacy.PurchasedAtUtc,
+                        AmountPaid = legacy.PricePaid
                     });
                 }
                 else
@@ -132,8 +138,11 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
                     {
                         db.StripePayments.Add(new StripePayment
                         {
-                            StripeSessionId = userPlan.StripeSessionId, AppUserId = userId, PlanDefinitionId = userPlan.PlanDefinitionId,
-                            PaidAtUtc = userPlan.PurchasedAtUtc, AmountPaid = userPlan.PricePaid
+                            StripeSessionId = userPlan.StripeSessionId,
+                            AppUserId = userId,
+                            PlanDefinitionId = userPlan.PlanDefinitionId,
+                            PaidAtUtc = userPlan.PurchasedAtUtc,
+                            AmountPaid = userPlan.PricePaid
                         });
                     }
                     userPlan.PlanDefinitionId = planId;
@@ -145,106 +154,163 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
                     userPlan.IsActive = true;
                     db.StripePayments.Add(new StripePayment
                     {
-                        StripeSessionId = sessionId, AppUserId = userId, PlanDefinitionId = planId,
-                        PaidAtUtc = now, AmountPaid = amount / 100m
+                        StripeSessionId = sessionId,
+                        AppUserId = userId,
+                        PlanDefinitionId = planId,
+                        PaidAtUtc = now,
+                        AmountPaid = amount / 100m
                     });
                 }
                 await db.SaveChangesAsync(token);
             }
             await transaction.CommitAsync(token);
         }
-        await EnsureInvoiceAsync(sessionId, token);
+        var invoicingEnabled = await db.GlobalSettings.AsNoTracking()
+            .OrderBy(settings => settings.GlobalSettingsId)
+            .Select(settings => settings.InFaktInvoicing).FirstOrDefaultAsync(token);
+        if (invoicingEnabled) await EnsureInvoiceAsync(sessionId, inFakt, token);
         return true;
     }
 
-    private async Task EnsureInvoiceAsync(string sessionId, CancellationToken token)
+    private async Task EnsureInvoiceAsync(string sessionId, InFaktService inFakt, CancellationToken token)
     {
-        // A session-owned lock serializes webhook/browser confirmation without keeping
-        // a database transaction open during external HTTP calls.
-        var resource = "InFaktInvoice:" + sessionId;
-        await db.Database.OpenConnectionAsync(token);
-        var acquired = false;
         try
         {
-            await db.Database.ExecuteSqlInterpolatedAsync($@"
-                DECLARE @result int;
-                EXEC @result=sys.sp_getapplock @Resource={resource}, @LockMode='Exclusive', @LockOwner='Session', @LockTimeout=30000;
-                IF @result < 0 THROW 50001, 'Invoice generation lock unavailable', 1;", token);
-            acquired = true;
             var payment = await db.StripePayments.SingleAsync(p => p.StripeSessionId == sessionId, token);
             await db.Entry(payment).ReloadAsync(token);
-            if (payment.PDFInvoice is { Length: > 0 } && !string.IsNullOrWhiteSpace(payment.InvoiceId)) return;
-
+            var planDefinition = await db.PlanDefinitions.AsNoTracking()
+                .SingleAsync(plan => plan.Id == payment.PlanDefinitionId, token);
             var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == payment.AppUserId, token);
             var companyName = (user.CompanyName ?? (user.FirstName + " " + user.LastName)).Trim();
+            var Nip = user.Nip?.Trim();
             if (string.IsNullOrWhiteSpace(companyName))
                 throw new InvalidOperationException("The user's company name or first and last name is required for invoicing.");
-            if (!payment.ClientId.HasValue)
+
+            InFaktCompaniesResponse companies = await inFakt.RetrieveCompanies(token);
+            InFaktClient client = null;
+            foreach (var companyInfakt in companies.Entities)
             {
-                InFaktClient? company = null;
-                string? pageUrl = null;
-                var visited = new HashSet<string>(StringComparer.Ordinal);
-                do
+                if (string.Equals(companyInfakt.Nip?.Trim(), Nip, StringComparison.OrdinalIgnoreCase))
                 {
-                    if (!visited.Add(pageUrl ?? "first"))
-                        throw new InvalidDataException("inFakt returned a repeated client pagination URL.");
-                    var clients = await inFakt.RetrieveCompanies(token, pageUrl);
-                    company = clients.Entities.FirstOrDefault(client =>
-                        string.Equals(client.CompanyName?.Trim(), companyName, StringComparison.OrdinalIgnoreCase));
-                    pageUrl = string.IsNullOrWhiteSpace(clients.Metainfo.Next) ? null : clients.Metainfo.Next;
-                } while (company == null && pageUrl != null);
-                company ??= await inFakt.CreateCompany(new InFaktCreateCompanyRequest
-                {
-                    CompanyName = companyName, Street = user.Street ?? "", StreetNumber = user.StreetNumber ?? "",
-                    City = user.City ?? "", Nip = user.Nip ?? "", PostCode = user.PostalCode ?? "", Country = "PL"
-                }, token);
-                if (company.Id <= 0 || company.Id > int.MaxValue)
-                    throw new InvalidDataException("inFakt returned an invalid client ID.");
-                payment.ClientId = (int)company.Id;
-                await db.SaveChangesAsync(token);
-            }
-            if (string.IsNullOrWhiteSpace(payment.InvoiceId))
-            {
-                if (string.IsNullOrWhiteSpace(payment.InvoiceNumber))
-                {
-                    // Reserve MAX + 1 across all payments and persist it before calling inFakt.
-                    await using (var numbering = await db.Database.BeginTransactionAsync(token))
-                    {
-                        await db.Database.ExecuteSqlRawAsync(@"
-                            DECLARE @result int;
-                            EXEC @result=sys.sp_getapplock @Resource='StripePayments:InvoiceNumber', @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
-                            IF @result < 0 THROW 50001, 'Invoice numbering lock unavailable', 1;", token);
-                        var maximum = await db.Database.SqlQuery<int?>($"SELECT MAX(TRY_CONVERT(int, InvoiceNumber)) AS [Value] FROM ColdCall.StripePayments").SingleAsync(token) ?? 0;
-                        payment.InvoiceNumber = checked(maximum + 1).ToString(CultureInfo.InvariantCulture);
-                        await db.SaveChangesAsync(token);
-                        await numbering.CommitAsync(token);
-                    }
+                    client = companyInfakt;
+                    break;
                 }
-                var planCode = await db.PlanDefinitions.Where(plan => plan.Id == payment.PlanDefinitionId)
-                    .Select(plan => plan.Code).SingleAsync(token);
-                var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
-                    TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw")));
-                var invoice = await inFakt.CreateInvoice(companyName, payment.InvoiceNumber,
-                    today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), planCode, payment.AmountPaid, token);
-                if (!invoice.TryGetProperty("uuid", out var uuid) || uuid.ValueKind != System.Text.Json.JsonValueKind.String
-                    || !Guid.TryParse(uuid.GetString(), out var invoiceId))
-                    throw new InvalidDataException("inFakt returned an invalid invoice UUID.");
-                payment.InvoiceId = invoiceId.ToString();
-                await db.SaveChangesAsync(token);
             }
-            var pdf = await inFakt.GetInvoice(payment.InvoiceId, token);
-            if (pdf.Length == 0) throw new InvalidDataException("inFakt returned an empty invoice PDF.");
-            payment.PDFInvoice = pdf;
+            if (client == null)
+            {
+                var inFaktCreateCompanyRequest = new InFaktCreateCompanyRequest()
+                {
+                    CompanyName = user.CompanyName!,
+                    Nip = user.Nip!,
+                    Street = user.Street!,
+                    StreetNumber = user.StreetNumber!,
+                    City = user.City!,
+                    PostCode = user.PostalCode!,
+                    Country = "PL"
+                };
+                client = await inFakt.CreateCompany(inFaktCreateCompanyRequest, token);
+            }
+            companyName = client.CompanyName;
+            var maximumInvoiceId = checked(await db.StripePayments.CountAsync(token) + 1);
+            var invoiceId = maximumInvoiceId;
+            var jsonElement = await inFakt.CreateInvoice(companyName, invoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd"), planDefinition.Code, payment.AmountPaid, token);
+
+            if (!jsonElement.TryGetProperty("uuid", out var uuidElement)
+                || uuidElement.ValueKind != JsonValueKind.String
+                || !Guid.TryParse(uuidElement.GetString(), out var uuid))
+            {
+                throw new InvalidDataException("inFakt returned a missing or invalid invoice UUID.");
+            }
+
+            payment.InvoiceId = uuid.ToString();
             await db.SaveChangesAsync(token);
+
+            var invoiceContent = await inFakt.GetInvoice(payment.InvoiceId, token);
+            if (invoiceContent != null)
+            {
+                payment.PDFInvoice = invoiceContent;
+                await db.SaveChangesAsync(token);
+
+            }
+            else
+            {
+                throw new InvalidDataException("inFakt returned an empty invoice PDF.");
+            }
+            //    if (!payment.ClientId.HasValue)
+            //    {
+            //        InFaktClient? company = null;
+            //        string? pageUrl = null;
+            //        var visited = new HashSet<string>(StringComparer.Ordinal);
+            //        do
+            //        {
+            //            if (!visited.Add(pageUrl ?? "first"))
+            //                throw new InvalidDataException("inFakt returned a repeated client pagination URL.");
+            //            var clients = await inFakt.RetrieveCompanies(token, pageUrl);
+            //            company = clients.Entities.FirstOrDefault(client =>
+            //                string.Equals(client.CompanyName?.Trim(), companyName, StringComparison.OrdinalIgnoreCase));
+            //            pageUrl = string.IsNullOrWhiteSpace(clients.Metainfo.Next) ? null : clients.Metainfo.Next;
+            //        } while (company == null && pageUrl != null);
+            //        company ??= await inFakt.CreateCompany(new InFaktCreateCompanyRequest
+            //        {
+            //            CompanyName = companyName, Street = user.Street ?? "", StreetNumber = user.StreetNumber ?? "",
+            //            City = user.City ?? "", Nip = user.Nip ?? "", PostCode = user.PostalCode ?? "", Country = "PL"
+            //        }, token);
+            //        if (company.Id <= 0 || company.Id > int.MaxValue)
+            //            throw new InvalidDataException("inFakt returned an invalid client ID.");
+            //        payment.ClientId = (int)company.Id;
+            //        await db.SaveChangesAsync(token);
+            //    }
+            //    if (string.IsNullOrWhiteSpace(payment.InvoiceId))
+            //    {
+            //        if (string.IsNullOrWhiteSpace(payment.InvoiceNumber))
+            //        {
+            //            // Reserve MAX + 1 across all payments and persist it before calling inFakt.
+            //            await using (var numbering = await db.Database.BeginTransactionAsync(token))
+            //            {
+            //                await db.Database.ExecuteSqlRawAsync(@"
+            //                    DECLARE @result int;
+            //                    EXEC @result=sys.sp_getapplock @Resource='StripePayments:InvoiceNumber', @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
+            //                    IF @result < 0 THROW 50001, 'Invoice numbering lock unavailable', 1;", token);
+            //                var maximum = await db.Database.SqlQuery<int?>($"SELECT MAX(TRY_CONVERT(int, InvoiceNumber)) AS [Value] FROM ColdCall.StripePayments").SingleAsync(token) ?? 0;
+            //                payment.InvoiceNumber = checked(maximum + 1).ToString(CultureInfo.InvariantCulture);
+            //                await db.SaveChangesAsync(token);
+            //                await numbering.CommitAsync(token);
+            //            }
+            //        }
+            //        var planCode = await db.PlanDefinitions.Where(plan => plan.Id == payment.PlanDefinitionId)
+            //            .Select(plan => plan.Code).SingleAsync(token);
+            //        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow,
+            //            TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw")));
+            //        var invoice = await inFakt.CreateInvoice(companyName, payment.InvoiceNumber,
+            //            today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), planCode, payment.AmountPaid, token);
+            //        if (!invoice.TryGetProperty("uuid", out var uuid) || uuid.ValueKind != System.Text.Json.JsonValueKind.String
+            //            || !Guid.TryParse(uuid.GetString(), out var invoiceId))
+            //            throw new InvalidDataException("inFakt returned an invalid invoice UUID.");
+            //        payment.InvoiceId = invoiceId.ToString();
+            //        await db.SaveChangesAsync(token);
+            //    }
+            //    var pdf = await inFakt.GetInvoice(payment.InvoiceId, token);
+            //    if (pdf.Length == 0) throw new InvalidDataException("inFakt returned an empty invoice PDF.");
+            //    payment.PDFInvoice = pdf;
+            //    await db.SaveChangesAsync(token);
+            //}
+            //finally
+            //{
+            //    try
+            //    {
+            //        if (acquired)
+            //            await db.Database.ExecuteSqlInterpolatedAsync($"EXEC sys.sp_releaseapplock @Resource={resource}, @LockOwner='Session';", CancellationToken.None);
+            //    }
+            //    finally { await db.Database.CloseConnectionAsync(); }
+            //}
+        }
+        catch (Exception exc)
+        {
+            Console.WriteLine(exc.Message);
         }
         finally
         {
-            try
-            {
-                if (acquired)
-                    await db.Database.ExecuteSqlInterpolatedAsync($"EXEC sys.sp_releaseapplock @Resource={resource}, @LockOwner='Session';", CancellationToken.None);
-            }
-            finally { await db.Database.CloseConnectionAsync(); }
+
         }
     }
 }

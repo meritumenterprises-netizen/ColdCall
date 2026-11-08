@@ -25,6 +25,10 @@
       <input id="registration-suspended" name="registrationSuspended" type="checkbox" [(ngModel)]="row.registrationSuspended" (ngModelChange)="row.saved = false">
       Rejestracja nowych u&#380;ytkownik&#243;w wstrzymana
     </label>
+    <label class="maintenance-field" for="infakt-invoicing">
+      <input id="infakt-invoicing" name="inFaktInvoicing" type="checkbox" [(ngModel)]="row.inFaktInvoicing" (ngModelChange)="row.saved = false">
+      Fakturowanie via InFakt
+    </label>
     <div class="settings-actions">
       <button type="submit" class="primary-button" [disabled]="row.saving || !changed(row) || !valid(row)">{{ row.saving ? 'Zapisywanie...' : 'Zapisz' }}</button>
       <button type="button" class="ghost-button" [disabled]="row.saving || !changed(row)" (click)="cancel(row)">Anuluj</button>

@@ -11,6 +11,7 @@ public interface ICurrentUserService
 {
     bool WasCreated => false;
     Task<AppUser> GetOrCreateAsync(ClaimsPrincipal principal);
+    async Task<AppUser?> TryGetOrCreateAsync(ClaimsPrincipal principal) => await GetOrCreateAsync(principal);
 }
 
 public class CurrentUserService : ICurrentUserService
@@ -23,7 +24,10 @@ public class CurrentUserService : ICurrentUserService
         _db = db;
     }
 
-    public async Task<AppUser> GetOrCreateAsync(ClaimsPrincipal principal)
+    public async Task<AppUser> GetOrCreateAsync(ClaimsPrincipal principal) =>
+        await TryGetOrCreateAsync(principal) ?? throw new RegistrationSuspendedException();
+
+    public async Task<AppUser?> TryGetOrCreateAsync(ClaimsPrincipal principal)
     {
         var localId = principal.FindFirstValue(LocalAuthentication.UserIdClaim);
         if (int.TryParse(localId, out var userId))
@@ -41,6 +45,10 @@ public class CurrentUserService : ICurrentUserService
         var user = await _db.Users.FirstOrDefaultAsync(x => x.GoogleEmail == email);
         if (user == null)
         {
+            var registrationSuspended = await _db.GlobalSettings.AsNoTracking()
+                .OrderByDescending(settings => settings.GlobalSettingsId)
+                .Select(settings => settings.RegistrationSuspended).FirstOrDefaultAsync();
+            if (registrationSuspended) return null;
             user = new AppUser
             {
                 GoogleEmail = email,

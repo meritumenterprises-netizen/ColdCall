@@ -48,6 +48,8 @@ public partial class ColdCallDbContext
             entity.HasKey(e => e.UserLoginId).HasName("PK_UserLogin");
             entity.Property(e => e.UserLoginId).UseIdentityColumn();
             entity.Property(e => e.LoginDate).HasColumnType("datetime");
+            entity.Property(e => e.IpAddress).HasMaxLength(50).IsUnicode(false).IsRequired(false);
+            entity.Property(e => e.DnsAddress).HasMaxLength(2048).IsUnicode(false).IsRequired(false);
         });
         modelBuilder.Entity<GlobalSetting>(entity =>
         {
@@ -55,6 +57,7 @@ public partial class ColdCallDbContext
             entity.HasKey(e => e.GlobalSettingsId).HasName("PK_GlobalSettings");
             entity.Property(e => e.GlobalSettingsId).UseIdentityColumn();
             entity.Property(e => e.ApplicationInService).HasColumnType("bit").HasDefaultValue(false);
+            entity.Property(e => e.InFaktInvoicing).HasColumnType("bit").HasDefaultValue(false);
             entity.Property(e => e.RegistrationSuspended).HasColumnType("bit").HasDefaultValue(false);
             entity.Property(e => e.Regulamin).HasColumnType("nvarchar(max)").IsRequired(false);
             entity.Property(e => e.RegulaminBeta).HasColumnType("nvarchar(max)").IsRequired(false);

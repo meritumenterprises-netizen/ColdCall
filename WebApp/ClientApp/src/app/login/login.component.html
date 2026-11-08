@@ -136,7 +136,7 @@
   <div class="trial-actions"><button type="button" class="primary-button" (click)="googleRequiredDialog.close()">OK</button></div>
 </dialog>
 <dialog #registrationMaintenanceDialog class="trial-dialog" aria-labelledby="registration-maintenance-message">
-  <p id="registration-maintenance-message">System w trybie konserwacji. Spr&#243;buj za kilka minut</p>
+  <p id="registration-maintenance-message">{{ registrationUnavailableMessage }}</p>
   <div class="trial-actions"><button type="button" class="primary-button" (click)="registrationMaintenanceDialog.close()">OK</button></div>
 </dialog>
 

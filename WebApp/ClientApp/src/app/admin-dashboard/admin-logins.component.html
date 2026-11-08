@@ -13,18 +13,22 @@
       <th [attr.aria-sort]="sortBy === 'user' ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
         <button type="button" class="sort-button" [disabled]="loading" (click)="sort('user')">U&#380;ytkownik <span class="sort-indicator">{{ sortBy === 'user' ? (direction === 'asc' ? '&#9650;' : '&#9660;') : '' }}</span></button>
       </th>
+      <th>IpAddress</th>
+      <th>DnsAddress</th>
       <th>Usu&#324;</th>
     </tr></thead>
     <tbody>
-      <tr *ngIf="loading"><td colspan="4" role="status">Wczytywanie...</td></tr>
+      <tr *ngIf="loading"><td colspan="6" role="status">Wczytywanie...</td></tr>
       <ng-container *ngIf="!loading && !error">
         <tr *ngFor="let row of rows">
           <td>{{ row.userLoginId }}</td><td>{{ row.loginDate | date:'dd.MM.yyyy HH:mm:ss' }}</td>
           <td [title]="row.email || ''">{{ row.email || ('Usuni&#281;ty u&#380;ytkownik #' + row.userId) }}</td>
+          <td>{{ row.ipAddress || '' }}</td>
+          <td>{{ row.dnsAddress || '' }}</td>
           <td><button type="button" class="delete-login" [disabled]="loading || deletingId !== null"
             [attr.aria-label]="'Usu&#324; wpis logowania #' + row.userLoginId" (click)="deleteLogin(row)">Usu&#324;</button></td>
         </tr>
-        <tr *ngIf="!rows.length"><td colspan="4">Brak logowa&#324;.</td></tr>
+        <tr *ngIf="!rows.length"><td colspan="6">Brak logowa&#324;.</td></tr>
       </ng-container>
     </tbody>
   </table>

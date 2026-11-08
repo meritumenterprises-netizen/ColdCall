@@ -19,7 +19,7 @@ var builder = WebApplication.CreateBuilder(args.Where(arg =>
     !arg.Equals("--initialize-database", StringComparison.OrdinalIgnoreCase) &&
     !arg.Equals("--angular-dev-server", StringComparison.OrdinalIgnoreCase)).ToArray());
 
-builder.Services.AddControllers();
+builder.Services.AddControllers(options => options.Filters.Add<RegistrationSuspendedExceptionFilter>());
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CompanySearchSnapshotCache>();
 builder.Services.AddSingleton<LandingStatisticsService>();

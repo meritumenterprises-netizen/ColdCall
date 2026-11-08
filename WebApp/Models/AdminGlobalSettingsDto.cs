@@ -10,4 +10,5 @@ public class AdminGlobalSettingsDto
     public int GlobalDegreeOfParallelismImportByDate { get; set; }
     public bool ApplicationInService { get; set; }
     public bool RegistrationSuspended { get; set; }
+    public bool InFaktInvoicing { get; set; }
 }
