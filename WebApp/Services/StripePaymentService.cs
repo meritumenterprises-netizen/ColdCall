@@ -268,6 +268,11 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             }
 
             payment.InvoiceId = uuid.ToString();
+            payment.InvoiceNumber = jsonElement.TryGetProperty("number", out var numberElement)
+                && numberElement.ValueKind == JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(numberElement.GetString())
+                    ? numberElement.GetString()
+                    : invoiceId.ToString(CultureInfo.InvariantCulture);
             await db.SaveChangesAsync(token);
 
             var invoiceContent = await inFakt.GetInvoice(payment.InvoiceId, token);
