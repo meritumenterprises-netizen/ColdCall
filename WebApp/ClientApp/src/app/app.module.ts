@@ -6,6 +6,7 @@ import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { BlockedAccountInterceptor } from './services/blocked-account.interceptor';
 import { RateLimitInterceptor } from './services/rate-limit.interceptor';
 import { RateLimitToastComponent } from './rate-limit-toast.component';
+import { VersionPageComponent } from './version-page.component';
 import { RouterModule } from '@angular/router';
 
 import { AppComponent } from './app.component';
@@ -45,6 +46,7 @@ import { CompanySearchProgressComponent } from './company-search-progress/compan
 @NgModule({
   declarations: [
     RateLimitToastComponent,
+    VersionPageComponent,
     NipValidatorDirective,
     AppComponent,
     NavMenuComponent,
@@ -85,6 +87,7 @@ import { CompanySearchProgressComponent } from './company-search-progress/compan
       { path: 'kontakt/rodo', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'RODO' } },
       { path: 'plany', component: PublicPlansComponent, canActivate: [PublicPlansGuard] },
       { path: 'regulamin', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Regulamin' } },
+      { path: 'wersja', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Wersja aplikacji FindMyClient' } },
       { path: 'maintenance', component: MaintenanceComponent, canActivate: [MaintenanceGuard] },
       { path: 'dashboard', component: UserDashboardComponent, canActivate: [AuthGuard] },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [AuthGuard, AdminGuard], runGuardsAndResolvers: 'always' },
