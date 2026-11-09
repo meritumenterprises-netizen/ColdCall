@@ -6,6 +6,9 @@
   },
   "exclude": [
     "src/test.ts",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "app/counter/**",
+    "app/fetch-data/**",
+    "app/home/**"
   ]
 }
