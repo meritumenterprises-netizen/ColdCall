@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { NipValidatorDirective } from './services/nip-validator.directive';
 import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
 import { BlockedAccountInterceptor } from './services/blocked-account.interceptor';
+import { RateLimitInterceptor } from './services/rate-limit.interceptor';
+import { RateLimitToastComponent } from './rate-limit-toast.component';
 import { RouterModule } from '@angular/router';
 
 import { AppComponent } from './app.component';
@@ -42,6 +44,7 @@ import { CompanySearchProgressComponent } from './company-search-progress/compan
 
 @NgModule({
   declarations: [
+    RateLimitToastComponent,
     NipValidatorDirective,
     AppComponent,
     NavMenuComponent,
@@ -93,7 +96,10 @@ import { CompanySearchProgressComponent } from './company-search-progress/compan
       { path: 'profile/purchases', component: ProfileComponent, canActivate: [AuthGuard], data: { section: 'purchases' } },
     ])
   ],
-  providers: [{ provide: HTTP_INTERCEPTORS, useClass: BlockedAccountInterceptor, multi: true }],
+  providers: [
+    { provide: HTTP_INTERCEPTORS, useClass: RateLimitInterceptor, multi: true },
+    { provide: HTTP_INTERCEPTORS, useClass: BlockedAccountInterceptor, multi: true }
+  ],
   bootstrap: [AppComponent]
 })
 export class AppModule { }

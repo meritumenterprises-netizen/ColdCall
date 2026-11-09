@@ -4,6 +4,7 @@ import { finalize, retry, switchMap, tap, timeout } from 'rxjs/operators';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, Me, TrialOffer } from '../services/api.service';
 import { TurnstileComponent } from './turnstile.component';
+import { isValidNip } from '../services/nip-validation';
 
 declare const google: any;
 
@@ -140,8 +141,8 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
         .some(value => !value.trim())) {
       this.localError = 'Uzupelnij wymagane dane osobowe i adresowe.'; return;
     }
-    if (this.localMode === 'register' && this.registration.nip && !/^[0-9]{10}$/.test(this.registration.nip)) {
-      this.localError = 'NIP musi zawierac 10 cyfr.'; return;
+    if (this.localMode === 'register' && !isValidNip(this.registration.nip)) {
+      this.localError = 'NIP musi zawiera\u0107 10 cyfr i mie\u0107 poprawn\u0105 cyfr\u0119 kontroln\u0105 albo pozosta\u0107 pusty.'; return;
     }
     if (this.localMode === 'register' && !/^[0-9]{2}-[0-9]{3}$/.test(this.registration.postalCode)) {
       this.localError = 'Podaj kod pocztowy w formacie 00-000.'; return;

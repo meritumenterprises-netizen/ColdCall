@@ -7,6 +7,6 @@ IF DB_ID(N'Firmy_temp') IS NOT NULL
 CREATE DATABASE [Firmy_temp]
 ON
     (FILENAME = N'C:\SQLData\Firmy_temp.mdf'),
-    (FILENAME = N'C:\SQLData\Firmy_temp_log.ldf')
+    (FILENAME = N'C:\SQLData\Firmy_temp.ldf')
 FOR ATTACH;
 GO
