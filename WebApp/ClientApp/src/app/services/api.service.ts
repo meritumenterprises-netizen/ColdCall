@@ -336,6 +336,10 @@ export class ApiService {
     return csrf.pipe(switchMap(() => this.http.post<{ message: string }>(
       this.url('/api/public/rodo'), details, this.headers())));
   }
+  applicationVersion(): Observable<{ backendVersion: string }> {
+    return this.http.get<{ backendVersion: string }>(this.url('/api/public/version'));
+  }
+
   publicPlans(): Observable<PublicPlan[]> {
     return this.http.get<PublicPlan[]>(this.url('/api/public/plans'));
   }
