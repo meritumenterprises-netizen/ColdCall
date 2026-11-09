@@ -57,7 +57,7 @@
       <button type="button" [class.active]="localMode === 'login'" [disabled]="localBusy || checkingRegistration" (click)="setLocalMode('login')">Logowanie</button>
       <button *ngIf="!registrationSuspended" type="button" [class.active]="localMode === 'register'" [disabled]="localBusy || checkingRegistration" [attr.aria-busy]="checkingRegistration" (click)="setLocalMode('register')">Rejestracja</button>
     </div>
-    <h2>{{ localMode === 'register' ? 'Utwórz konto' : localMode === 'forgot' ? 'Odzyskaj hasło' : localMode === 'reset' ? 'Ustaw nowe hasło' : 'Zaloguj się' }}</h2>
+    <h2 *ngIf="localMode === 'forgot' || localMode === 'reset'">{{ localMode === 'forgot' ? 'Odzyskaj hasło' : 'Ustaw nowe hasło' }}</h2>
     <form #localForm="ngForm" (ngSubmit)="submitLocalAuth()">
       <fieldset class="local-auth-fields" [class.registration-fields]="localMode === 'register'" [class.login-fields]="localMode === 'login'" [disabled]="localBusy || checkingRegistration">
         <ng-container *ngIf="localMode === 'register'">
@@ -68,8 +68,8 @@
           <label for="register-companyName">Nazwa firmy</label>
           <input id="register-companyName" name="companyName" [(ngModel)]="registration.companyName" maxlength="200" autocomplete="organization">
           <label for="register-nip">NIP</label>
-          <input id="register-nip" name="nip" [(ngModel)]="registration.nip" pattern="[0-9]{10}" maxlength="10" inputmode="numeric" #nipField="ngModel">
-          <span *ngIf="nipField.invalid && nipField.touched" class="error" role="alert">NIP musi zawiera&#263; 10 cyfr.</span>
+          <input id="register-nip" name="nip" [(ngModel)]="registration.nip" [appNip]="true" pattern="[0-9]{10}" maxlength="10" inputmode="numeric" #nipField="ngModel" [attr.aria-invalid]="nipField.invalid && (nipField.dirty || nipField.touched) ? 'true' : null">
+          <span *ngIf="nipField.invalid && (nipField.dirty || nipField.touched)" class="error" role="alert">NIP musi zawiera&#263; 10 cyfr i mie&#263; poprawn&#261; cyfr&#281; kontroln&#261; albo pozosta&#263; pusty.</span>
           <label for="register-postalCode">Kod pocztowy</label>
           <input id="register-postalCode" name="postalCode" [(ngModel)]="registration.postalCode" required pattern="[0-9]{2}-[0-9]{3}" minlength="6" maxlength="6" autocomplete="postal-code">
           <label for="register-city">Miasto</label>

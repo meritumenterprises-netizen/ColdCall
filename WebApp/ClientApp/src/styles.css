@@ -351,7 +351,7 @@ tbody tr:hover { background: #f8fafc; }
 .trial-terms input[type="checkbox"] { flex: 0 0 16px; width: 16px; height: 16px; min-width: 0; padding: 0; margin: 0; accent-color: var(--accent); }
 .trial-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
 .local-auth-tabs { display: flex; gap: 16px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
-.login-card .local-auth-tabs button { background: transparent; color: var(--text-secondary); padding: 8px 0; border-radius: 0; border-bottom: 2px solid transparent; }
+.login-card .local-auth-tabs button { background: transparent; color: var(--text-secondary); padding: 8px 0; border-radius: 0; border-bottom: 2px solid transparent; font-size: 16px; }
 .login-card .local-auth-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
 .local-auth-fields { border: 0; padding: 0; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
 .local-auth-fields label { margin-top: 6px; font-weight: 600; }

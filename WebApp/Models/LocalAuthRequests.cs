@@ -38,7 +38,7 @@ public class RegistrationRequest : PasswordLoginRequest
     public string LastName { get; set; } = "";
     [StringLength(200)]
     public string? CompanyName { get; set; }
-    [RegularExpression(@"[0-9]{10}"), StringLength(10)]
+    [PolishNip, StringLength(10)]
     public string? Nip { get; set; }
     [Required, StringLength(6, MinimumLength = 6), RegularExpression(@"[0-9]{2}-[0-9]{3}")]
     public string PostalCode { get; set; } = "";
