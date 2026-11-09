@@ -366,6 +366,7 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
             theme: 'outline',
             size: 'large',
             text: 'signin_with',
+            locale: 'pl',
             shape: 'rectangular',
             logo_alignment: 'left',
             width: Math.min(400, document.getElementById('googleSignInButton').parentElement.clientWidth || Math.max(200, window.innerWidth - 104))
