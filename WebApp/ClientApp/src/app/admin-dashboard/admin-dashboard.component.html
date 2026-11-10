@@ -265,6 +265,7 @@
               <td class="admin-user-actions">
                 <button type="button" class="ghost-button compact" [disabled]="!canChangeUserPlan(row)" (click)="requestChangePlan(row)">Zmie&#324; plan</button>
                 <button type="button" class="ghost-button compact" [disabled]="!canExtendUserPlan(row)" (click)="extendPlan(row.id)">Przed&#322;u&#380;</button>
+                <button *ngIf="usersTab === 'beta'" type="button" class="ghost-button compact" [disabled]="row.isAdmin || cloningBetaUser || busyUserIds.has(row.id)" (click)="$event.stopPropagation(); requestCloneBetaUser(row)">Klonuj</button>
                 <button type="button" class="ghost-button compact" [disabled]="!canSetUserPassword(row)" (click)="requestSetUserPassword(row, $event)" (keydown)="$event.stopPropagation()">Ustaw has&#322;o</button>
                 <button type="button" class="ghost-button compact" [disabled]="row.isAdmin || currentUserId === null || row.id === currentUserId || busyUserIds.has(row.id)" (click)="deleteUserAccount(row.id)">Usu&#324; konto</button>
               </td>
@@ -355,6 +356,25 @@
         </fieldset>
       </form>
     </dialog>
+    <dialog #cloneBetaUserDialog class="delete-csv-dialog create-user-dialog" aria-labelledby="clone-beta-title" (cancel)="$event.preventDefault(); cancelCloneBetaUser()">
+      <h2 id="clone-beta-title">Klonuj beta u&#380;ytkownika</h2>
+      <form #cloneBetaForm="ngForm" (ngSubmit)="confirmCloneBetaUser()">
+        <fieldset [disabled]="cloningBetaUser">
+          <label for="clone-first-name">Imi&#281;</label>
+          <input id="clone-first-name" name="cloneFirstName" [(ngModel)]="cloneDetails.firstName" required maxlength="100" pattern=".*\S.*">
+          <label for="clone-last-name">Nazwisko</label>
+          <input id="clone-last-name" name="cloneLastName" [(ngModel)]="cloneDetails.lastName" required maxlength="100" pattern=".*\S.*">
+          <label for="clone-email">Email</label>
+          <input id="clone-email" name="cloneEmail" type="email" [(ngModel)]="cloneDetails.email" required email maxlength="254" pattern="[^\s@]+@[^\s@]+\.[^\s@]+" (ngModelChange)="cloneBetaUserError = ''">
+          <p *ngIf="cloneBetaUserError" class="error" role="alert">{{ cloneBetaUserError }}</p>
+          <div class="delete-csv-dialog-actions">
+            <button type="submit" class="primary-button" [disabled]="cloningBetaUser || cloneBetaForm.invalid">{{ cloningBetaUser ? 'Klonowanie...' : 'Klonuj' }}</button>
+            <button type="button" class="ghost-button" (click)="cancelCloneBetaUser()">Anuluj</button>
+          </div>
+        </fieldset>
+      </form>
+    </dialog>
+
     <dialog #extendPlanDialog class="delete-csv-dialog" aria-labelledby="extend-plan-title" (cancel)="$event.preventDefault(); cancelExtendPlan()">
       <h2 id="extend-plan-title">Przed&#322;u&#380; plan</h2>
       <p>{{ userToExtendPlan ? userToExtendPlan.googleEmail : '' }}</p>

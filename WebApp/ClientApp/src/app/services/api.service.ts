@@ -534,6 +534,11 @@ export class ApiService {
     const csrf = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
     return csrf.pipe(switchMap(() => this.http.post(this.url('/api/admin/users/' + id + '/extend-plan'), { mode, days }, this.headers())));
   }
+  cloneBetaUser(id: number, details: { firstName: string; lastName: string; email: string }): Observable<{ id: number }> {
+    const csrf = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
+    return csrf.pipe(switchMap(() => this.http.post<{ id: number }>(
+      this.url('/api/admin/users/' + id + '/clone'), details, this.headers())));
+  }
   adminImports(): Observable<AdminImport[]> {
     return this.http.get<AdminImport[]>(this.url('/api/admin/imports'), this.headers());
   }

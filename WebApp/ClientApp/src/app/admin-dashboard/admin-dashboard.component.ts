@@ -27,6 +27,45 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   settingUserPassword = false;
   userPasswordError = '';
   private userActionRequests = new Set<Subscription>();
+  @ViewChild('cloneBetaUserDialog', { static: false }) cloneBetaUserDialog: ElementRef;
+  cloneSourceId: number | null = null;
+  cloneDetails = { firstName: '', lastName: '', email: '' };
+  cloningBetaUser = false;
+  cloneBetaUserError = '';
+
+  requestCloneBetaUser(row: AppUser) {
+    if (!row.isBetaUser || row.isAdmin || this.cloningBetaUser || this.busyUserIds.has(row.id)) { return; }
+    this.cloneSourceId = row.id;
+    this.cloneDetails = { firstName: '', lastName: '', email: '' };
+    this.cloneBetaUserError = '';
+    this.cloneBetaUserDialog.nativeElement.showModal();
+  }
+
+  cancelCloneBetaUser() {
+    if (this.cloningBetaUser) { return; }
+    this.cloneBetaUserDialog.nativeElement.close();
+    this.cloneSourceId = null;
+  }
+
+  confirmCloneBetaUser() {
+    if (this.cloningBetaUser || this.cloneSourceId === null) { return; }
+    const details = { firstName: this.cloneDetails.firstName.trim(), lastName: this.cloneDetails.lastName.trim(), email: this.cloneDetails.email.trim() };
+    if (!details.firstName || !details.lastName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(details.email)) { return; }
+    if (this.users.some(user => user.googleEmail.trim().toLowerCase() === details.email.toLowerCase())) {
+      this.cloneBetaUserError = 'Uzytkownik z takim adresem email juz istnieje.';
+      return;
+    }
+    this.cloningBetaUser = true;
+    this.cloneBetaUserError = '';
+    const request = this.api.cloneBetaUser(this.cloneSourceId, details)
+      .pipe(finalize(() => this.cloningBetaUser = false)).subscribe(result => {
+        this.cloneBetaUserDialog.nativeElement.close();
+        this.cloneSourceId = null;
+        this.message = 'Beta uzytkownik zostal sklonowany.';
+        this.loadUsers(result.id);
+      }, err => this.cloneBetaUserError = err.error && err.error.message ? err.error.message : 'Nie udalo sie sklonowac uzytkownika.');
+    this.userActionRequests.add(request);
+  }
   @ViewChild('createUserDialog', { static: false }) createUserDialog: ElementRef;
   newUserEmail = '';
   newUserPassword = '';
