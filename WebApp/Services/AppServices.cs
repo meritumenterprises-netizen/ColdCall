@@ -45,6 +45,8 @@ public class CurrentUserService : ICurrentUserService
         var user = await _db.Users.FirstOrDefaultAsync(x => x.GoogleEmail == email);
         if (user == null)
         {
+            if (email.Trim().EndsWith("@findmyclient.pl", StringComparison.OrdinalIgnoreCase))
+                throw new UnauthorizedAccessException("Rejestracja adresow w domenie findmyclient.pl jest niedozwolona.");
             var registrationSuspended = await _db.GlobalSettings.AsNoTracking()
                 .OrderByDescending(settings => settings.GlobalSettingsId)
                 .Select(settings => settings.RegistrationSuspended).FirstOrDefaultAsync();

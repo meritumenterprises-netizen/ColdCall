@@ -43,11 +43,16 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   resetEmailCheck() {
     if (this.emailCheckRequest) { this.emailCheckRequest.unsubscribe(); this.emailCheckRequest = null; }
     this.checkingEmail = false;
-    this.registrationEmailError = '';
+    this.registrationEmailError = this.localMode === 'register' && /@findmyclient\.pl$/i.test(this.localEmail.trim())
+      ? 'Rejestracja adresow w domenie findmyclient.pl jest niedozwolona.' : '';
+    if (this.localMode === 'register' && /@(gmail|googlemail)\.com$/i.test(this.localEmail.trim())) {
+      this.registrationEmailError = 'Dla adresu Gmail zaloguj si\u0119 przez Google zamiast rejestrowa\u0107 konto. U\u017cyj przycisku "Zaloguj si\u0119 przez Google" poni\u017cej.';
+    }
   }
 
   checkRegistrationEmail() {
     this.resetEmailCheck();
+    if (this.registrationEmailError) { return; }
     const email = this.localEmail.trim().toLowerCase();
     if (this.localMode !== 'register' || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { return; }
     this.checkingEmail = true;
@@ -96,8 +101,8 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private applyLocalMode(mode: 'login' | 'register' | 'forgot' | 'reset') {
-    this.resetEmailCheck();
     this.localMode = mode; this.localError = ''; this.localMessage = '';
+    this.resetEmailCheck();
     if (this.registrationInvoiceToastTimer) { this.registrationInvoiceToastTimer.unsubscribe(); }
     this.registrationInvoiceToast = mode === 'register';
     if (this.registrationInvoiceToast) {
@@ -127,6 +132,14 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
 
   submitLocalAuth() {
     if (this.localBusy || this.checkingRegistration) { return; }
+    if (this.localMode === 'register' && /@(gmail|googlemail)\.com$/i.test(this.localEmail.trim())) {
+      this.resetEmailCheck();
+      return;
+    }
+    if (this.localMode === 'register' && /@findmyclient\.pl$/i.test(this.localEmail.trim())) {
+      this.registrationEmailError = 'Rejestracja adresow w domenie findmyclient.pl jest niedozwolona.';
+      return;
+    }
     if (this.localMode === 'register' && (this.checkingEmail || this.registrationEmailError)) { return; }
     this.localError = ''; this.localMessage = '';
     if ((this.localMode === 'register' || this.localMode === 'reset') && this.localPassword.length < 10) {

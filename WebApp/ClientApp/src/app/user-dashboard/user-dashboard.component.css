@@ -274,6 +274,7 @@
 }
 .pager { flex-wrap: wrap; }
 .pager .export-csv { margin-right: auto; display: inline-flex; align-items: center; gap: 8px; }
+.pager .export-csv.export-csv-available { border-color: #16a34a; box-shadow: 0 0 0 1px #16a34a; }
 .export-csv img { width: 16px; height: 16px; object-fit: contain; flex-shrink: 0; }
 .search-csv-action { position: absolute; right: 36px; bottom: 6px; width: 28px; height: 28px; }
 .search-csv-button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 6px; border: 0; border-radius: 4px; background: transparent; cursor: pointer; }

@@ -34,7 +34,15 @@ public partial class AuthController : ControllerBase
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<IActionResult> CreateSession()
     {
-        var user = await _currentUserService.TryGetOrCreateAsync(User);
+        AppUser? user;
+        try
+        {
+            user = await _currentUserService.TryGetOrCreateAsync(User);
+        }
+        catch (UnauthorizedAccessException exception)
+        {
+            return Unauthorized(new { message = exception.Message });
+        }
         if (user == null) return RegistrationSuspendedResponse();
         await UserLoginHistory.AddAsync(_db, user, HttpContext);
         await _db.SaveChangesAsync(HttpContext.RequestAborted);
@@ -114,6 +122,7 @@ public partial class AuthController : ControllerBase
                 activePlan.PlanDefinition.DescriptionHtml,
                 activePlan.PlanDefinition.MaxNumberOfSearches,
                 activePlan.PlanDefinition.EnableCSVDeleting,
+                activePlan.PlanDefinition.MaxNumberOfCSVExportsPerSearch,
                 activePlan.ExpiresAtUtc
             }
         });

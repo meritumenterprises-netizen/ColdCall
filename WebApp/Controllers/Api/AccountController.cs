@@ -61,6 +61,8 @@ public class AccountController(ColdCallDbContext db, LocalAuthDbContext credenti
     [AllowAnonymous, HttpPost("register")]
     public async Task<IActionResult> Register(RegistrationRequest request)
     {
+        if (Normalize(request.Email).EndsWith("@findmyclient.pl", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(new { code = "RegistrationEmailDomainBlocked", message = "Rejestracja adresow w domenie findmyclient.pl jest niedozwolona." });
         var maintenance = await db.GlobalSettings.AsNoTracking().OrderByDescending(settings => settings.GlobalSettingsId)
             .Select(settings => settings.ApplicationInService).FirstOrDefaultAsync(HttpContext.RequestAborted);
         if (maintenance)
