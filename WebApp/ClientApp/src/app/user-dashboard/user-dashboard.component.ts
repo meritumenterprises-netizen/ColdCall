@@ -1204,6 +1204,15 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   csvExportsRemaining: number | null = null;
   csvQuotaLoading = false;
   csvQuotaLoaded = false;
+  get csvExportAvailable(): boolean {
+    if (this.searchPlanExpired || this.total <= 0 || this.loading || this.exportingCsv || this.csvQuotaLoading) { return false; }
+    if (this.currentSearchId === null || this.currentSearchId <= 0) {
+      const plan = this.api.user().plan;
+      return !!plan && (plan.maxNumberOfCSVExportsPerSearch === null || plan.maxNumberOfCSVExportsPerSearch > 0);
+    }
+    return this.csvQuotaLoaded && !this.csvExportBlocked
+      && (this.csvExportsRemaining === null || this.csvExportsRemaining > 0);
+  }
   csvToast = '';
   csvFileHintSearchId: number | null = null;
   private csvFileHintTimer: Subscription | null = null;

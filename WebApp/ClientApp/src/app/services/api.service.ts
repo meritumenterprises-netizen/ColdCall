@@ -79,7 +79,7 @@ export interface SearchCriteria {
 }
 export interface SearchProfile { id: number; name: string; pkdCodes: Pkd[]; criteria?: SearchCriteria; hasCsvExports?: boolean; recordCount?: number | null; }
 export interface Plan { code: string; searchLimit: number; descriptionHtml: string; price: number; currency: string; activeUntil?: string; order: number; canPurchase: boolean; }
-export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; enableCSVDeleting: boolean; expiresAtUtc: string; isExpired?: boolean; }
+export interface CurrentPlan { code: string; isTrial: boolean; descriptionHtml: string; maxNumberOfSearches: number; maxNumberOfCSVExportsPerSearch?: number | null; enableCSVDeleting: boolean; expiresAtUtc: string; isExpired?: boolean; }
 export interface ProfileDetails { firstName: string; lastName: string; companyName: string; nip: string; phone: string; postalCode: string; city: string; street: string; streetNumber: string; }
 export interface UserProfile extends ProfileDetails { displayName: string | null; googleEmail: string; isAdmin: boolean; isBetaUser: boolean; plan: CurrentPlan | null; }
 export interface StripePurchase {

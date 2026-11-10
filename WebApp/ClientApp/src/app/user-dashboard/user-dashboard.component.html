@@ -359,7 +359,7 @@
 
     <ng-template #resultsPager>
     <footer class="pager">
-      <button type="button" class="export-csv" [disabled]="loading || total <= 0 || exportingCsv || csvQuotaLoading || csvExportsRemaining === 0 || csvExportBlocked" (click)="exportCsv()"><img src="assets/icons/export-csv.png" width="16" height="16" alt="" aria-hidden="true"><span>Eksport do CSV</span></button>
+      <button type="button" class="export-csv" [class.export-csv-available]="csvExportAvailable" [disabled]="loading || total <= 0 || exportingCsv || csvQuotaLoading || csvExportsRemaining === 0 || csvExportBlocked" (click)="exportCsv()"><img src="assets/icons/export-csv.png" width="16" height="16" alt="" aria-hidden="true"><span>Eksport do CSV</span></button>
       <span *ngIf="csvExportBlocked" role="status">Eksport CSV zablokowany do {{ csvExportBlockedUntilUtc | date:'dd.MM.yyyy HH:mm' }}.</span>
       <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
       <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>
