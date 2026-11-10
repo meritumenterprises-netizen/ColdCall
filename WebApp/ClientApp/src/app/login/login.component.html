@@ -1,7 +1,6 @@
-<app-landing-menu *ngIf="!api.isAuthenticated()" [showBrand]="false"></app-landing-menu>
+<app-landing-menu *ngIf="!api.isAuthenticated()"></app-landing-menu>
 <section class="login-shell" [class.registration-shell]="localMode === 'register'" [class.login-bottom-shell]="localMode === 'login' || localMode === 'forgot'">
   <div class="login-art">
-    <h1>FindMyClient</h1>
     <p>Platforma B2B do wyszukiwania i pozyskiwania klientów biznesowych (Sales Intelligence & Lead Generation), umożliwiająca precyzyjne identyfikowanie potencjalnych klientów na podstawie danych rejestrowych jednoosobowych działalności gospodarczych, branży (PKD), lokalizacji geograficznej i odległości.</p>
     <div class="home-statistics">
     <article class="company-count-card" aria-live="polite">

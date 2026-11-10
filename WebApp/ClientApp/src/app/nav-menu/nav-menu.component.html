@@ -1,5 +1,5 @@
 <header class="topbar" *ngIf="!isMaintenancePage && !isPublicPlansPage && (api.isAuthenticated() || (!isHomePage && !isPublicPage))">
-  <div class="brand-with-version"><a class="logo" routerLink="/">FindMyClient</a><app-version-badge></app-version-badge></div>
+  <div class="brand-with-version"><a class="logo" routerLink="/"><img class="brand-logo-image" src="assets/findmyclient-logo.png" width="200" height="60" alt="FindMyClient"></a><app-version-badge></app-version-badge></div>
   <div class="plan-summary" *ngIf="!api.isAdmin() && activePlan as plan">
     <div class="current-plan-label" tabindex="0"
          (mouseenter)="planHintOpen = true" (mouseleave)="planHintOpen = false"

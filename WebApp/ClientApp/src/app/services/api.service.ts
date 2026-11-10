@@ -42,7 +42,7 @@ export interface Company {
   addressIsMissing: boolean | null; blockedByRODO: boolean;
   wojewodztwoId?: number | null; miejscowoscId?: number | null; gminaId?: number | null; powiatId?: number | null;
 }
-export interface AdminGlobalSetting { globalSettingsId: number; applicationVersion?: string; globalDegreeOfParallelismImportByDate: number; applicationInService: boolean; registrationSuspended: boolean; inFaktInvoicing: boolean; }
+export interface AdminGlobalSetting { globalSettingsId: number; applicationVersion?: string; appVersion?: string; globalDegreeOfParallelismImportByDate: number; applicationInService: boolean; registrationSuspended: boolean; inFaktInvoicing: boolean; }
 export interface AdminUserPayment { planCode: string; paidAtUtc: string; amountPaid: number; stripeSessionId: string; hasInvoice: boolean; }
 export interface CompanyAddress { companyAdresId: number; companyId: number; addressId: number; }
 export interface CompanyAddressDetails extends CompanyAddress {
@@ -104,11 +104,13 @@ export interface CsvExportRow { id: number; userId: number; searchProfileId: num
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private appVersionBadgeRequest: Observable<{ appVersion: string }> | null = null;
+  private appVersionBadgeReload = new BehaviorSubject<void>(undefined);
 
   appVersionBadge(): Observable<{ appVersion: string }> {
     if (!this.appVersionBadgeRequest) {
-      this.appVersionBadgeRequest = this.http.get<{ appVersion: string }>(this.url('/api/public/app-version'))
-        .pipe(catchError(() => of({ appVersion: '' })), shareReplay(1));
+      this.appVersionBadgeRequest = this.appVersionBadgeReload.pipe(
+        switchMap(() => this.http.get<{ appVersion: string }>(this.url('/api/public/app-version'))
+          .pipe(catchError(() => of({ appVersion: '' })))), shareReplay(1));
     }
     return this.appVersionBadgeRequest;
   }
@@ -469,10 +471,11 @@ export class ApiService {
     return csrf.pipe(switchMap(() => this.http.post<{ paid: boolean }>(this.url('/api/plans/confirm-checkout'), { sessionId }, this.headers())));
   }
 
-  adminCompanies(page: number, sortBy: string, direction: string, filter: string, pkdIds: number[] = [], filters?: CompanyFilters, nip = '', blockedByRODO: boolean | null = null, refreshCount = true): Observable<PagedResult<Company>> {
+  adminCompanies(page: number, sortBy: string, direction: string, filter: string, pkdIds: number[] = [], filters?: CompanyFilters, nip = '', blockedByRODO: boolean | null = null, refreshCount = true, modifiedWithinDays: number | null = null): Observable<PagedResult<Company>> {
     let params = this.companyParams(page, sortBy, direction, pkdIds, filters).set('filter', filter).set('nip', nip)
       .set('refreshCount', String(refreshCount));
     if (blockedByRODO !== null) { params = params.set('blockedByRODO', String(blockedByRODO)); }
+    if (modifiedWithinDays !== null) { params = params.set('modifiedWithinDays', String(modifiedWithinDays)); }
     return this.http.get<PagedResult<Company>>(this.url('/api/admin/companies'), { ...this.headers(), params });
   }
   updateCompany(company: Company) { return this.http.put(this.url('/api/admin/companies/' + company.id), company, this.headers()); }
@@ -524,7 +527,10 @@ export class ApiService {
     return csrf.pipe(switchMap(() => this.http.post<{ message: string }>(
       this.url('/api/admin/users/' + id + '/password'), { password }, this.headers())));
   }
-  extendUserPlan(id: number) { return this.http.post(this.url('/api/admin/users/' + id + '/extend-plan'), {}, this.headers()); }
+  extendUserPlan(id: number, mode: 'add' | 'fromNow', days: number) {
+    const csrf = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
+    return csrf.pipe(switchMap(() => this.http.post(this.url('/api/admin/users/' + id + '/extend-plan'), { mode, days }, this.headers())));
+  }
   adminImports(): Observable<AdminImport[]> {
     return this.http.get<AdminImport[]>(this.url('/api/admin/imports'), this.headers());
   }
@@ -533,7 +539,10 @@ export class ApiService {
   }
   saveAdminGlobalSettings(settings: AdminGlobalSetting): Observable<void> {
     return this.http.put<void>(this.url('/api/admin/global-settings/' + settings.globalSettingsId), settings, this.headers())
-      .pipe(tap(() => { if (this.currentUser) { this.currentUser.applicationInService = settings.applicationInService; } }));
+      .pipe(tap(() => {
+        if (this.currentUser) { this.currentUser.applicationInService = settings.applicationInService; }
+        this.appVersionBadgeReload.next();
+      }));
   }
   deleteAdminImport(id: number): Observable<void> {
     return this.http.delete<void>(this.url('/api/admin/imports/' + id), this.headers());

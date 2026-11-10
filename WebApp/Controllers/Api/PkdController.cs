@@ -15,10 +15,12 @@ namespace ColdCall.Controllers.Api;
 public class PkdController : ControllerBase
 {
     private readonly ColdCallDbContext _db;
+    private readonly ILogger<PkdController>? _logger;
 
-    public PkdController(ColdCallDbContext db)
+    public PkdController(ColdCallDbContext db, ILogger<PkdController>? logger = null)
     {
         _db = db;
+        _logger = logger;
     }
 
     public record ClassifyRequest([Required, StringLength(10000)] string Description);
@@ -50,9 +52,23 @@ public class PkdController : ControllerBase
         {
             return StatusCode(504, new { message = "Ollama nie odpowiedziala w wymaganym czasie." });
         }
-        catch (Exception ex) when (ex is HttpRequestException or JsonException or FormatException)
+        catch (HttpRequestException ex)
         {
-            return StatusCode(502, new { message = "Nie udalo sie uzyskac poprawnej odpowiedzi Ollama. Sprobuj ponownie." });
+            _logger?.LogWarning(ex, "Ollama PKD request failed with upstream HTTP {StatusCode}.", ex.StatusCode);
+            var message = ex.StatusCode switch
+            {
+                System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden => "Ollama odrzuci\u0142a dost\u0119p. Sprawd\u017a klucz API i uprawnienia modelu w konfiguracji backendu.",
+                System.Net.HttpStatusCode.NotFound => "Ollama nie znalaz\u0142a modelu. Sprawd\u017a ustawienie Ollama:Model w backendzie.",
+                System.Net.HttpStatusCode.TooManyRequests => "Przekroczono limit us\u0142ugi Ollama. Spr\u00f3buj ponownie p\u00f3\u017aniej.",
+                null => "Nie mo\u017cna po\u0142\u0105czy\u0107 si\u0119 z Ollam\u0105. Sprawd\u017a po\u0142\u0105czenie backendu z ollama.com.",
+                _ => $"Ollama zwr\u00f3ci\u0142a b\u0142\u0105d HTTP {(int)ex.StatusCode.Value}. Sprawd\u017a konfiguracj\u0119 modelu i logi backendu."
+            };
+            return StatusCode(502, new { message });
+        }
+        catch (Exception ex) when (ex is JsonException or FormatException)
+        {
+            _logger?.LogWarning(ex, "Ollama PKD response failed validation.");
+            return StatusCode(502, new { message = "Ollama zwr\u00f3ci\u0142a niepoprawny format odpowiedzi lub kod spoza listy PKD. Spr\u00f3buj ponownie." });
         }
     }
 

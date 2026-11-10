@@ -1,4 +1,5 @@
 * { box-sizing: border-box; }
+.brand-logo-image { display: block; width: 200px; height: 60px; object-fit: cover; object-position: center 44%; }
 :root {
   --sidebar-width: 260px;
   --accent: #365bd6;

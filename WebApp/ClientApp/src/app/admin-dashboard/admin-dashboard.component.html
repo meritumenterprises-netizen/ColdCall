@@ -124,7 +124,13 @@
         </section>
         <div *ngIf="filterError" class="error" role="alert">{{ filterError }}</div>
       </div>
-      <div class="admin-company-grid" [attr.aria-busy]="loading">
+      <div class="admin-filter-tabs admin-company-result-tabs" role="tablist" aria-label="Wyniki wyszukiwania firm">
+        <button *ngFor="let resultTab of companyResultTabs" type="button" role="tab"
+                [id]="'admin-company-result-' + (resultTab.days || 'all')" aria-controls="admin-company-results"
+                [attr.aria-selected]="companyResultDays === resultTab.days" [class.active]="companyResultDays === resultTab.days"
+                (click)="selectCompanyResultTab(resultTab.days)">{{ resultTab.label }}</button>
+      </div>
+      <div id="admin-company-results" role="tabpanel" [attr.aria-labelledby]="'admin-company-result-' + (companyResultDays || 'all')" class="admin-company-grid" [attr.aria-busy]="loading">
         <app-company-search-progress [active]="loading" [startedAt]="searchStartedAt" [finishedAt]="searchFinishedAt" [recordCount]="total"></app-company-search-progress>
         <div *ngIf="companySearchError && !loading" class="error" role="alert">{{ companySearchError }}</div>
         <table>
@@ -223,7 +229,7 @@
               <td [class.expired]="!row.isAdmin && row.expired">{{ row.isAdmin ? 'N/A' : formatUserExpiry(row.expiresAtUtc) }}</td>
               <td class="admin-plan-purchase-cell">
                 <input type="checkbox" [checked]="row.disablePlanPurchase"
-                       [disabled]="busyUserIds.has(row.id)"
+                       [disabled]="usersTab === 'admins' || busyUserIds.has(row.id)"
                        [attr.aria-label]="'Nie pozwól na zakup planu: ' + row.googleEmail"
                        (change)="updatePlanPurchase(row.id, $event.target.checked)">
               </td>
@@ -234,16 +240,16 @@
                        [attr.aria-label]="'Aktywny: ' + row.googleEmail"
                        (change)="updateUserEnabled(row.id, $event.target.checked)">
               </td>
-              <td *ngIf="usersTab !== 'beta'" class="admin-plan-purchase-cell">
+              <td class="admin-plan-purchase-cell">
                 <input type="checkbox" [checked]="row.isAdmin"
-                       [disabled]="currentUserId === null || row.id === currentUserId || busyUserIds.has(row.id)"
+                       [disabled]="usersTab === 'beta' || usersTab === 'trial' || usersTab === 'expired' || usersTab === 'expires3' || currentUserId === null || row.id === currentUserId || busyUserIds.has(row.id)"
                        [attr.aria-readonly]="row.id === currentUserId ? 'true' : null"
                        [attr.aria-label]="'Admin: ' + row.googleEmail"
                        (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
                        (change)="requestUserAdmin(row.id, $event)">
               </td>
               <td class="admin-plan-purchase-cell">
-                <input type="checkbox" [checked]="row.isBetaUser" [disabled]="busyUserIds.has(row.id)"
+                <input type="checkbox" [checked]="row.isBetaUser" [disabled]="usersTab === 'admins' || busyUserIds.has(row.id)"
                        [attr.aria-label]="'Beta user: ' + row.googleEmail"
                        (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
                        (change)="updateUserBeta(row.id, $event.target.checked)">
@@ -257,8 +263,8 @@
                        (change)="requireBetaTerms(row.id, $event.target.checked)">
               </td>
               <td class="admin-user-actions">
-                <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="requestChangePlan(row)">Zmie&#324; plan</button>
-                <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="extendPlan(row.id)">Przed&#322;u&#380; o 7 dni</button>
+                <button type="button" class="ghost-button compact" [disabled]="!canChangeUserPlan(row)" (click)="requestChangePlan(row)">Zmie&#324; plan</button>
+                <button type="button" class="ghost-button compact" [disabled]="!canExtendUserPlan(row)" (click)="extendPlan(row.id)">Przed&#322;u&#380;</button>
                 <button type="button" class="ghost-button compact" [disabled]="!canSetUserPassword(row)" (click)="requestSetUserPassword(row, $event)" (keydown)="$event.stopPropagation()">Ustaw has&#322;o</button>
                 <button type="button" class="ghost-button compact" [disabled]="row.isAdmin || currentUserId === null || row.id === currentUserId || busyUserIds.has(row.id)" (click)="deleteUserAccount(row.id)">Usu&#324; konto</button>
               </td>
@@ -345,6 +351,28 @@
             <button type="submit" class="primary-button"
                     [disabled]="!createUserForm.valid || creatingUser || newUserPlansLoading || newUserPlanId === null">Utw&#243;rz</button>
             <button type="button" class="ghost-button" [disabled]="creatingUser" (click)="cancelCreateUser()">Anuluj</button>
+          </div>
+        </fieldset>
+      </form>
+    </dialog>
+    <dialog #extendPlanDialog class="delete-csv-dialog" aria-labelledby="extend-plan-title" (cancel)="$event.preventDefault(); cancelExtendPlan()">
+      <h2 id="extend-plan-title">Przed&#322;u&#380; plan</h2>
+      <p>{{ userToExtendPlan ? userToExtendPlan.googleEmail : '' }}</p>
+      <form (ngSubmit)="confirmExtendPlan()">
+        <fieldset class="extend-plan-options" [disabled]="extendingPlan">
+          <div class="extend-plan-option">
+            <label><input type="radio" name="extensionMode" value="add" [(ngModel)]="extensionMode"> Przed&#322;u&#380; o</label>
+            <input type="number" name="extensionAddDays" aria-label="Liczba dodawanych dni" min="1" max="2147483647" step="1" [disabled]="extensionMode !== 'add'" [(ngModel)]="extensionAddDays"><span>dni</span>
+          </div>
+          <div class="extend-plan-option">
+            <label><input type="radio" name="extensionMode" value="fromNow" [(ngModel)]="extensionMode"> Przed&#322;u&#380; do</label>
+            <input type="number" name="extensionFromNowDays" aria-label="Liczba dni wa&#380;no&#347;ci od teraz" min="1" max="2147483647" step="1" [disabled]="extensionMode !== 'fromNow'" [(ngModel)]="extensionFromNowDays"><span>dni od teraz</span>
+          </div>
+          <p *ngIf="!validExtensionDays" class="error" role="alert">Podaj liczb&#281; ca&#322;kowit&#261; co najmniej 1.</p>
+          <p *ngIf="extensionError" class="error" role="alert">{{ extensionError }}</p>
+          <div class="delete-csv-actions">
+            <button type="submit" class="primary-button" [disabled]="extendingPlan || !validExtensionDays">Zapisz</button>
+            <button type="button" class="ghost-button" (click)="cancelExtendPlan()">Anuluj</button>
           </div>
         </fieldset>
       </form>
