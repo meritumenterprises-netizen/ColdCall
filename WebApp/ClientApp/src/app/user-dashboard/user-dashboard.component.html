@@ -45,7 +45,7 @@
   <aside class="sidebar">
     <nav aria-label="Nawigacja użytkownika">
     <div class="sidebar-heading">
-      <a class="sidebar-title sidebar-nav-link" routerLink="/dashboard" aria-current="page">Wyszukiwania</a>
+      <a class="sidebar-title sidebar-nav-link" routerLink="/dashboard" (click)="selectDashboardTab('search')" aria-current="page">Wyszukiwania</a>
       <button *ngIf="canAddSearch" type="button" class="add-search" [title]="addSearchHint"
               aria-label="Dodaj nowe wyszukiwanie" [disabled]="savingSearch || restoringSearch || classifyingPkd"
               (click)="newSearch()"><img src="assets/icons/plus.svg" width="16" height="16" alt=""></button>
@@ -254,6 +254,17 @@
     </fieldset>
     </section>
 
+    <dialog #exportStartDialog class="save-search-dialog" aria-labelledby="export-start-title"
+            (cancel)="$event.preventDefault(); cancelExportStart()">
+      <h2 id="export-start-title">Eksport CSV</h2>
+      <p>Od kt&#243;rego miejsca wyeksportowa&#263; rekordy?</p>
+      <div class="save-search-dialog-actions">
+        <button type="button" class="primary-button" (click)="confirmExportStart(false)">Od pocz&#261;tku</button>
+        <button type="button" class="primary-button" (click)="confirmExportStart(true)">Od aktualnej strony</button>
+        <button type="button" class="ghost-button" autofocus (click)="cancelExportStart()">Anuluj</button>
+      </div>
+    </dialog>
+
     <dialog #duplicateExportDialog class="save-search-dialog" role="alertdialog"
             aria-labelledby="duplicate-export-title" aria-describedby="duplicate-export-message"
             (cancel)="$event.preventDefault(); cancelDuplicateExport()">
@@ -424,12 +435,6 @@
     <ng-container *ngIf="csvQuotaLoading">Wczytywanie...</ng-container>
     <ng-container *ngIf="!csvQuotaLoading && csvQuotaLoaded">{{ csvExportsRemaining === null ? 'Bez limitu' : formatNumber(csvExportsRemaining) }}</ng-container>
     <ng-container *ngIf="!csvQuotaLoading && !csvQuotaLoaded">Nie uda&#322;o si&#281; pobra&#263; limitu.</ng-container>
-  </p>
-  <p *ngIf="canDeleteCsvExports && csvDeletionLimit !== null" class="csv-quota-summary" role="status" aria-live="polite">
-    Pozosta&#322;o usuni&#281;&#263; CSV dzisiaj:
-    <ng-container *ngIf="!csvDeletionQuotaLoading && !csvDeletionQuotaError">{{ csvDeletionsRemaining }} z {{ csvDeletionLimit }}</ng-container>
-    <ng-container *ngIf="csvDeletionQuotaLoading">Wczytywanie...</ng-container>
-    <button *ngIf="csvDeletionQuotaError" type="button" (click)="loadCsvDeletionQuota()">Pon&#243;w</button>
   </p>
 </section>
     <div *ngIf="csvToast" class="csv-toast" role="status" aria-live="polite">{{ csvToast }}</div>

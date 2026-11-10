@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, forkJoin, Observable, of, throwError } from 'rxjs';
+import { BehaviorSubject, forkJoin, Observable, of, Subject, throwError } from 'rxjs';
 import { catchError, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { TermsConsentService } from './terms-consent.service';
@@ -103,6 +103,9 @@ export interface CsvExportRow { id: number; userId: number; searchProfileId: num
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
+  private dashboardSearchNavigation = new Subject<void>();
+  readonly dashboardSearchRequested = this.dashboardSearchNavigation.asObservable();
+  showDashboardSearch() { this.dashboardSearchNavigation.next(); }
   private appVersionBadgeRequest: Observable<{ appVersion: string }> | null = null;
   private appVersionBadgeReload = new BehaviorSubject<void>(undefined);
 
@@ -428,8 +431,8 @@ export class ApiService {
     return this.http.put<{ notes: string }>(this.url('/api/companies/' + id + '/notes'), { notes }, this.headers());
   }
 
-  exportCompanies(searchProfileId: number, modifiedWithinDays?: number, sortBy = 'dataAktywnosci', direction = 'desc', searchName?: string, notesOnly = false, resultTab?: string) {
-    return this.http.post(this.url('/api/companies/export'), { searchProfileId, modifiedWithinDays, sortBy, direction, searchName, notesOnly, resultTab },
+  exportCompanies(searchProfileId: number, modifiedWithinDays?: number, sortBy = 'dataAktywnosci', direction = 'desc', searchName?: string, notesOnly = false, resultTab?: string, offset = 0) {
+    return this.http.post(this.url('/api/companies/export'), { searchProfileId, modifiedWithinDays, sortBy, direction, searchName, notesOnly, resultTab, offset },
       { ...this.headers(), responseType: 'blob', observe: 'response' });
   }
 
