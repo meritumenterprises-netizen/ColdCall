@@ -5,7 +5,7 @@ $ErrorActionPreference = 'Stop'
 dotnet publish C:\projects\ColdCall\WebApp\ColdCall.csproj -c Debug -o C:\Deploy\ColdCall-Debug
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Invoke-Item -LiteralPath 'C:\Deploy\ColdCall-Debug'
+# Invoke-Item -LiteralPath 'C:\Deploy\ColdCall-Debug'
 
 $zipPath = 'C:\Deploy\ColdCall-Debug.zip'
 if (Test-Path -LiteralPath $zipPath -PathType Leaf) {

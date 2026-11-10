@@ -24,8 +24,9 @@ public partial class AdminController
         var updated = await _db.Users.Where(user => user.Id == id && user.IsBetaUser != isBetaUser)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(user => user.IsBetaUser, isBetaUser)
+                .SetProperty(user => user.DisablePlanPurchase, isBetaUser)
                 .SetProperty(user => user.TermsOfServiceAccepted, (bool?)false), token);
         return updated == 1 || await _db.Users.AnyAsync(user => user.Id == id, token)
-            ? Ok(new { IsBetaUser = isBetaUser }) : NotFound();
+            ? Ok(new { IsBetaUser = isBetaUser, DisablePlanPurchase = isBetaUser }) : NotFound();
     }
 }
