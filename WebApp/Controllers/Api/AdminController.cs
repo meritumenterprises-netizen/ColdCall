@@ -44,7 +44,8 @@ public partial class AdminController : ControllerBase
         [FromQuery] int? gminaId = null, [FromQuery] int? miejscowoscId = null, [FromQuery] int? radiusKm = null,
         [FromQuery] string? nip = null, [FromQuery] bool? blockedByRODO = null,
         [FromQuery] string? companyStatusIds = null,
-        [FromQuery] bool refreshCount = true)
+        [FromQuery] bool refreshCount = true,
+        [FromQuery] int? modifiedWithinDays = null)
     {
         try
         {
@@ -55,6 +56,8 @@ public partial class AdminController : ControllerBase
             }
 
             _db.Database.SetCommandTimeout(120);
+            if (modifiedWithinDays.HasValue && modifiedWithinDays is not (3 or 7))
+                return BadRequest(new { message = "Niepoprawny okres aktualizacji. Dozwolone: 3 lub 7 dni." });
             pageSize = 10;
             var query = _db.Companies.AsNoTracking();
 
@@ -84,7 +87,7 @@ public partial class AdminController : ControllerBase
             if ((companyName?.Trim().Length ?? 0) >= 3 || hasPhone.HasValue || hasEmail.HasValue || hasWebsite.HasValue
                 || startedFrom.HasValue || startedTo.HasValue || wojewodztwoId.HasValue || powiatId.HasValue
                 || gminaId.HasValue || miejscowoscId.HasValue || radiusKm.HasValue || pkdIds?.Length > 0
-                || companyStatusIds != null)
+                || companyStatusIds != null || modifiedWithinDays.HasValue)
             {
             try
             {
@@ -96,7 +99,7 @@ public partial class AdminController : ControllerBase
                     DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue, DateFrom = startedFrom, DateTo = startedTo,
                     WojewodztwoId = wojewodztwoId, PowiatId = powiatId, GminaId = gminaId, MiejscowoscId = miejscowoscId,
                     HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
-                }, pkdIds, null, includeAllCompanies: true, source: query, token: HttpContext.RequestAborted);
+                }, pkdIds, modifiedWithinDays, includeAllCompanies: true, source: query, token: HttpContext.RequestAborted);
             }
             catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); }
             }
@@ -294,14 +297,18 @@ public partial class AdminController : ControllerBase
             .Select(p => new { p.ExpiresAfterDays }).SingleOrDefaultAsync(token);
         if (definition == null)
             return BadRequest(new { message = "Wybrany plan nie istnieje." });
+        await using var transaction = await _db.Database.BeginTransactionAsync(token);
+        var resource = "TrialPlan:" + id;
+        await _db.Database.ExecuteSqlInterpolatedAsync($@"
+            DECLARE @result int;
+            EXEC @result=sys.sp_getapplock @Resource={resource}, @LockMode='Exclusive', @LockOwner='Transaction', @LockTimeout=10000;
+            IF @result < 0 THROW 50001, 'Plan assignment lock unavailable', 1;", token);
         var currentPlan = await _db.UserPlans.AsNoTracking().Where(p => p.AppUserId == id)
             .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
             .Select(p => new { p.Id, p.ExpiresAtUtc }).FirstOrDefaultAsync(token);
-        if (currentPlan == null)
-            return BadRequest(new { message = "Uzytkownik nie ma planu do zmiany." });
         var now = DateTime.UtcNow;
-        var expired = currentPlan.ExpiresAtUtc <= now;
-        var expiration = currentPlan.ExpiresAtUtc;
+        var expired = currentPlan == null || currentPlan.ExpiresAtUtc <= now;
+        var expiration = currentPlan?.ExpiresAtUtc ?? now;
         if (expired)
         {
             if (definition.ExpiresAfterDays is not > 0)
@@ -312,29 +319,54 @@ public partial class AdminController : ControllerBase
                 return BadRequest(new { message = "Niepoprawna liczba dni waznosci planu." });
             }
         }
+        if (currentPlan == null)
+        {
+            _db.UserPlans.Add(new UserPlan
+            {
+                AppUserId = id, PlanDefinitionId = request.PlanDefinitionId,
+                PurchasedAtUtc = now, ExpiresAtUtc = expiration, IsActive = true, Source = "Manual", PricePaid = 0
+            });
+            await _db.SaveChangesAsync(token);
+            await transaction.CommitAsync(token);
+            return NoContent();
+        }
         var updated = await _db.UserPlans.Where(p => p.Id == currentPlan.Id && p.AppUserId == id
                 && p.ExpiresAtUtc == currentPlan.ExpiresAtUtc)
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(p => p.PlanDefinitionId, request.PlanDefinitionId)
                 .SetProperty(p => p.ExpiresAtUtc, expiration)
                 .SetProperty(p => p.IsActive, p => expired ? (bool?)true : p.IsActive), token);
-        return updated == 1 ? NoContent() : Conflict(new { message = "Plan zostal zmieniony. Odswiez dane i sprobuj ponownie." });
+        if (updated != 1) return Conflict(new { message = "Plan zostal zmieniony. Odswiez dane i sprobuj ponownie." });
+        await transaction.CommitAsync(token);
+        return NoContent();
     }
 
     [HttpPost("users/{id:int}/extend-plan")]
-    public async Task<IActionResult> ExtendPlan(int id, CancellationToken token)
+    public async Task<IActionResult> ExtendPlan(int id, ExtendUserPlanRequest request, CancellationToken token)
     {
         if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
         if (!await _db.Users.AnyAsync(u => u.Id == id && !u.IsAdmin, token)) return NotFound();
-        var planId = await _db.UserPlans.Where(p => p.AppUserId == id)
-            .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id).Select(p => (int?)p.Id).FirstOrDefaultAsync(token);
-        if (!planId.HasValue) return BadRequest(new { message = "Uzytkownik nie ma planu do przedluzenia." });
+        if (request.Days < 1 || request.Mode is not ("add" or "fromNow")) return BadRequest();
+        var plan = await _db.UserPlans.AsNoTracking().Where(p => p.AppUserId == id)
+            .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
+            .Select(p => new { p.Id, p.ExpiresAtUtc }).FirstOrDefaultAsync(token);
+        if (plan == null) return BadRequest(new { message = "Uzytkownik nie ma planu do przedluzenia." });
         var now = DateTime.UtcNow;
-        await _db.UserPlans.Where(p => p.Id == planId.Value)
+        DateTime expiration;
+        try
+        {
+            var start = request.Mode == "fromNow" || plan.ExpiresAtUtc <= now ? now : plan.ExpiresAtUtc;
+            expiration = start.AddDays(request.Days);
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return BadRequest(new { message = "Liczba dni wykracza poza dozwolony zakres dat." });
+        }
+        var updated = await _db.UserPlans.Where(p => p.Id == plan.Id && p.AppUserId == id && p.ExpiresAtUtc == plan.ExpiresAtUtc)
             .ExecuteUpdateAsync(setters => setters
-                .SetProperty(p => p.ExpiresAtUtc, p => p.ExpiresAtUtc <= now ? now.AddDays(7) : p.ExpiresAtUtc.AddDays(7))
+                .SetProperty(p => p.ExpiresAtUtc, expiration)
                 .SetProperty(p => p.IsActive, true), token);
-        return Ok();
+        return updated == 1 ? Ok() : Conflict(new { message = "Plan zostal zmieniony. Odswiez dane i sprobuj ponownie." });
     }
 
     [HttpDelete("users/{id:int}/csv-exports")]

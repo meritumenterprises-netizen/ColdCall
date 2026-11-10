@@ -10,6 +10,10 @@
       <span id="application-version-label">Wersja backendu API</span>
       <output aria-labelledby="application-version-label">{{ row.applicationVersion ? row.applicationVersion.split('.').slice(0, 3).join('.') : '—' }}</output>
     </div>
+    <div class="version-field">
+      <label for="app-version">AppVersion</label>
+      <input id="app-version" name="appVersion" type="text" maxlength="50" [(ngModel)]="row.appVersion" (ngModelChange)="row.saved = false">
+    </div>
     <div class="parallelism-field">
       <label for="import-parallelism">Globalny stopie&#324; wsp&#243;&#322;rz&#281;dno&#347;ci dla Importera</label>
       <input id="import-parallelism" name="parallelism" type="number" min="1" max="2147483647" step="1" required

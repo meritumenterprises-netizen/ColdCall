@@ -3,6 +3,8 @@
 fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .version-field { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 20px; }
 .version-field output { font-weight: 600; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.version-field label { margin: 0; }
+#app-version { width: 240px; max-width: 100%; background: #fff; }
 .parallelism-field { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; }
 .parallelism-field label { margin: 0; overflow-wrap: anywhere; }
 input[type="number"] { width: 140px; max-width: 100%; padding: 6px 8px; }

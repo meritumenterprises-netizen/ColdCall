@@ -272,8 +272,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     return plan ? plan.descriptionHtml || '' : '';
   }
 
-  requestChangePlan(row: { id: number; googleEmail: string; planCode: string }) {
-    if (!row.planCode || this.busyUserIds.has(row.id) || this.changingPlan) { return; }
+  canChangeUserPlan(row: { id: number; planCode: string; isAdmin?: boolean }) {
+    return !row.isAdmin && !this.busyUserIds.has(row.id) && !this.changingPlan;
+  }
+
+  requestChangePlan(row: { id: number; googleEmail: string; planCode: string; isAdmin?: boolean }) {
+    if (!this.canChangeUserPlan(row)) { return; }
     if (this.planDefinitionsRequest) { this.planDefinitionsRequest.unsubscribe(); }
     this.userToChangePlan = row;
     this.planHint = null;
@@ -313,22 +317,64 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.changePlanDialog.nativeElement.close();
         this.userToChangePlan = null;
         this.message = 'Plan zostal zmieniony.';
-        this.loadUsers();
+        this.loadUsers(userId);
       }, err => this.changePlanError = err.error && err.error.message
         ? err.error.message : 'Nie udalo sie zmienic planu.');
     this.userActionRequests.add(request);
   }
+  canExtendUserPlan(row: { id: number; planCode: string; expired: boolean; isAdmin: boolean }) {
+    return !row.isAdmin && !!row.planCode && !this.busyUserIds.has(row.id);
+  }
+
+  @ViewChild('extendPlanDialog', { static: false }) extendPlanDialog: ElementRef;
+  userToExtendPlan: { id: number; googleEmail: string } | null = null;
+  extensionMode: 'add' | 'fromNow' = 'add';
+  extensionAddDays = 7;
+  extensionFromNowDays = 7;
+  extendingPlan = false;
+  extensionError = '';
+
+  get validExtensionDays(): boolean {
+    const days = this.extensionMode === 'add' ? this.extensionAddDays : this.extensionFromNowDays;
+    return Number.isInteger(days) && days >= 1 && days <= 2147483647;
+  }
+
   extendPlan(id: number) {
-    if (this.busyUserIds.has(id)) { return; }
+    const row = this.userRows.find(user => user.id === id);
+    if (!row || !this.canExtendUserPlan(row) || this.extendingPlan) { return; }
+    this.userToExtendPlan = row;
+    this.extensionMode = 'add';
+    this.extensionAddDays = 7;
+    this.extensionFromNowDays = 7;
+    this.extensionError = '';
+    this.extendPlanDialog.nativeElement.showModal();
+  }
+
+  cancelExtendPlan() {
+    if (this.extendingPlan) { return; }
+    this.extendPlanDialog.nativeElement.close();
+    this.userToExtendPlan = null;
+    this.extensionError = '';
+  }
+
+  confirmExtendPlan() {
+    if (!this.userToExtendPlan || this.extendingPlan || !this.validExtensionDays) { return; }
+    const id = this.userToExtendPlan.id;
+    const days = this.extensionMode === 'add' ? this.extensionAddDays : this.extensionFromNowDays;
+    this.extendingPlan = true;
+    this.extensionError = '';
     this.busyUserIds.add(id);
-    const request = this.api.extendUserPlan(id).pipe(finalize(() => this.busyUserIds.delete(id))).subscribe(() => {
-      this.message = 'Plan przedluzono o 7 dni.';
-      this.loadUsers();
-    }, err => this.message = err.error && err.error.message ? err.error.message : 'Nie udalo sie przedluzyc planu.');
+    const request = this.api.extendUserPlan(id, this.extensionMode, days)
+      .pipe(finalize(() => { this.busyUserIds.delete(id); this.extendingPlan = false; })).subscribe(() => {
+      this.extendPlanDialog.nativeElement.close();
+      this.userToExtendPlan = null;
+      this.message = 'Waznosc planu zostala zaktualizowana.';
+      this.loadUsers(id);
+    }, err => this.extensionError = err.error && err.error.message ? err.error.message : 'Nie udalo sie przedluzyc planu.');
     this.userActionRequests.add(request);
   }
   canSetUserPassword(row: { id: number; googleEmail: string }) {
-    return !this.busyUserIds.has(row.id) && !(this.usersTab === 'admins' && /@gmail\.com$/i.test(row.googleEmail.trim()));
+    return !this.busyUserIds.has(row.id) && !/@gmail\.com$/i.test(row.googleEmail.trim());
   }
   requestSetUserPassword(row: { id: number; googleEmail: string }, event: Event) {
     event.stopPropagation();
@@ -503,20 +549,23 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   tab: 'companies' | 'users' | 'payments' | 'plans' | 'imports' | 'global-settings' | 'regulamin' | 'regulamin-beta' | 'logins' = 'companies';
   companies: Company[] = [];
   users: AppUser[] = [];
-  usersTab: 'all' | 'beta' | 'trial' | 'admins' = 'all';
-  readonly usersTabs: { key: 'all' | 'beta' | 'trial' | 'admins'; label: string }[] = [
+  usersTab: 'all' | 'regular' | 'beta' | 'trial' | 'expired' | 'expires3' | 'admins' = 'all';
+  readonly usersTabs: { key: 'all' | 'regular' | 'beta' | 'trial' | 'expired' | 'expires3' | 'admins'; label: string }[] = [
     { key: 'all', label: 'Wszyscy' },
+    { key: 'regular', label: 'Zwykli' },
     { key: 'beta', label: 'Beta użytkownicy' },
     { key: 'trial', label: 'Trial użytkownicy' },
-    { key: 'admins', label: 'Administratorzy' }
+    { key: 'admins', label: 'Administratorzy' },
+    { key: 'expired', label: 'Wyga\u015bli' },
+    { key: 'expires3', label: 'Wygasn\u0105 za 3 dni' }
   ];
-  selectUsersTab(tab: 'all' | 'beta' | 'trial' | 'admins') {
+  selectUsersTab(tab: 'all' | 'regular' | 'beta' | 'trial' | 'expired' | 'expires3' | 'admins') {
     this.usersTab = tab;
     this.usersPage = 1;
     this.selectedUserId = null;
     this.planHint = null;
   }
-  navigateUsersTabs(event: KeyboardEvent, tab: 'all' | 'beta' | 'trial' | 'admins') {
+  navigateUsersTabs(event: KeyboardEvent, tab: 'all' | 'regular' | 'beta' | 'trial' | 'expired' | 'expires3' | 'admins') {
     const keys = this.usersTabs.map(item => item.key);
     const position = keys.indexOf(tab);
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? keys.length - 1
@@ -645,7 +694,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { key: 'isBetaUser', label: 'Beta user' }
   ];
   get visibleUserColumns() { return this.usersTab === 'beta'
-    ? this.userColumns.filter(column => column.key !== 'isAdmin').concat([{ key: 'requiresBetaTerms', label: 'Regulamin beta' }])
+    ? this.userColumns.concat([{ key: 'requiresBetaTerms', label: 'Regulamin beta' }])
     : this.userColumns; }
   private dateUtc(value: string) { return /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + 'Z'; }
   formatUserExpiry(value: string): string {
@@ -672,7 +721,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     });
     const email = this.userEmailFilter.trim().toLowerCase();
     return rows.filter(row => (this.usersTab === 'all' || (this.usersTab === 'beta' ? row.isBetaUser
-      : this.usersTab === 'trial' ? row.planCode.trim().toUpperCase() === 'PX0' : row.isAdmin))
+      : this.usersTab === 'trial' ? row.planCode.trim().toUpperCase() === 'PX0'
+      : this.usersTab === 'expired' ? !row.isAdmin && row.expired
+      : this.usersTab === 'expires3' ? !row.isAdmin && new Date(row.expiresAtUtc).getTime() > now && new Date(row.expiresAtUtc).getTime() <= now + 3 * 86400000
+      : this.usersTab === 'regular' ? !row.isBetaUser && !row.isAdmin && row.planCode.trim().toUpperCase() !== 'PX0' : row.isAdmin))
       && (!email || row.googleEmail.toLowerCase().includes(email))).sort((a, b) => {
       let comparison = 0;
       if (this.usersSortBy === 'expiresAtUtc' || this.usersSortBy === 'createdAtUtc') {
@@ -793,6 +845,21 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.loadUsers();
   }
 
+  companyResultDays: number | null = null;
+  readonly companyResultTabs = [
+    { days: null, label: 'Wszystkie' },
+    { days: 7, label: 'Uaktualniono w ost. 7 dniach' },
+    { days: 3, label: 'Uaktualniono w ost. 3 dniach' }
+  ];
+
+  selectCompanyResultTab(days: number | null) {
+    if (this.companyResultDays === days) { return; }
+    this.companyResultDays = days;
+    this.page = 1;
+    this.selectedCompanyId = null;
+    this.loadCompanies();
+  }
+
   loadCompanies(refreshCount = true, startedAt = Date.now()) {
     if (this.companiesDestroyed) { return; }
     this.companySearchError = '';
@@ -803,7 +870,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       return;
     }
     this.loading = true;
-    this.companiesRequest = this.api.adminCompanies(this.page, this.sortBy, this.direction, '', this.selectedPkds.map(p => p.id), this.filters, this.nipTerm.replace(/[-\s]/g, ''), this.blockedByRodoFilter, refreshCount).pipe(finalize(() => {
+    this.companiesRequest = this.api.adminCompanies(this.page, this.sortBy, this.direction, '', this.selectedPkds.map(p => p.id), this.filters, this.nipTerm.replace(/[-\s]/g, ''), this.blockedByRodoFilter, refreshCount, this.companyResultDays).pipe(finalize(() => {
       this.loading = false;
       this.companiesRequest = null;
       const pending = this.pendingCompaniesLoad;
