@@ -148,6 +148,21 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }, err => this.message = err.error && err.error.message ? err.error.message : 'Nie uda\u0142o si\u0119 usun\u0105\u0107 konta.');
     this.userActionRequests.add(request);
   }
+  requireBetaTerms(userId: number, required: boolean) {
+    const user = this.users.find(item => item.id === userId);
+    if (!user || !user.isBetaUser || user.isAdmin || !!user.requiresBetaTerms === required || this.busyUserIds.has(userId)) { return; }
+    this.busyUserIds.add(userId);
+    const request = this.api.requireUserBetaTerms(userId, required).pipe(finalize(() => this.busyUserIds.delete(userId)))
+      .subscribe(result => {
+        user.requiresBetaTerms = result.requiresBetaTerms;
+        this.message = required ? 'U\u017cytkownik musi ponownie zaakceptowa\u0107 Regulamin Beta.' : 'Wym\u00f3g ponownej akceptacji zosta\u0142 wy\u0142\u0105czony.';
+      }, () => {
+        this.message = 'Nie uda\u0142o si\u0119 wymusi\u0107 akceptacji Regulaminu Beta.';
+        this.loadUsers(userId);
+      });
+    this.userActionRequests.add(request);
+  }
+
   updateUserBeta(userId: number, isBetaUser: boolean) {
     const user = this.users.find(item => item.id === userId);
     if (!user || !!user.isBetaUser === isBetaUser || this.busyUserIds.has(userId)) { return; }
@@ -155,6 +170,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     const request = this.api.updateUserBeta(userId, isBetaUser)
       .pipe(finalize(() => this.busyUserIds.delete(userId))).subscribe(result => {
         user.isBetaUser = result.isBetaUser;
+        user.requiresBetaTerms = result.isBetaUser && !user.isAdmin;
         if (result.isBetaUser && this.usersTab === 'all') {
           this.selectUsersTab('beta');
           this.selectedUserId = userId;
@@ -628,7 +644,9 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { key: 'isAdmin', label: 'Admin' },
     { key: 'isBetaUser', label: 'Beta user' }
   ];
-  get visibleUserColumns() { return this.usersTab === 'beta' ? this.userColumns.filter(column => column.key !== 'isAdmin') : this.userColumns; }
+  get visibleUserColumns() { return this.usersTab === 'beta'
+    ? this.userColumns.filter(column => column.key !== 'isAdmin').concat([{ key: 'requiresBetaTerms', label: 'Regulamin beta' }])
+    : this.userColumns; }
   private dateUtc(value: string) { return /(?:Z|[+-]\d{2}:\d{2})$/i.test(value) ? value : value + 'Z'; }
   formatUserExpiry(value: string): string {
     const remaining = value ? new Date(value).getTime() - Date.now() : NaN;
@@ -647,6 +665,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         isEnabled: !!user.isEnabled,
         isAdmin: !!user.isAdmin,
         isBetaUser: !!user.isBetaUser,
+        requiresBetaTerms: !!user.requiresBetaTerms,
         createdAtUtc: user.createdAtUtc ? this.dateUtc(user.createdAtUtc) : '',
         planCode: plan ? plan.planCode : '', descriptionHtml: plan ? plan.descriptionHtml || '' : '', expiresAtUtc,
         expired: !expiresAtUtc || !Number.isFinite(new Date(expiresAtUtc).getTime()) || new Date(expiresAtUtc).getTime() <= now };

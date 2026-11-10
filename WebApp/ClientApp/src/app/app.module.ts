@@ -7,6 +7,7 @@ import { BlockedAccountInterceptor } from './services/blocked-account.intercepto
 import { RateLimitInterceptor } from './services/rate-limit.interceptor';
 import { RateLimitToastComponent } from './rate-limit-toast.component';
 import { VersionPageComponent } from './version-page.component';
+import { AppVersionBadgeComponent } from './app-version-badge.component';
 import { RouterModule } from '@angular/router';
 
 import { AppComponent } from './app.component';
@@ -47,6 +48,7 @@ import { CompanySearchProgressComponent } from './company-search-progress/compan
   declarations: [
     RateLimitToastComponent,
     VersionPageComponent,
+    AppVersionBadgeComponent,
     NipValidatorDirective,
     AppComponent,
     NavMenuComponent,

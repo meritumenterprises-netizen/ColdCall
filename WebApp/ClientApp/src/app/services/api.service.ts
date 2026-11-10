@@ -92,6 +92,7 @@ export interface Me { id: number; googleEmail: string; usesGmail?: boolean; isBe
 export interface UserPlan { planCode: string; amountPaid?: number | null; paidAtUtc?: string | null; purchasedAtUtc: string; expiresAtUtc: string; source: string | null; descriptionHtml?: string; }
 export interface PlanDefinitionOption { id: number; code: string; descriptionHtml: string; }
 export interface AppUser { id: number; googleEmail: string; displayName?: string; plans: UserPlan[]; createdAtUtc?: string; disablePlanPurchase?: boolean; isEnabled?: boolean;
+  requiresBetaTerms?: boolean;
   firstName?: string | null; lastName?: string | null; companyName?: string | null; nip?: string | null; postalCode?: string | null;
   isAdmin?: boolean;
   isBetaUser?: boolean;
@@ -102,6 +103,15 @@ export interface CsvExportRow { id: number; userId: number; searchProfileId: num
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
+  private appVersionBadgeRequest: Observable<{ appVersion: string }> | null = null;
+
+  appVersionBadge(): Observable<{ appVersion: string }> {
+    if (!this.appVersionBadgeRequest) {
+      this.appVersionBadgeRequest = this.http.get<{ appVersion: string }>(this.url('/api/public/app-version'))
+        .pipe(catchError(() => of({ appVersion: '' })), shareReplay(1));
+    }
+    return this.appVersionBadgeRequest;
+  }
   private purchasedPlan: CurrentPlan | null = null;
 
   rememberPurchasedPlan() {
@@ -494,6 +504,12 @@ export class ApiService {
   updateAdminUserDetails(id: number, details: Partial<AppUser> & { expiresInDays?: number | null }): Observable<Partial<AppUser> & { expiresAtUtc?: string | null }> {
     return this.http.put<Partial<AppUser> & { expiresAtUtc?: string | null }>(this.url('/api/admin/users/' + id + '/details'), details, this.headers());
   }
+  requireUserBetaTerms(id: number, required: boolean): Observable<{ requiresBetaTerms: boolean }> {
+    const csrf = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
+    return csrf.pipe(switchMap(() => this.http.post<{ requiresBetaTerms: boolean }>(
+      this.url('/api/admin/users/' + id + '/beta-terms'), {}, { ...this.headers(), params: { required: String(required) } })));
+  }
+
   updateUserBeta(id: number, isBetaUser: boolean): Observable<{ isBetaUser: boolean }> {
     return this.http.put<{ isBetaUser: boolean }>(this.url('/api/admin/users/' + id + '/beta'), { isBetaUser }, this.headers());
   }

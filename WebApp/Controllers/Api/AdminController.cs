@@ -251,7 +251,8 @@ public partial class AdminController : ControllerBase
                             && payment.AppUserId == x.Id && payment.PlanDefinitionId == p.PlanDefinitionId)
                             .Select(payment => (decimal?)payment.AmountPaid).FirstOrDefault()))
                     .ToList(), DateTime.SpecifyKind(x.CreatedAtUtc, DateTimeKind.Utc), x.DisablePlanPurchase, x.IsEnabled,
-                x.FirstName, x.LastName, x.CompanyName, x.PostalCode, x.City, x.Street, x.StreetNumber, x.IsAdmin, x.Nip, x.Phone, x.IsBetaUser))
+                x.FirstName, x.LastName, x.CompanyName, x.PostalCode, x.City, x.Street, x.StreetNumber, x.IsAdmin, x.Nip, x.Phone, x.IsBetaUser,
+                x.IsBetaUser && !x.IsAdmin && x.TermsOfServiceAccepted != true))
             .ToListAsync();
         return users.Select(user => user with
         {

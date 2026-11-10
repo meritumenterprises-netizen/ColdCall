@@ -1,5 +1,5 @@
 <header class="landing-header" [class.embedded]="embedded">
-  <a *ngIf="!embedded && showBrand" routerLink="/" class="landing-brand">FindMyClient</a>
+  <div *ngIf="!embedded && showBrand" class="brand-with-version"><a routerLink="/" class="landing-brand">FindMyClient</a><app-version-badge></app-version-badge></div>
   <nav aria-label="Menu strony" [class.user-navigation]="api.isNonAdmin()">
     <a *ngIf="!api.user() || !api.user().disablePlanPurchase" [routerLink]="api.isNonAdmin() ? '/plans' : '/plany'" class="menu-trigger plans-menu-link" (click)="contactOpen = false">Plany</a>
     <div class="contact-menu">

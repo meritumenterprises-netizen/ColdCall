@@ -53,6 +53,7 @@ public partial class ColdCallDbContext
         });
         modelBuilder.Entity<GlobalSetting>(entity =>
         {
+            entity.Property(e => e.AppVersion).HasColumnType("varchar(50)").HasMaxLength(50).IsUnicode(false).IsRequired();
             entity.ToTable("GlobalSettings", "ColdCall");
             entity.HasKey(e => e.GlobalSettingsId).HasName("PK_GlobalSettings");
             entity.Property(e => e.GlobalSettingsId).UseIdentityColumn();
