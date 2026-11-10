@@ -209,6 +209,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     const request = this.api.updateUserBeta(userId, isBetaUser)
       .pipe(finalize(() => this.busyUserIds.delete(userId))).subscribe(result => {
         user.isBetaUser = result.isBetaUser;
+        user.disablePlanPurchase = result.disablePlanPurchase;
         user.requiresBetaTerms = result.isBetaUser && !user.isAdmin;
         if (result.isBetaUser && this.usersTab === 'all') {
           this.selectUsersTab('beta');

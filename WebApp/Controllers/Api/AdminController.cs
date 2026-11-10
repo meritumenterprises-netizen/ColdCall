@@ -237,6 +237,12 @@ public partial class AdminController : ControllerBase
             return Forbid();
         }
 
+        await _db.Users.Where(u => !u.IsAdmin && u.IsBetaUser && !u.DisablePlanPurchase)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(u => u.DisablePlanPurchase, true));
+        await _db.Users.Where(u => !u.IsAdmin && !u.IsBetaUser && u.DisablePlanPurchase
+                && u.Plans.OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
+                    .Select(p => p.PlanDefinition.IsTrial).FirstOrDefault())
+            .ExecuteUpdateAsync(setters => setters.SetProperty(u => u.DisablePlanPurchase, false));
         var users = await _db.Users
             .Include(x => x.Plans)
             .ThenInclude(x => x.PlanDefinition)
@@ -273,6 +279,12 @@ public partial class AdminController : ControllerBase
         if (!request.DisablePlanPurchase.HasValue)
             return BadRequest(new { message = "Podaj ustawienie blokady zakupu planu." });
         var disabled = request.DisablePlanPurchase.Value;
+        var isTrial = await _db.UserPlans.Where(p => p.AppUserId == id)
+            .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
+            .Select(p => p.PlanDefinition.IsTrial).FirstOrDefaultAsync(token);
+        var beta = await _db.Users.Where(u => u.Id == id).Select(u => u.IsBetaUser).FirstOrDefaultAsync(token);
+        if (beta) disabled = true;
+        else if (isTrial) disabled = false;
         var updated = await _db.Users.Where(u => u.Id == id && !u.IsAdmin)
             .ExecuteUpdateAsync(setters => setters.SetProperty(u => u.DisablePlanPurchase, disabled), token);
         return updated == 1 ? Ok(new { DisablePlanPurchase = disabled }) : NotFound();
@@ -294,7 +306,7 @@ public partial class AdminController : ControllerBase
         if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
         if (!await _db.Users.AnyAsync(u => u.Id == id && !u.IsAdmin, token)) return NotFound();
         var definition = await _db.PlanDefinitions.AsNoTracking().Where(p => p.Id == request.PlanDefinitionId)
-            .Select(p => new { p.ExpiresAfterDays }).SingleOrDefaultAsync(token);
+            .Select(p => new { p.ExpiresAfterDays, p.IsTrial }).SingleOrDefaultAsync(token);
         if (definition == null)
             return BadRequest(new { message = "Wybrany plan nie istnieje." });
         await using var transaction = await _db.Database.BeginTransactionAsync(token);
@@ -319,6 +331,9 @@ public partial class AdminController : ControllerBase
                 return BadRequest(new { message = "Niepoprawna liczba dni waznosci planu." });
             }
         }
+        if (definition.IsTrial)
+            await _db.Users.Where(u => u.Id == id)
+                .ExecuteUpdateAsync(setters => setters.SetProperty(u => u.DisablePlanPurchase, u => u.IsBetaUser), token);
         if (currentPlan == null)
         {
             _db.UserPlans.Add(new UserPlan

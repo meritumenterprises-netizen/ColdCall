@@ -10,6 +10,8 @@
     <button *ngIf="canReturnToDashboard" class="ghost-button" routerLink="/dashboard">Wróć</button>
   </header>
 
+  <p *ngIf="isBetaVersion | async">Wszystkie plany mog&#261; by&#263; zakupione przez testow&#261; wersj&#281; Stripe'a. Wystarczy poda&#263; '123 456' jako kod BLIK na stronie Stripe'a</p>
+
   <div class="error" *ngIf="error">{{ error }}</div>
 
   <section class="plan-grid">

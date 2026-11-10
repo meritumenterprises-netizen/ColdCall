@@ -516,8 +516,8 @@ export class ApiService {
       this.url('/api/admin/users/' + id + '/beta-terms'), {}, { ...this.headers(), params: { required: String(required) } })));
   }
 
-  updateUserBeta(id: number, isBetaUser: boolean): Observable<{ isBetaUser: boolean }> {
-    return this.http.put<{ isBetaUser: boolean }>(this.url('/api/admin/users/' + id + '/beta'), { isBetaUser }, this.headers());
+  updateUserBeta(id: number, isBetaUser: boolean): Observable<{ isBetaUser: boolean; disablePlanPurchase: boolean }> {
+    return this.http.put<{ isBetaUser: boolean; disablePlanPurchase: boolean }>(this.url('/api/admin/users/' + id + '/beta'), { isBetaUser }, this.headers());
   }
   updateUserAdmin(id: number, isAdmin: boolean): Observable<{ isAdmin: boolean }> {
     return this.http.put<{ isAdmin: boolean }>(this.url('/api/admin/users/' + id + '/admin'), { isAdmin }, this.headers());

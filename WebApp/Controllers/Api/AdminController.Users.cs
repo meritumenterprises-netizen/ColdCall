@@ -50,7 +50,7 @@ public partial class AdminController
             var user = new AppUser
             {
                 GoogleEmail = email, GoogleSubject = "local:" + Guid.NewGuid().ToString("N"),
-                DisplayName = email, DisablePlanPurchase = request.DisablePlanPurchase,
+                DisplayName = email, DisablePlanPurchase = request.IsBetaUser || (!plan.IsTrial && request.DisablePlanPurchase),
                 UsesGmail = false, IsAdmin = false, IsEnabled = true,
                 IsBetaUser = request.IsBetaUser, TermsOfServiceAccepted = false,
                 CreatedAtUtc = now, LastLoginAtUtc = now

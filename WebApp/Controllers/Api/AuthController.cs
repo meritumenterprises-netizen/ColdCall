@@ -88,6 +88,16 @@ public partial class AuthController : ControllerBase
             .ThenByDescending(x => x.Id)
             .FirstOrDefaultAsync();
 
+        var latestIsTrial = activePlan?.PlanDefinition.IsTrial
+            ?? await _db.UserPlans.Where(p => p.AppUserId == user.Id)
+                .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
+                .Select(p => p.PlanDefinition.IsTrial).FirstOrDefaultAsync(HttpContext.RequestAborted);
+        var purchaseBlock = user.IsBetaUser ? true : latestIsTrial ? false : user.DisablePlanPurchase;
+        if (!isAdmin && user.DisablePlanPurchase != purchaseBlock)
+        {
+            user.DisablePlanPurchase = purchaseBlock;
+            await _db.SaveChangesAsync(HttpContext.RequestAborted);
+        }
         var maxNumberOfExportedRecords = await PlanRecordLimits.ForUserAsync(_db, user.Id, isAdmin);
         TrialOffer? trialOffer = null;
         var hasExpiredPlan = !isAdmin && activePlan == null && await _db.UserPlans.AnyAsync(

@@ -32,7 +32,7 @@ public partial class AdminController
                 IF @result < 0 THROW 50001, 'Registration lock unavailable', 1;", token);
             if (await _db.Users.AnyAsync(u => u.GoogleEmail == email, token) || await manager.FindByEmailAsync(email) != null)
                 return Conflict(new { message = "Uzytkownik z takim adresem email juz istnieje." });
-            var source = await _db.Users.AsNoTracking().Include(u => u.Plans)
+            var source = await _db.Users.AsNoTracking().Include(u => u.Plans).ThenInclude(p => p.PlanDefinition)
                 .Include(u => u.SearchProfiles).ThenInclude(s => s.Criteria)
                 .Include(u => u.SearchProfiles).ThenInclude(s => s.PkdCodes)
                 .AsSplitQuery().SingleOrDefaultAsync(u => u.Id == id && u.IsBetaUser && !u.IsAdmin, token);
@@ -46,7 +46,7 @@ public partial class AdminController
                 UsesGmail = gmail, FirstName = request.FirstName.Trim(), LastName = request.LastName.Trim(),
                 DisplayName = request.FirstName.Trim() + " " + request.LastName.Trim(),
                 IsBetaUser = true, IsAdmin = false, IsEnabled = source.IsEnabled,
-                DisablePlanPurchase = source.DisablePlanPurchase, TermsOfServiceAccepted = false,
+                DisablePlanPurchase = true, TermsOfServiceAccepted = false,
                 CompanyName = $"Moja firma {request.FirstName.Trim()} {request.LastName.Trim()} {nip}",
                 Nip = nip, Phone = source.Phone,
                 PostalCode = source.PostalCode, City = source.City, Street = source.Street, StreetNumber = source.StreetNumber,

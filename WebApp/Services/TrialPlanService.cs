@@ -62,8 +62,17 @@ public class TrialPlanService
             ExpiresAtUtc = now.AddDays(plan.ExpiresAfterDays!.Value),
             PricePaid = 0, Source = "Trial", IsActive = true
         });
+        await UpdateTrialPurchaseBlockAsync(userId, token);
         await _db.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
+    }
+
+    private async Task UpdateTrialPurchaseBlockAsync(int userId, CancellationToken token)
+    {
+        await _db.Users.Where(u => u.Id == userId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(u => u.DisablePlanPurchase, u => u.IsBetaUser), token);
+        foreach (var entry in _db.ChangeTracker.Entries<AppUser>().Where(e => e.Entity.Id == userId))
+            entry.Entity.DisablePlanPurchase = entry.Entity.IsBetaUser;
     }
 
     public async Task<bool> AcceptAsync(int userId, TrialAcceptance acceptance, CancellationToken token)
@@ -86,6 +95,7 @@ public class TrialPlanService
             AppUserId = userId, PlanDefinitionId = ticket.PlanId, PurchasedAtUtc = DateTime.UtcNow,
             ExpiresAtUtc = ticket.ExpiresAtUtc, PricePaid = 0, Source = "Trial", IsActive = true
         });
+        await UpdateTrialPurchaseBlockAsync(userId, token);
         await _db.SaveChangesAsync(token);
         await transaction.CommitAsync(token);
         return true;

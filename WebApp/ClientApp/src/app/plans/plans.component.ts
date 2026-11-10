@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { of } from 'rxjs';
-import { switchMap } from 'rxjs/operators';
+import { map, switchMap } from 'rxjs/operators';
 import { ApiService, Plan } from '../services/api.service';
 
 @Component({
@@ -12,6 +12,7 @@ export class PlansComponent implements OnInit {
   plans: Plan[] = [];
   error = '';
   buying = false;
+  readonly isBetaVersion = this.api.appVersionBadge().pipe(map(version => version.appVersion.trim() === 'Beta'));
 
   constructor(private api: ApiService) {}
 
