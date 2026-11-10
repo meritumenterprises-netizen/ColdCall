@@ -282,7 +282,7 @@ public partial class CompaniesController : ControllerBase
                 profile.PkdCodes.Select(x => x.PkdCodeId).ToArray(), days, token: cancellationToken);
             if (notesOnly) query = search.WithUserNotes(query, user.Id);
             var ids = await search.OrderedIds(query, request.SortBy, request.Direction)
-                .Take(limit).ToListAsync(cancellationToken);
+                .Skip(request.Offset).Take(limit).ToListAsync(cancellationToken);
             if (ids.Count == 0) return BadRequest(new { message = "Brak rekordow do eksportu." });
             var csv = await _csvExporter.ExportAsync(user, profile, ids, days, cancellationToken, request.SearchName, notesOnly);
             await transaction.CommitAsync(cancellationToken);

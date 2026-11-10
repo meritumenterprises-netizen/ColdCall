@@ -6,6 +6,8 @@ public class ExportCompaniesRequest
 {
     [Range(1, int.MaxValue)]
     public int SearchProfileId { get; set; }
+    [Range(0, int.MaxValue)]
+    public int Offset { get; set; }
     [StringLength(200)]
     public string? SearchName { get; set; }
     public int? ModifiedWithinDays { get; set; }

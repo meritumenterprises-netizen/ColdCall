@@ -33,6 +33,18 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   @ViewChild('pkdErrorDialog', { static: true }) pkdErrorDialog: ElementRef;
   @ViewChild('replacePkdDialog', { static: true }) replacePkdDialog: ElementRef;
   @ViewChild('duplicateExportDialog', { static: true }) duplicateExportDialog: ElementRef;
+  @ViewChild('exportStartDialog', { static: true }) exportStartDialog: ElementRef;
+  private exportStartPage = 1;
+
+  confirmExportStart(fromCurrentPage: boolean) {
+    const offset = fromCurrentPage ? (this.exportStartPage - 1) * this.pageSize : 0;
+    this.exportStartDialog.nativeElement.close();
+    this.startCsvExport(offset);
+  }
+
+  cancelExportStart() {
+    this.exportStartDialog.nativeElement.close();
+  }
   @ViewChild('csvProgressDialog', { static: true }) csvProgressDialog: ElementRef;
   @ViewChild('duplicateSearchDialog', { static: true }) duplicateSearchDialog: ElementRef;
   @ViewChild('saveNewSearchDialog', { static: true }) saveNewSearchDialog: ElementRef;
@@ -169,9 +181,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   ];
 
   @Input() publicPageTitle = '';
+  private dashboardNavigationRequest: Subscription | null = null;
   constructor(private api: ApiService, private route: ActivatedRoute, private router: Router, private searchDraftStore: SearchDraftStore) {}
 
   ngOnInit() {
+    this.dashboardNavigationRequest = this.api.dashboardSearchRequested.subscribe(() => {
+      if (!this.publicPageTitle) { this.selectDashboardTab('search'); }
+    });
     const user = this.api.user();
     this.searchDraftUserId = user ? user.id : 0;
     this.maxRecordLimit = user && Number.isInteger(user.maxNumberOfExportedRecords)
@@ -706,6 +722,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.dashboardNavigationRequest) { this.dashboardNavigationRequest.unsubscribe(); }
     this.showCsvProgress(false);
     this.companiesDestroyed = true;
     this.pendingCompaniesLoad = null;
@@ -1276,6 +1293,10 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   exportCsv() {
+    this.startCsvExport();
+  }
+
+  private startCsvExport(offset?: number) {
     if (this.searchPlanExpired) { return; }
     if (this.loading || this.total <= 0 || this.exportingCsv || this.csvQuotaLoading || this.csvExportsRemaining === 0 || this.csvExportBlocked) { return; }
     if (!this.validateFilters()) { return; }
@@ -1283,6 +1304,12 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.error = 'Zapisz wyszukiwanie przed eksportem do CSV.';
       return;
     }
+    if (offset === undefined && this.page > 1) {
+      this.exportStartPage = this.page;
+      if (!this.exportStartDialog.nativeElement.open) { this.exportStartDialog.nativeElement.showModal(); }
+      return;
+    }
+    const exportOffset = offset === undefined ? 0 : offset;
     this.error = '';
     this.exportingCsv = true;
     this.showCsvProgress(true);
@@ -1305,7 +1332,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         }))
       : of(null);
     this.csvRequest = prepareSearch.pipe(switchMap(() => this.api.checkCsvExport(searchId, resultTab))).subscribe(result => {
-      const exportAction = () => this.performCsvExport(searchId, days, sortBy, direction, searchName, notesOnly, resultTab);
+      const exportAction = () => this.performCsvExport(searchId, days, sortBy, direction, searchName, notesOnly, resultTab, exportOffset);
       if (result.exists) {
         this.showCsvProgress(false);
         this.pendingCsvExport = exportAction;
@@ -1318,9 +1345,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     });
   }
 
-  private performCsvExport(searchId: number, days: number | undefined, sortBy: string, direction: string, searchName: string, notesOnly = false, resultTab?: string) {
+  private performCsvExport(searchId: number, days: number | undefined, sortBy: string, direction: string, searchName: string, notesOnly = false, resultTab?: string, offset = 0) {
     this.showCsvProgress(true);
-    this.csvRequest = this.api.exportCompanies(searchId, days, sortBy, direction, searchName, notesOnly, resultTab)
+    this.csvRequest = this.api.exportCompanies(searchId, days, sortBy, direction, searchName, notesOnly, resultTab, offset)
       .pipe(finalize(() => { this.exportingCsv = false; this.showCsvProgress(false); })).subscribe(response => {
       if (!response.body) { return; }
       const profile = this.searches.find(search => search.id === searchId);
