@@ -3,6 +3,7 @@ namespace ColdCall.Models;
 public class GlobalSetting
 {
     public int GlobalSettingsId { get; set; }
+    public string AppVersion { get; set; } = "";
     public int GlobalDegreeOfParallelismImportByDate { get; set; }
     public bool ApplicationInService { get; set; }
     public bool InFaktInvoicing { get; set; }

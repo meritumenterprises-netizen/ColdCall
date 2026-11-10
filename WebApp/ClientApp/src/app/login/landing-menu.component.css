@@ -1,6 +1,7 @@
 :host { display: block; }
 .landing-header { height: 64px; box-sizing: border-box; padding: 0 28px; border-bottom: 1px solid var(--border); background: var(--surface-page); display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .landing-brand { font-size: 20px; font-weight: 600; color: var(--accent); white-space: nowrap; }
+.brand-with-version { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .landing-header nav { margin-left: auto; }
 .landing-header.embedded { height: auto; padding: 0; border: 0; background: transparent; }
 nav { height: 100%; display: flex; align-items: center; justify-content: flex-end; gap: 12px; }

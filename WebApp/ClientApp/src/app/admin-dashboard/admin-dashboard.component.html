@@ -248,6 +248,14 @@
                        (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
                        (change)="updateUserBeta(row.id, $event.target.checked)">
               </td>
+              <td *ngIf="usersTab === 'beta'" class="admin-plan-purchase-cell">
+                <input type="checkbox" [checked]="row.requiresBetaTerms"
+                       [disabled]="row.isAdmin || busyUserIds.has(row.id)"
+                       [attr.aria-label]="'Wymagana akceptacja Regulaminu Beta: ' + row.googleEmail"
+                       title="Zaznacz, aby wymaga&#263; ponownej akceptacji Regulaminu Beta"
+                       (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()"
+                       (change)="requireBetaTerms(row.id, $event.target.checked)">
+              </td>
               <td class="admin-user-actions">
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="requestChangePlan(row)">Zmie&#324; plan</button>
                 <button type="button" class="ghost-button compact" [disabled]="busyUserIds.has(row.id) || !row.planCode" (click)="extendPlan(row.id)">Przed&#322;u&#380; o 7 dni</button>

@@ -42,6 +42,7 @@ button {
 }
 .avatar-fallback { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; }
 .topbar { gap: 24px; }
+.brand-with-version { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .beta-badge { padding: 9px 12px; border-radius: 8px; background: var(--accent-soft); color: var(--accent-strong); font: inherit; white-space: nowrap; }
 .topbar nav { align-items: center; margin-left: auto; }
 .topbar nav a.plans-menu-link,
@@ -58,7 +59,7 @@ button {
 .current-plan-label:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .current-plan-tooltip { position: absolute; top: calc(100% + 8px); left: 0; z-index: 1200; width: 420px; max-width: calc(100vw - 56px); max-height: min(320px, calc(100vh - 120px)); overflow: auto; padding: 14px 18px; border: 1px solid var(--border); border-radius: 6px; background: #fff; color: var(--text-primary); box-shadow: 0 4px 16px #0002; font-size: 13px; font-weight: normal; line-height: 1.5; overflow-wrap: anywhere; pointer-events: none; }
 @media (min-width: 901px) {
-  .topbar .logo { flex: 0 0 calc(var(--sidebar-width) - 28px - 24px); }
+  .topbar .brand-with-version { flex: 0 0 auto; min-width: calc(var(--sidebar-width) - 28px - 24px); }
 }
 @media (max-width: 900px) {
   .topbar { height: auto; min-height: 64px; flex-wrap: wrap; padding-top: 12px; padding-bottom: 12px; gap: 12px; }

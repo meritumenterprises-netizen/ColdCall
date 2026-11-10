@@ -22,14 +22,17 @@ Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false
 
 var globalSettings = new GlobalSettings();
 
-
-if (args.Count() < 1)
+DateTime newDate = DateTime.MinValue;
+if (args.Count() > 0)
 {
-    Console.WriteLine("Please provide a date in the format YYYY-MM-DD as an argument.");
-    return 1;
+    if (!DateTime.TryParseExact(args[0], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out newDate))
+    {
+        Console.WriteLine($"Invalid date format: {args[0]}. Please provide a date in the format YYYY-MM-DD.");
+        return 1;
+    }
 }
-
-var newDate = Convert.ToDateTime(args[0]);
+else
+    newDate = DateTime.Today.AddDays(-1);
 
 var newFilesFolder = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), newDate.ToString("yyyy-MM-dd")));
 if (!Directory.Exists(newFilesFolder))
