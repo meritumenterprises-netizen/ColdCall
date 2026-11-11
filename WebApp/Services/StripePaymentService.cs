@@ -226,11 +226,14 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
         {
             var payment = await db.StripePayments.SingleAsync(p => p.StripeSessionId == sessionId, token);
             await db.Entry(payment).ReloadAsync(token);
+            var paidDate = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(
+                DateTime.SpecifyKind(payment.PaidAtUtc, DateTimeKind.Utc), "Europe/Warsaw")
+                .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             if (!string.IsNullOrWhiteSpace(payment.InvoiceId))
             {
                 if (payment.PDFInvoice is { Length: > 0 }) return;
                 stage = "MarkExistingInvoicePaid";
-                await inFakt.MarkInvoicePaid(payment.InvoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), token);
+                await inFakt.MarkInvoicePaid(payment.InvoiceId, paidDate, token);
                 stage = "DownloadExistingPdf";
                 var existingPdf = await inFakt.GetInvoice(payment.InvoiceId, token);
                 if (existingPdf.Length == 0) throw new InvalidDataException("inFakt returned an empty invoice PDF.");
@@ -259,10 +262,11 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             if (!new PolishNipAttribute().IsValid(buyer.Nip))
                 throw new InvalidOperationException("The buyer's NIP is invalid.");
 
-            var maximumInvoiceId = checked(await db.StripePayments.CountAsync(token) + 1);
-            var invoiceId = maximumInvoiceId;
+            var invoiceDate = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "Europe/Warsaw")
+                .ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
             stage = "CreateInvoice";
-            var jsonElement = await inFakt.CreateInvoice(buyerName, invoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), planDefinition.Code, netPrice, token, buyer, payment.AmountPaid);
+            var jsonElement = await inFakt.CreateInvoice(buyerName, null, invoiceDate,
+                planDefinition.Code, netPrice, token, buyer, payment.AmountPaid, paidDate);
 
             if (!jsonElement.TryGetProperty("uuid", out var uuidElement)
                 || uuidElement.ValueKind != JsonValueKind.String
@@ -276,12 +280,12 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
                 && numberElement.ValueKind == JsonValueKind.String
                 && !string.IsNullOrWhiteSpace(numberElement.GetString())
                     ? numberElement.GetString()
-                    : invoiceId.ToString(CultureInfo.InvariantCulture);
+                    : null;
             stage = "SaveInvoiceId";
             await db.SaveChangesAsync(token);
 
             stage = "MarkInvoicePaid";
-            await inFakt.MarkInvoicePaid(payment.InvoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), token);
+            await inFakt.MarkInvoicePaid(payment.InvoiceId, paidDate, token);
             stage = "DownloadPdf";
             var invoiceContent = await inFakt.GetInvoice(payment.InvoiceId, token);
             if (invoiceContent is { Length: > 0 })

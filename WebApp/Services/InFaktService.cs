@@ -35,12 +35,12 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
         return CreateInvoice(clientCompanyName, invoiceNumber.ToString(System.Globalization.CultureInfo.InvariantCulture), invoiceDate, planName, price, cancellationToken, buyer, paidAmount);
     }
 
-    public async Task<JsonElement> CreateInvoice(string clientCompanyName, string invoiceNumber, string invoiceDate, string planName, decimal price,
-        CancellationToken cancellationToken = default, InFaktInvoiceBuyer? buyer = null, decimal? paidAmount = null)
+    public async Task<JsonElement> CreateInvoice(string clientCompanyName, string? invoiceNumber, string invoiceDate, string planName, decimal price,
+        CancellationToken cancellationToken = default, InFaktInvoiceBuyer? buyer = null, decimal? paidAmount = null, string? paidDate = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(clientCompanyName);
         ArgumentException.ThrowIfNullOrWhiteSpace(planName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(invoiceNumber);
+        if (invoiceNumber != null) ArgumentException.ThrowIfNullOrWhiteSpace(invoiceNumber);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(price);
         var priceInGrosze = checked((long)(price * 100m));
         if (price * 100m != priceInGrosze)
@@ -58,10 +58,9 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
         var invoiceFields = new Dictionary<string, object?>
         {
                 ["kind"] = "vat",
-                ["number"] = invoiceNumber,
                 ["invoice_date"] = invoiceDate,
-                ["sell_date"] = invoiceDate,
-                ["payment_to"] = invoiceDate,
+                ["sale_date"] = paidDate ?? invoiceDate,
+                ["payment_date"] = paidDate ?? invoiceDate,
                 ["services"] = new[]
                 {
                     new
@@ -72,12 +71,12 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
                 }
         };
         invoiceFields["client_company_name"] = clientCompanyName;
+        if (invoiceNumber != null) invoiceFields["number"] = invoiceNumber;
         if (paidInGrosze.HasValue)
         {
             invoiceFields["payment_method"] = "cash";
             invoiceFields["paid_price"] = paidInGrosze.Value;
-            invoiceFields["paid_date"] = invoiceDate;
-            invoiceFields["payment_date"] = invoiceDate;
+            invoiceFields["paid_date"] = paidDate ?? invoiceDate;
         }
         if (buyer != null)
         {
