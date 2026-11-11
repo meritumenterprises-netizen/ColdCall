@@ -1,6 +1,7 @@
 <header class="landing-header" [class.embedded]="embedded">
   <div *ngIf="!embedded && showBrand" class="brand-with-version"><a routerLink="/" class="landing-brand"><img class="brand-logo-image" src="assets/findmyclient-logo.png" width="200" height="60" alt="FindMyClient"></a><app-version-badge></app-version-badge></div>
   <nav aria-label="Menu strony" [class.user-navigation]="api.isNonAdmin()">
+    <a *ngIf="!api.isAuthenticated()" routerLink="/" class="menu-trigger" (click)="contactOpen = false">Strona g&#322;&#243;wna</a>
     <a *ngIf="!api.isAuthenticated()" routerLink="/biura-rachunkowe" class="menu-trigger" (click)="contactOpen = false">Biura rachunkowe</a>
     <a *ngIf="!api.isAuthenticated()" routerLink="/agencje-marketingowe" class="menu-trigger" (click)="contactOpen = false">Agencje marketingowe</a>
     <a *ngIf="!api.isAuthenticated()" routerLink="/agencje-lead-generation" class="menu-trigger" (click)="contactOpen = false">Agencje lead generation</a>
