@@ -24,7 +24,9 @@
         <span aria-hidden="true">&#9662;</span>
       </button>
       <div id="user-menu-links" class="user-menu-links" *ngIf="userMenuOpen">
-        <a routerLink="/profile" (click)="userMenuOpen = false">Profil</a>
+        <a routerLink="/profile/data" (click)="userMenuOpen = false">Dane</a>
+        <a routerLink="/profile/plan" (click)="userMenuOpen = false">Plan</a>
+        <a routerLink="/profile/purchases" (click)="userMenuOpen = false">Zakupy</a>
       </div>
     </div>
     <button type="button" (click)="logout()">Wyloguj</button>
