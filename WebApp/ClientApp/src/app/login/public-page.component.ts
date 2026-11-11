@@ -13,6 +13,9 @@ import { ApiService } from '../services/api.service';
     <app-feedback *ngIf="title === 'RODO'" [rodo]="true"></app-feedback>
     <app-feedback *ngIf="title === 'Wsparcie techniczne'" [support]="true"></app-feedback>
     <app-public-regulamin *ngIf="title === 'Regulamin'"></app-public-regulamin>
+    <app-accounting-offices *ngIf="title === 'Biura rachunkowe'"></app-accounting-offices>
+    <app-marketing-agencies *ngIf="title === 'Agencje marketingowe'"></app-marketing-agencies>
+    <app-lead-generation *ngIf="title === 'Agencje lead generation'"></app-lead-generation>
     <app-version-page *ngIf="title === 'Wersja aplikacji FindMyClient'"></app-version-page>
     </main>`,
   styles: [`.public-page { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }

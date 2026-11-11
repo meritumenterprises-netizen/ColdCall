@@ -17,6 +17,9 @@ import { TurnstileComponent } from './login/turnstile.component';
 import { LandingMenuComponent } from './login/landing-menu.component';
 import { PublicPageComponent } from './login/public-page.component';
 import { PublicRegulaminComponent } from './login/public-regulamin.component';
+import { AccountingOfficesComponent } from './login/accounting-offices.component';
+import { MarketingAgenciesComponent } from './login/marketing-agencies.component';
+import { LeadGenerationComponent } from './login/lead-generation.component';
 import { PublicPlansComponent } from './login/public-plans.component';
 import { FeedbackComponent } from './login/feedback.component';
 import { PublicPageGuard } from './public-page.guard';
@@ -57,6 +60,9 @@ import { CompanySearchProgressComponent } from './company-search-progress/compan
     LandingMenuComponent,
     PublicPageComponent,
     PublicRegulaminComponent,
+    AccountingOfficesComponent,
+    MarketingAgenciesComponent,
+    LeadGenerationComponent,
     PublicPlansComponent,
     FeedbackComponent,
     MaintenanceComponent,
@@ -90,6 +96,9 @@ import { CompanySearchProgressComponent } from './company-search-progress/compan
       { path: 'plany', component: PublicPlansComponent, canActivate: [PublicPlansGuard] },
       { path: 'regulamin', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Regulamin' } },
       { path: 'wersja', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Wersja aplikacji FindMyClient' } },
+      { path: 'biura-rachunkowe', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Biura rachunkowe' } },
+      { path: 'agencje-marketingowe', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Agencje marketingowe' } },
+      { path: 'agencje-lead-generation', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Agencje lead generation' } },
       { path: 'maintenance', component: MaintenanceComponent, canActivate: [MaintenanceGuard] },
       { path: 'dashboard', component: UserDashboardComponent, canActivate: [AuthGuard] },
       { path: 'admin', component: AdminDashboardComponent, canActivate: [AuthGuard, AdminGuard], runGuardsAndResolvers: 'always' },
