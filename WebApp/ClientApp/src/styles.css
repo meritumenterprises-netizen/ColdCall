@@ -16,6 +16,11 @@
   color-scheme: light;
 }
 
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   background: var(--surface-page);
