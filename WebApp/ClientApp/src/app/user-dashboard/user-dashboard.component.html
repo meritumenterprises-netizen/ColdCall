@@ -76,7 +76,7 @@
     </div>
   </aside>
 
-  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><app-feedback *ngIf="publicPageTitle === 'Feedback'"></app-feedback><app-feedback *ngIf="publicPageTitle === 'RODO'" [rodo]="true"></app-feedback><app-feedback *ngIf="publicPageTitle === 'Wsparcie techniczne'" [support]="true"></app-feedback><app-public-regulamin *ngIf="publicPageTitle === 'Regulamin'"></app-public-regulamin><p *ngIf="filterError" class="error" role="alert">{{ filterError }}</p><app-version-page *ngIf="publicPageTitle === 'Wersja aplikacji FindMyClient'"></app-version-page></main>
+  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><app-feedback *ngIf="publicPageTitle === 'Feedback'"></app-feedback><app-feedback *ngIf="publicPageTitle === 'RODO'" [rodo]="true"></app-feedback><app-feedback *ngIf="publicPageTitle === 'Wsparcie techniczne'" [support]="true"></app-feedback><app-public-regulamin *ngIf="publicPageTitle === 'Regulamin'"></app-public-regulamin><p *ngIf="filterError" class="error" role="alert">{{ filterError }}</p><app-version-page *ngIf="publicPageTitle === 'Wersja aplikacji FindMyClient'"></app-version-page><app-accounting-offices *ngIf="publicPageTitle === 'Biura rachunkowe'"></app-accounting-offices><app-marketing-agencies *ngIf="publicPageTitle === 'Agencje marketingowe'"></app-marketing-agencies><app-lead-generation *ngIf="publicPageTitle === 'Agencje lead generation'"></app-lead-generation></main>
   <main class="workspace" [style.display]="publicPageTitle ? 'none' : null">
     <section id="dashboard-search-panel" class="dashboard-panel" role="region" aria-label="Wyszukiwanie"
              [hidden]="activeDashboardTab !== 'search'">

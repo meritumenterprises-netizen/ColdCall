@@ -51,7 +51,7 @@ export class NavMenuComponent {
   get isMaintenancePage() { return this.router.url.split(/[?#]/)[0] === '/maintenance'; }
   get isPublicPage() {
     const path = this.router.url.split(/[?#]/)[0];
-    return path.indexOf('/kontakt/') === 0 || path === '/regulamin' || path === '/wersja';
+    return path.indexOf('/kontakt/') === 0 || path === '/regulamin' || path === '/wersja' || path === '/biura-rachunkowe' || path === '/agencje-marketingowe' || path === '/agencje-lead-generation';
   }
 
   get activePlan() {
