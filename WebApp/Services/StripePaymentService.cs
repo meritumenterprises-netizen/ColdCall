@@ -49,7 +49,8 @@ public class StripeCheckoutGateway(IConfiguration configuration, HttpClient http
         new SessionService(CreateClient()).GetAsync(id, cancellationToken: token);
 }
 
-public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway stripe, IConfiguration configuration, InFaktService inFakt)
+public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway stripe, IConfiguration configuration, InFaktService inFakt,
+    ILogger<StripePaymentService>? logger = null)
 {
     public async Task<Session> CreateAsync(AppUser user, string planCode, CancellationToken token)
     {
@@ -220,6 +221,7 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
 
     private async Task EnsureInvoiceAsync(string sessionId, decimal netPrice, InFaktService inFakt, CancellationToken token)
     {
+        var stage = "LoadPayment";
         try
         {
             var payment = await db.StripePayments.SingleAsync(p => p.StripeSessionId == sessionId, token);
@@ -227,6 +229,9 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             if (!string.IsNullOrWhiteSpace(payment.InvoiceId))
             {
                 if (payment.PDFInvoice is { Length: > 0 }) return;
+                stage = "MarkExistingInvoicePaid";
+                await inFakt.MarkInvoicePaid(payment.InvoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), token);
+                stage = "DownloadExistingPdf";
                 var existingPdf = await inFakt.GetInvoice(payment.InvoiceId, token);
                 if (existingPdf.Length == 0) throw new InvalidDataException("inFakt returned an empty invoice PDF.");
                 payment.PDFInvoice = existingPdf;
@@ -236,6 +241,7 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             var planDefinition = await db.PlanDefinitions.AsNoTracking()
                 .SingleAsync(plan => plan.Id == payment.PlanDefinitionId, token);
             var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == payment.AppUserId, token);
+            stage = "ValidateBuyer";
             var buyer = new InFaktInvoiceBuyer(
                 string.IsNullOrWhiteSpace(user.CompanyName) ? null : user.CompanyName.Trim(),
                 user.FirstName?.Trim(), user.LastName?.Trim(),
@@ -255,7 +261,8 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
 
             var maximumInvoiceId = checked(await db.StripePayments.CountAsync(token) + 1);
             var invoiceId = maximumInvoiceId;
-            var jsonElement = await inFakt.CreateInvoice(buyerName, invoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), planDefinition.Code, netPrice, token, buyer);
+            stage = "CreateInvoice";
+            var jsonElement = await inFakt.CreateInvoice(buyerName, invoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), planDefinition.Code, netPrice, token, buyer, payment.AmountPaid);
 
             if (!jsonElement.TryGetProperty("uuid", out var uuidElement)
                 || uuidElement.ValueKind != JsonValueKind.String
@@ -270,8 +277,12 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
                 && !string.IsNullOrWhiteSpace(numberElement.GetString())
                     ? numberElement.GetString()
                     : invoiceId.ToString(CultureInfo.InvariantCulture);
+            stage = "SaveInvoiceId";
             await db.SaveChangesAsync(token);
 
+            stage = "MarkInvoicePaid";
+            await inFakt.MarkInvoicePaid(payment.InvoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), token);
+            stage = "DownloadPdf";
             var invoiceContent = await inFakt.GetInvoice(payment.InvoiceId, token);
             if (invoiceContent is { Length: > 0 })
             {
@@ -295,6 +306,8 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
         }
         catch (Exception exc)
         {
+            logger?.LogError(exc, "InFakt invoice failed at {Stage} for Stripe session {SessionId}. HTTP status: {HttpStatus}",
+                stage, sessionId, (exc as HttpRequestException)?.StatusCode);
             Console.WriteLine(exc.Message);
         }
     }

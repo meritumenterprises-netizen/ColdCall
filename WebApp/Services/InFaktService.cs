@@ -29,14 +29,14 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
     }
 
     public Task<JsonElement> CreateInvoice(string clientCompanyName, int invoiceNumber, string invoiceDate, string planName, decimal price,
-        CancellationToken cancellationToken = default, InFaktInvoiceBuyer? buyer = null)
+        CancellationToken cancellationToken = default, InFaktInvoiceBuyer? buyer = null, decimal? paidAmount = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(invoiceNumber);
-        return CreateInvoice(clientCompanyName, invoiceNumber.ToString(System.Globalization.CultureInfo.InvariantCulture), invoiceDate, planName, price, cancellationToken, buyer);
+        return CreateInvoice(clientCompanyName, invoiceNumber.ToString(System.Globalization.CultureInfo.InvariantCulture), invoiceDate, planName, price, cancellationToken, buyer, paidAmount);
     }
 
     public async Task<JsonElement> CreateInvoice(string clientCompanyName, string invoiceNumber, string invoiceDate, string planName, decimal price,
-        CancellationToken cancellationToken = default, InFaktInvoiceBuyer? buyer = null)
+        CancellationToken cancellationToken = default, InFaktInvoiceBuyer? buyer = null, decimal? paidAmount = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(clientCompanyName);
         ArgumentException.ThrowIfNullOrWhiteSpace(planName);
@@ -45,6 +45,15 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
         var priceInGrosze = checked((long)(price * 100m));
         if (price * 100m != priceInGrosze)
             throw new ArgumentException("The invoice price must have at most two decimal places.", nameof(price));
+        long? paidInGrosze = null;
+        if (paidAmount.HasValue)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(paidAmount.Value);
+            paidInGrosze = checked((long)(paidAmount.Value * 100m));
+            var grossInGrosze = checked(priceInGrosze + (long)decimal.Round(priceInGrosze * 0.23m, 0, MidpointRounding.AwayFromZero));
+            if (paidAmount.Value * 100m != paidInGrosze || paidInGrosze != grossInGrosze)
+                throw new ArgumentException("The paid amount must match the invoice gross amount including 23% VAT.", nameof(paidAmount));
+        }
         using var request = CreateRequest(HttpMethod.Post, InvoicesUrl);
         var invoiceFields = new Dictionary<string, object?>
         {
@@ -63,6 +72,13 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
                 }
         };
         invoiceFields["client_company_name"] = clientCompanyName;
+        if (paidInGrosze.HasValue)
+        {
+            invoiceFields["payment_method"] = "cash";
+            invoiceFields["paid_price"] = paidInGrosze.Value;
+            invoiceFields["paid_date"] = invoiceDate;
+            invoiceFields["payment_date"] = invoiceDate;
+        }
         if (buyer != null)
         {
             if (string.IsNullOrWhiteSpace(buyer.CompanyName)
@@ -92,6 +108,16 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
         if (invoice.ValueKind == JsonValueKind.Null)
             throw new InvalidDataException("inFakt returned an empty invoice response.");
         return invoice;
+    }
+
+    public async Task MarkInvoicePaid(string invoiceId, string paidDate, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(invoiceId);
+        using var request = CreateRequest(HttpMethod.Post,
+            "https://api.sandbox-infakt.pl/api/v3/invoices/" + Uri.EscapeDataString(invoiceId) + "/paid.json");
+        request.Content = JsonContent.Create(new { paid_date = paidDate });
+        using var response = await client.SendAsync(request, cancellationToken);
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task<byte[]> GetInvoice(string invoiceId, CancellationToken cancellationToken = default)
