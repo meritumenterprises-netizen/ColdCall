@@ -29,14 +29,14 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
     }
 
     public Task<JsonElement> CreateInvoice(string clientCompanyName, int invoiceNumber, string invoiceDate, string planName, decimal price,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, InFaktInvoiceBuyer? buyer = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(invoiceNumber);
-        return CreateInvoice(clientCompanyName, invoiceNumber.ToString(System.Globalization.CultureInfo.InvariantCulture), invoiceDate, planName, price, cancellationToken);
+        return CreateInvoice(clientCompanyName, invoiceNumber.ToString(System.Globalization.CultureInfo.InvariantCulture), invoiceDate, planName, price, cancellationToken, buyer);
     }
 
     public async Task<JsonElement> CreateInvoice(string clientCompanyName, string invoiceNumber, string invoiceDate, string planName, decimal price,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, InFaktInvoiceBuyer? buyer = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(clientCompanyName);
         ArgumentException.ThrowIfNullOrWhiteSpace(planName);
@@ -46,17 +46,14 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
         if (price * 100m != priceInGrosze)
             throw new ArgumentException("The invoice price must have at most two decimal places.", nameof(price));
         using var request = CreateRequest(HttpMethod.Post, InvoicesUrl);
-        request.Content = JsonContent.Create(new
+        var invoiceFields = new Dictionary<string, object?>
         {
-            invoice = new
-            {
-                kind = "vat",
-                number = invoiceNumber,
-                invoice_date = invoiceDate,
-                sell_date = invoiceDate,
-                payment_to = invoiceDate,
-                client_company_name = clientCompanyName,
-                services = new[]
+                ["kind"] = "vat",
+                ["number"] = invoiceNumber,
+                ["invoice_date"] = invoiceDate,
+                ["sell_date"] = invoiceDate,
+                ["payment_to"] = invoiceDate,
+                ["services"] = new[]
                 {
                     new
                     {
@@ -64,8 +61,24 @@ public class InFaktService(HttpClient client, IConfiguration configuration)
                         unit_net_price = priceInGrosze, net_price = priceInGrosze, tax_symbol = "23"
                     }
                 }
+        };
+        invoiceFields["client_company_name"] = clientCompanyName;
+        if (buyer != null)
+        {
+            if (string.IsNullOrWhiteSpace(buyer.CompanyName)
+                && !string.IsNullOrWhiteSpace(buyer.FirstName) && !string.IsNullOrWhiteSpace(buyer.LastName))
+            {
+                invoiceFields["client_first_name"] = buyer.FirstName;
+                invoiceFields["client_last_name"] = buyer.LastName;
             }
-        });
+            if (!string.IsNullOrWhiteSpace(buyer.Nip)) invoiceFields["client_tax_code"] = buyer.Nip;
+            ArgumentException.ThrowIfNullOrWhiteSpace(buyer.City);
+            invoiceFields["client_street"] = string.Join(" ", new[] { buyer.Street, buyer.StreetNumber }.Where(s => !string.IsNullOrWhiteSpace(s)));
+            invoiceFields["client_city"] = buyer.City;
+            invoiceFields["client_post_code"] = buyer.PostalCode;
+            invoiceFields["client_country"] = "PL";
+        }
+        request.Content = JsonContent.Create(new { invoice = invoiceFields });
         using var response = await client.SendAsync(request, cancellationToken);
         if (!response.IsSuccessStatusCode)
         {

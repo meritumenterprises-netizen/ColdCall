@@ -224,41 +224,38 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
         {
             var payment = await db.StripePayments.SingleAsync(p => p.StripeSessionId == sessionId, token);
             await db.Entry(payment).ReloadAsync(token);
+            if (!string.IsNullOrWhiteSpace(payment.InvoiceId))
+            {
+                if (payment.PDFInvoice is { Length: > 0 }) return;
+                var existingPdf = await inFakt.GetInvoice(payment.InvoiceId, token);
+                if (existingPdf.Length == 0) throw new InvalidDataException("inFakt returned an empty invoice PDF.");
+                payment.PDFInvoice = existingPdf;
+                await db.SaveChangesAsync(token);
+                return;
+            }
             var planDefinition = await db.PlanDefinitions.AsNoTracking()
                 .SingleAsync(plan => plan.Id == payment.PlanDefinitionId, token);
             var user = await db.Users.AsNoTracking().SingleAsync(u => u.Id == payment.AppUserId, token);
-            user.DisplayName = user.FirstName + " " + user.LastName; // forcing user display name instead of email
-            var companyName = user.CompanyName ??  user.DisplayName;
-            var Nip = user.Nip?.Trim();
-            if (string.IsNullOrWhiteSpace(companyName))
-                throw new InvalidOperationException("The user's company name or display name is required for invoicing.");
-
-            InFaktCompaniesResponse companies = await inFakt.RetrieveCompanies(token);
-            // search for the company by NIP first, then by company name, then by user display name
-            InFaktClient client = null;
-            client = companies.Entities.Where((companyInfakt) => companyInfakt.Nip == user.Nip && !string.IsNullOrEmpty(user.Nip)).SingleOrDefault();
-            if (client == null)
-            {
-                client = companies.Entities.Where((companyInfakt) => companyInfakt.CompanyName == user.DisplayName && !string.IsNullOrEmpty(user.DisplayName)).SingleOrDefault();
-            }
-            if (client == null)
-            {
-                var inFaktCreateCompanyRequest = new InFaktCreateCompanyRequest()
-                {
-                    CompanyName = companyName,
-                    Street = user.Street!,
-                    Nip = user.Nip ?? null,
-                    StreetNumber = user.StreetNumber!,
-                    City = user.City!,
-                    PostCode = user.PostalCode!,
-                    Country = "PL"
-                };
-                client = await inFakt.CreateCompany(inFaktCreateCompanyRequest, token);
-            }
+            var buyer = new InFaktInvoiceBuyer(
+                string.IsNullOrWhiteSpace(user.CompanyName) ? null : user.CompanyName.Trim(),
+                user.FirstName?.Trim(), user.LastName?.Trim(),
+                string.IsNullOrWhiteSpace(user.Nip) ? null : user.Nip.Trim(),
+                user.Street?.Trim() ?? "", user.StreetNumber?.Trim() ?? "",
+                user.City?.Trim() ?? "", user.PostalCode?.Trim() ?? "");
+            var buyerName = buyer.CompanyName ?? string.Join(" ", new[] { buyer.FirstName, buyer.LastName }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+            if (string.IsNullOrWhiteSpace(buyerName)) buyerName = user.DisplayName?.Trim();
+            if (string.IsNullOrWhiteSpace(buyerName))
+                throw new InvalidOperationException("The buyer's name is required for invoicing.");
+            if (string.IsNullOrWhiteSpace(buyer.City) || string.IsNullOrWhiteSpace(buyer.PostalCode)
+                || string.IsNullOrWhiteSpace(buyer.Street) || string.IsNullOrWhiteSpace(buyer.StreetNumber))
+                throw new InvalidOperationException("The buyer's complete address is required for invoicing.");
+            if (!new PolishNipAttribute().IsValid(buyer.Nip))
+                throw new InvalidOperationException("The buyer's NIP is invalid.");
 
             var maximumInvoiceId = checked(await db.StripePayments.CountAsync(token) + 1);
             var invoiceId = maximumInvoiceId;
-            var jsonElement = await inFakt.CreateInvoice(companyName, invoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd"), planDefinition.Code, netPrice, token);
+            var jsonElement = await inFakt.CreateInvoice(buyerName, invoiceId, payment.PaidAtUtc.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), planDefinition.Code, netPrice, token, buyer);
 
             if (!jsonElement.TryGetProperty("uuid", out var uuidElement)
                 || uuidElement.ValueKind != JsonValueKind.String
@@ -276,7 +273,7 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
             await db.SaveChangesAsync(token);
 
             var invoiceContent = await inFakt.GetInvoice(payment.InvoiceId, token);
-            if (invoiceContent != null)
+            if (invoiceContent is { Length: > 0 })
             {
                 payment.PDFInvoice = invoiceContent;
                 await db.SaveChangesAsync(token);
@@ -299,10 +296,6 @@ public class StripePaymentService(ColdCallDbContext db, IStripeCheckoutGateway s
         catch (Exception exc)
         {
             Console.WriteLine(exc.Message);
-        }
-        finally
-        {
-
         }
     }
 }
