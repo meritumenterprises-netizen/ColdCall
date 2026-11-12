@@ -1,4 +1,0 @@
-Wersja v4: niezależne słowniki nazw.
-Kompilacja .NET 10.0.401: 0 błędów, 0 ostrzeżeń.
-Microsoft ScriptDom: składnia wszystkich 9 plików SQL i zawartych w nich literałów dynamicznego SQL bez błędów.
-Nie wykonano testu migracji na SQL Server — brak dostępu do bazy użytkownika.

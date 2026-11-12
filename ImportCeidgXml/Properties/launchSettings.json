@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "ImportCeidgXml": {
-      "commandName": "Project",
-      "commandLineArgs": "C:\\projects\\ColdCall\\ImportCeidgXml\\bin\\Debug\\net10.0\\2026-10-19\\ --apply"
-    }
-  }
-}
