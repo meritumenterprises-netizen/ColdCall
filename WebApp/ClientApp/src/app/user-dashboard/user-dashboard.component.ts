@@ -856,6 +856,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     if (value.length > 0 && !value.trim()) { return; }
     if (value.trim().length >= 3 || !value.trim()) {
+      this.companyNameDelay = timer(2000).subscribe(() => this.updateFilters());
     }
   }
 

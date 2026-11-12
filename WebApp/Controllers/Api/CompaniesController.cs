@@ -249,6 +249,7 @@ public partial class CompaniesController : ControllerBase
     [HttpPost("export")]
     public async Task<IActionResult> Export(ExportCompaniesRequest request, CancellationToken cancellationToken)
     {
+        var days = request.ResultTab switch { "30" => 30, "7" => 7, "3" => 3, "all" or "notes" => (int?)null, _ => request.ModifiedWithinDays };
         var notesOnly = request.ResultTab == null ? request.NotesOnly : request.ResultTab == "notes";
         var user = await _currentUserService.GetOrCreateAsync(User);
         var isAdmin = user.IsAdmin;
@@ -274,9 +275,9 @@ public partial class CompaniesController : ControllerBase
                 IF @result < 0 THROW 50001, 'CSV export lock unavailable', 1;", cancellationToken);
             var quota = await CsvExportLimits.ForSearchAsync(_db, user.Id, profile.Id, cancellationToken);
             if (quota.ExportBlockedUntilUtc.HasValue)
-                return StatusCode(429, new { code = "CsvExportCooldown", message = "Po usuni\u0119ciu 3 plik\u00f3w CSV eksport jest zablokowany na 24 godziny.", quota.ExportBlockedUntilUtc });
+                return StatusCode(429, new { code = "CsvExportCooldown", message = "Po usunięciu 3 plików CSV eksport jest zablokowany na 24 godziny.", quota.ExportBlockedUntilUtc });
             if (quota.Remaining == 0)
-                return StatusCode(409, new { message = "Osiagnieto limit eksportow CSV dla tego wyszukiwania." });
+                return StatusCode(409, new { message = "Osiągnięto limit eksportów CSV dla tego wyszukiwania." });
             var search = new CompanySearchQuery(_db);
             var query = await search.BuildCompaniesAsync(profile.Criteria ?? new SearchProfileCriteria(),
                 profile.PkdCodes.Select(x => x.PkdCodeId).ToArray(), days, token: cancellationToken);

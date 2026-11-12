@@ -515,7 +515,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     if (this.filterDelay) { this.filterDelay.unsubscribe(); }
     const name = (this.filters.companyName || '').trim();
     if (name.length > 0 && name.length < 3) { return; }
-    this.filterDelay = timer(1000).subscribe(() => this.updateFilters());
+    this.filterDelay = timer(2000).subscribe(() => this.updateFilters());
   }
 
   updateFilters(delay = false) {
