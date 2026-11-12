@@ -361,7 +361,6 @@ public partial class AdminController : ControllerBase
     {
         if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
         if (!await _db.Users.AnyAsync(u => u.Id == id && !u.IsAdmin, token)) return NotFound();
-        if (request.Days < 0 || request.Mode is not ("add" or "fromNow")) return BadRequest();
         var plan = await _db.UserPlans.AsNoTracking().Where(p => p.AppUserId == id)
             .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
             .Select(p => new { p.Id, p.ExpiresAtUtc }).FirstOrDefaultAsync(token);

@@ -410,12 +410,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       this.userToExtendPlan = null;
       this.message = 'Waznosc planu zostala zaktualizowana.';
       this.loadUsers(id);
-    }, err => {
-      const errors = err.error && err.error.errors;
-      this.extensionError = err.error && err.error.message ? err.error.message
-        : errors ? Object.keys(errors).map(key => errors[key].join(' ')).join(' ')
-        : 'Nie udalo sie przedluzyc planu (HTTP ' + err.status + ').';
-    });
+    }, err => this.extensionError = err.error && err.error.message ? err.error.message : 'Nie udalo sie przedluzyc planu.');
     this.userActionRequests.add(request);
   }
   canSetUserPassword(row: { id: number; googleEmail: string }) {
