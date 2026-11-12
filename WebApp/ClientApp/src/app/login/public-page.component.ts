@@ -9,6 +9,7 @@ import { ApiService } from '../services/api.service';
     <app-user-dashboard *ngIf="api.isAuthenticated() && !api.isAdmin()" [publicPageTitle]="title"></app-user-dashboard>
     <main *ngIf="!api.isAuthenticated()" class="public-page">
     <h1>{{ title }}</h1>
+    <app-guides *ngIf="isGuidePage"></app-guides>
     <app-feedback *ngIf="title === 'Feedback'"></app-feedback>
     <app-feedback *ngIf="title === 'RODO'" [rodo]="true"></app-feedback>
     <app-feedback *ngIf="title === 'Wsparcie techniczne'" [support]="true"></app-feedback>
@@ -24,4 +25,5 @@ import { ApiService } from '../services/api.service';
 export class PublicPageComponent {
   constructor(private route: ActivatedRoute, public api: ApiService) {}
   get title(): string { return this.route.snapshot.data.title; }
+  get isGuidePage(): boolean { return this.route.snapshot.routeConfig.path.indexOf('poradniki') === 0; }
 }

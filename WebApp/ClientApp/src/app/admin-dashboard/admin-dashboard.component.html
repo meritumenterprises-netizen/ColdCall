@@ -12,7 +12,7 @@
     <button class="search-item" [class.active]="tab === 'global-settings'" (click)="openAdminTab('global-settings')">Ustawienia globalne</button>
   </aside>
 
-  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><app-feedback *ngIf="publicPageTitle === 'Feedback'"></app-feedback><app-feedback *ngIf="publicPageTitle === 'RODO'" [rodo]="true"></app-feedback><app-feedback *ngIf="publicPageTitle === 'Wsparcie techniczne'" [support]="true"></app-feedback><app-public-regulamin *ngIf="publicPageTitle === 'Regulamin'"></app-public-regulamin><app-version-page *ngIf="publicPageTitle === 'Wersja aplikacji FindMyClient'"></app-version-page><app-accounting-offices *ngIf="publicPageTitle === 'Biura rachunkowe'"></app-accounting-offices><app-marketing-agencies *ngIf="publicPageTitle === 'Agencje marketingowe'"></app-marketing-agencies><app-lead-generation *ngIf="publicPageTitle === 'Agencje lead generation'"></app-lead-generation></main>
+  <main *ngIf="publicPageTitle" class="workspace"><h1>{{ publicPageTitle }}</h1><app-guides *ngIf="publicPageTitle === 'Jak znaleźć nowo powstałe firmy w swojej okolicy?' || publicPageTitle === 'Jak wyszukiwać firmy według kodu PKD?'"></app-guides><app-feedback *ngIf="publicPageTitle === 'Feedback'"></app-feedback><app-feedback *ngIf="publicPageTitle === 'RODO'" [rodo]="true"></app-feedback><app-feedback *ngIf="publicPageTitle === 'Wsparcie techniczne'" [support]="true"></app-feedback><app-public-regulamin *ngIf="publicPageTitle === 'Regulamin'"></app-public-regulamin><app-version-page *ngIf="publicPageTitle === 'Wersja aplikacji FindMyClient'"></app-version-page><app-accounting-offices *ngIf="publicPageTitle === 'Biura rachunkowe'"></app-accounting-offices><app-marketing-agencies *ngIf="publicPageTitle === 'Agencje marketingowe'"></app-marketing-agencies><app-lead-generation *ngIf="publicPageTitle === 'Agencje lead generation'"></app-lead-generation></main>
   <main class="workspace" [style.display]="publicPageTitle ? 'none' : null">
     <div *ngIf="maintenanceMode" class="message" role="status">Jest ustawiony tryb konserwarcji systemu. Zmie&#324; to w Ustawieniach Globalnych</div>
     <header class="workspace-head" *ngIf="tab !== 'users'">
@@ -68,7 +68,7 @@
             </div>
           </div>
           <div class="admin-date-filter">
-            <label class="admin-date-toggle"><input type="checkbox" [(ngModel)]="dateRangeEnabled" (ngModelChange)="updateFilters()">Data dzia&#322;alno&#347;ci</label>
+            <label class="admin-date-toggle"><input type="checkbox" [(ngModel)]="dateRangeEnabled" (ngModelChange)="updateFilters()">Data rozpocz&#281;cia dzia&#322;alno&#347;ci</label>
             <div class="admin-date-fields">
               <div><label for="admin-started-from">Od</label><input id="admin-started-from" type="date" [(ngModel)]="dateFrom" [disabled]="!dateRangeEnabled" (ngModelChange)="updateFilters()"></div>
               <div><label for="admin-started-to">Do</label><input id="admin-started-to" type="date" [(ngModel)]="dateTo" [min]="dateFrom" [disabled]="!dateRangeEnabled" (ngModelChange)="updateFilters()"></div>
@@ -382,13 +382,13 @@
         <fieldset class="extend-plan-options" [disabled]="extendingPlan">
           <div class="extend-plan-option">
             <label><input type="radio" name="extensionMode" value="add" [(ngModel)]="extensionMode"> Przed&#322;u&#380; o</label>
-            <input type="number" name="extensionAddDays" aria-label="Liczba dodawanych dni" min="1" max="2147483647" step="1" [disabled]="extensionMode !== 'add'" [(ngModel)]="extensionAddDays"><span>dni</span>
+            <input type="number" name="extensionAddDays" aria-label="Liczba dodawanych dni" min="0" max="2147483647" step="1" [disabled]="extensionMode !== 'add'" [(ngModel)]="extensionAddDays"><span>dni</span>
           </div>
           <div class="extend-plan-option">
             <label><input type="radio" name="extensionMode" value="fromNow" [(ngModel)]="extensionMode"> Przed&#322;u&#380; do</label>
-            <input type="number" name="extensionFromNowDays" aria-label="Liczba dni wa&#380;no&#347;ci od teraz" min="1" max="2147483647" step="1" [disabled]="extensionMode !== 'fromNow'" [(ngModel)]="extensionFromNowDays"><span>dni od teraz</span>
+            <input type="number" name="extensionFromNowDays" aria-label="Liczba dni wa&#380;no&#347;ci od teraz" min="0" max="2147483647" step="1" [disabled]="extensionMode !== 'fromNow'" [(ngModel)]="extensionFromNowDays"><span>dni od teraz</span>
           </div>
-          <p *ngIf="!validExtensionDays" class="error" role="alert">Podaj liczb&#281; ca&#322;kowit&#261; co najmniej 1.</p>
+          <p *ngIf="!validExtensionDays" class="error" role="alert">Podaj liczb&#281; ca&#322;kowit&#261; co najmniej 0.</p>
           <p *ngIf="extensionError" class="error" role="alert">{{ extensionError }}</p>
           <div class="delete-csv-actions">
             <button type="submit" class="primary-button" [disabled]="extendingPlan || !validExtensionDays">Zapisz</button>

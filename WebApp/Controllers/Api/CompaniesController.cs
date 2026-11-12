@@ -104,11 +104,12 @@ public partial class CompaniesController : ControllerBase
                     GminaId = gminaId, MiejscowoscId = miejscowoscId,
                     HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
                 };
-                if (modifiedWithinDays.HasValue && modifiedWithinDays is not (3 or 7))
-                    throw new ArgumentException("Dopuszczalne okresy modyfikacji to 3 lub 7 dni.");
-                if (_snapshots != null && pkdIds?.Any(id => id > 0) == true)
+                if (modifiedWithinDays.HasValue && modifiedWithinDays is not (3 or 7 or 30))
+                    throw new ArgumentException("Dopuszczalne okresy modyfikacji to 3, 7 lub 30 dni.");
+                if (_snapshots != null && (pkdIds?.Any(id => id > 0) == true
+                    || (criteria.CompanyName?.Trim().Length ?? 0) >= 3))
                 {
-                    var snapshotPage = await TrySnapshotPageAsync(search, criteria, pkdIds, user.Id,
+                    var snapshotPage = await TrySnapshotPageAsync(search, criteria, pkdIds ?? Array.Empty<int>(), user.Id,
                         sortBy, direction, addressLocality, notesOnly, modifiedWithinDays, refreshCount,
                         maximumRecordLimit, page, pageSize, Mark, HttpContext.RequestAborted);
                     if (snapshotPage != null) return Ok(snapshotPage);
@@ -248,7 +249,7 @@ public partial class CompaniesController : ControllerBase
     [HttpPost("export")]
     public async Task<IActionResult> Export(ExportCompaniesRequest request, CancellationToken cancellationToken)
     {
-        var days = request.ResultTab switch { "7" => 7, "3" => 3, "all" or "notes" => (int?)null, _ => request.ModifiedWithinDays };
+        var days = request.ResultTab switch { "30" => 30, "7" => 7, "3" => 3, "all" or "notes" => (int?)null, _ => request.ModifiedWithinDays };
         var notesOnly = request.ResultTab == null ? request.NotesOnly : request.ResultTab == "notes";
         var user = await _currentUserService.GetOrCreateAsync(User);
         var isAdmin = user.IsAdmin;

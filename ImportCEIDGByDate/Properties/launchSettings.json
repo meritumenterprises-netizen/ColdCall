@@ -1,8 +1,7 @@
 {
   "profiles": {
     "ImportCEIDGByDate": {
-      "commandName": "Project",
-      "commandLineArgs": "2026-10-08"
+      "commandName": "Project"
     }
   }
 }

@@ -1,13 +1,4 @@
 <Solution>
-  <Folder Name="/One-Time Batch Apps/">
-    <Project Path="BusinessesEditor/KrsImporter/KrsImporter.csproj" />
-    <Project Path="CorrectPrevailingPkd/CorrectPrevailingPkd.csproj" />
-    <Project Path="GeoPortalAddressAdjuster/GeoPortalAddressAdjuster.csproj" />
-    <Project Path="GeoPortalAddressImporter/GeoPortalAddressImporter.csproj" />
-    <Project Path="ImportCeidgXml/CeidgFullImport.csproj" />
-    <Project Path="ImportPRNGAdresy/PrngToFirmyTemp.csproj" />
-    <Project Path="PrgAddressImporter/PrgAddressImporter.csproj" />
-  </Folder>
   <Folder Name="/Recurrent Batch Apps/">
     <Project Path="ImportCEIDGByDate/ImportCEIDGByDate.csproj" />
   </Folder>

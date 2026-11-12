@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 	<ItemGroup>
+		<EmbeddedResource Include="ClientApp/src/assets/seo-pages.json" LogicalName="ColdCall.Seo.pages.json" />
+		<EmbeddedResource Include="ClientApp/src/assets/guides.json" LogicalName="ColdCall.Seo.guides.json" />
+		<EmbeddedResource Include="Seo/landing.html" LogicalName="ColdCall.Seo.landing.html" />
+		<EmbeddedResource Include="ClientApp/src/app/login/accounting-offices.component.html" LogicalName="ColdCall.Seo.accounting-offices.html" />
+		<EmbeddedResource Include="ClientApp/src/app/login/marketing-agencies.component.html" LogicalName="ColdCall.Seo.marketing-agencies.html" />
+		<EmbeddedResource Include="ClientApp/src/app/login/lead-generation.component.html" LogicalName="ColdCall.Seo.lead-generation.html" />
 		<EmbeddedResource Include="Sql\CompanyStatus.sql" />
 		<EmbeddedResource Include="Sql\PlanRecordLimits.sql" />
 		<EmbeddedResource Include="Sql\CompanyUserNotes.sql" />

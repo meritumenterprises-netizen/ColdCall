@@ -4,6 +4,7 @@ import { switchMap, timeout } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import { ApiService } from './services/api.service';
 import { BlockedAccountService } from './services/blocked-account.service';
+import { SeoService } from './services/seo.service';
 
 @Component({
   selector: 'app-root',
@@ -18,7 +19,7 @@ export class AppComponent implements AfterViewInit, OnDestroy {
   private trialNoticeSubscription: Subscription;
   private sessionExpiryTimer: number;
 
-  constructor(private api: ApiService, private router: Router, private blockedAccount: BlockedAccountService) {}
+  constructor(private api: ApiService, private router: Router, private blockedAccount: BlockedAccountService, seo: SeoService) { seo.start(); }
 
   ngAfterViewInit() {
     this.sessionExpiryTimer = window.setInterval(() => {

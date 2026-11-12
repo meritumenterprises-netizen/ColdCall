@@ -376,7 +376,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
   get validExtensionDays(): boolean {
     const days = this.extensionMode === 'add' ? this.extensionAddDays : this.extensionFromNowDays;
-    return Number.isInteger(days) && days >= 1 && days <= 2147483647;
+    return Number.isInteger(days) && days >= 0 && days <= 2147483647;
   }
 
   extendPlan(id: number) {
@@ -410,7 +410,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
       this.userToExtendPlan = null;
       this.message = 'Waznosc planu zostala zaktualizowana.';
       this.loadUsers(id);
-    }, err => this.extensionError = err.error && err.error.message ? err.error.message : 'Nie udalo sie przedluzyc planu.');
+    }, err => {
+      const errors = err.error && err.error.errors;
+      this.extensionError = err.error && err.error.message ? err.error.message
+        : errors ? Object.keys(errors).map(key => errors[key].join(' ')).join(' ')
+        : 'Nie udalo sie przedluzyc planu (HTTP ' + err.status + ').';
+    });
     this.userActionRequests.add(request);
   }
   canSetUserPassword(row: { id: number; googleEmail: string }) {
@@ -492,7 +497,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   dateTo = new Date().toLocaleDateString('sv-SE');
   radiusEnabled = false;
   radiusKm = 1;
-  radiusOptions = [1, 5, 10, 20, 50, 100, 200, 500];
+  radiusOptions = [1, 5, 10, 20, 30, 50, 100, 200, 500];
   pkdDescription = '';
   classifyingPkd = false;
   filterError = '';
@@ -515,7 +520,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     if (this.filterDelay) { this.filterDelay.unsubscribe(); }
     const name = (this.filters.companyName || '').trim();
     if (name.length > 0 && name.length < 3) { return; }
-    this.filterDelay = timer(3000).subscribe(() => this.updateFilters());
+    this.filterDelay = timer(1000).subscribe(() => this.updateFilters());
   }
 
   updateFilters(delay = false) {
@@ -888,6 +893,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   companyResultDays: number | null = null;
   readonly companyResultTabs = [
     { days: null, label: 'Wszystkie' },
+    { days: 30, label: 'Uaktualniono w ost. 30 dniach' },
     { days: 7, label: 'Uaktualniono w ost. 7 dniach' },
     { days: 3, label: 'Uaktualniono w ost. 3 dniach' }
   ];

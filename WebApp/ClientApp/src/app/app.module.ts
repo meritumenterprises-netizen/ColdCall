@@ -20,6 +20,7 @@ import { PublicRegulaminComponent } from './login/public-regulamin.component';
 import { AccountingOfficesComponent } from './login/accounting-offices.component';
 import { MarketingAgenciesComponent } from './login/marketing-agencies.component';
 import { LeadGenerationComponent } from './login/lead-generation.component';
+import { GuidesComponent } from './login/guides.component';
 import { PublicPlansComponent } from './login/public-plans.component';
 import { FeedbackComponent } from './login/feedback.component';
 import { PublicPageGuard } from './public-page.guard';
@@ -63,6 +64,7 @@ import { CompanySearchProgressComponent } from './company-search-progress/compan
     AccountingOfficesComponent,
     MarketingAgenciesComponent,
     LeadGenerationComponent,
+    GuidesComponent,
     PublicPlansComponent,
     FeedbackComponent,
     MaintenanceComponent,
@@ -97,6 +99,8 @@ import { CompanySearchProgressComponent } from './company-search-progress/compan
       { path: 'regulamin', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Regulamin' } },
       { path: 'wersja', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Wersja aplikacji FindMyClient' } },
       { path: 'biura-rachunkowe', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Biura rachunkowe' } },
+      { path: 'poradniki/nowo-powstale-firmy', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Jak znaleźć nowo powstałe firmy w swojej okolicy?' } },
+      { path: 'poradniki/wyszukiwanie-firm-po-pkd', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Jak wyszukiwać firmy według kodu PKD?' } },
       { path: 'agencje-marketingowe', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Agencje marketingowe' } },
       { path: 'agencje-lead-generation', component: PublicPageComponent, canActivate: [PublicPageGuard], data: { title: 'Agencje lead generation' } },
       { path: 'maintenance', component: MaintenanceComponent, canActivate: [MaintenanceGuard] },

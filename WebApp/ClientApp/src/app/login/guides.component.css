@@ -1,0 +1,8 @@
+:host { display: block; max-width: 960px; line-height: 1.7; overflow-wrap: anywhere; }
+a { color: #2450d8; }
+.back-link { display: inline-block; margin-bottom: 24px; }
+:host ::ng-deep .guide-article h2 { font-size: 23px; margin: 28px 0 14px; }
+:host ::ng-deep .guide-article h3 { font-size: 19px; margin: 24px 0 12px; }
+:host ::ng-deep .guide-article p { margin: 0 0 16px; }
+:host ::ng-deep .guide-article li { margin-bottom: 10px; }
+:host ::ng-deep .guide-article a { color: #2450d8; text-decoration: underline; }

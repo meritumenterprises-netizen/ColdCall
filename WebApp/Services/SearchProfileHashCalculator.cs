@@ -16,7 +16,7 @@ public static class SearchProfileHashCalculator
     {
         var suffix = resultTab switch
         {
-            "all" => "all", "3" => "3 days", "7" => "7 days", "notes" => "notes",
+            "all" => "all", "3" => "3 days", "7" => "7 days", "30" => "30 days", "notes" => "notes",
             _ => throw new ArgumentException("Niepoprawna zakladka eksportu.")
         };
         return System.Text.RegularExpressions.Regex.IsMatch(fileName,

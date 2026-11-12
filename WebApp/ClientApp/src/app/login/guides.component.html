@@ -1,0 +1,4 @@
+<ng-container *ngIf="article as guide">
+  <a class="back-link" routerLink="/">&#8592; Strona główna</a>
+  <article class="guide-article" [innerHTML]="guide.content"></article>
+</ng-container>

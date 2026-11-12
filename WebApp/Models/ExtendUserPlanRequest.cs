@@ -6,6 +6,6 @@ public class ExtendUserPlanRequest
 {
     [Required, RegularExpression("^(add|fromNow)$")]
     public string Mode { get; set; } = "";
-    [Range(1, int.MaxValue)]
+    [Range(0, int.MaxValue)]
     public int Days { get; set; }
 }

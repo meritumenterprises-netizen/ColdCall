@@ -56,8 +56,8 @@ public partial class AdminController : ControllerBase
             }
 
             _db.Database.SetCommandTimeout(120);
-            if (modifiedWithinDays.HasValue && modifiedWithinDays is not (3 or 7))
-                return BadRequest(new { message = "Niepoprawny okres aktualizacji. Dozwolone: 3 lub 7 dni." });
+            if (modifiedWithinDays.HasValue && modifiedWithinDays is not (3 or 7 or 30))
+                return BadRequest(new { message = "Niepoprawny okres aktualizacji. Dozwolone: 3, 7 lub 30 dni." });
             pageSize = 10;
             var query = _db.Companies.AsNoTracking();
 
@@ -361,7 +361,7 @@ public partial class AdminController : ControllerBase
     {
         if (await _adminAccess.RequireAdminAsync(User) == null) return Forbid();
         if (!await _db.Users.AnyAsync(u => u.Id == id && !u.IsAdmin, token)) return NotFound();
-        if (request.Days < 1 || request.Mode is not ("add" or "fromNow")) return BadRequest();
+        if (request.Days < 0 || request.Mode is not ("add" or "fromNow")) return BadRequest();
         var plan = await _db.UserPlans.AsNoTracking().Where(p => p.AppUserId == id)
             .OrderByDescending(p => p.ExpiresAtUtc).ThenByDescending(p => p.Id)
             .Select(p => new { p.Id, p.ExpiresAtUtc }).FirstOrDefaultAsync(token);

@@ -93,6 +93,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   activeFilterTab: 'pkd' | 'criteria' | 'contact' | 'address' = 'criteria';
   readonly resultTabs: ResultTab[] = [
     { key: 'all', label: 'Wszystkie', days: undefined, page: 1 },
+    { key: '30', label: 'Zmienione w ost. 30 dniach', days: 30, page: 1 },
     { key: '7', label: 'Zmienione w ost. 7 dniach', days: 7, page: 1 },
     { key: '3', label: 'Zmienione w ost. 3 dniach', days: 3, page: 1 },
     { key: 'notes', label: 'Notatki', days: undefined, page: 1 }
@@ -114,7 +115,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   radiusKm = 1;
   private addressFiltersChanged = false;
   maxRecordLimit = 0;
-  readonly radiusOptions = [1, 5, 10, 20, 50, 100, 200, 500];
+  readonly radiusOptions = [1, 5, 10, 20, 30, 50, 100, 200, 500];
   pkdSuggestions: Pkd[] = [];
   maxSelectedPkds = 20;
   foundPkdId: number | null = null;
@@ -855,7 +856,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
     if (value.length > 0 && !value.trim()) { return; }
     if (value.trim().length >= 3 || !value.trim()) {
-      this.companyNameDelay = timer(3000).subscribe(() => this.updateFilters());
+      this.companyNameDelay = timer(1000).subscribe(() => this.updateFilters());
     }
   }
 

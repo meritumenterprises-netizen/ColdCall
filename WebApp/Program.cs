@@ -184,6 +184,35 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseHttpsRedirection();
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path.Value ?? "/";
+    if (HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method))
+    {
+        if (path is "/robots.txt" or "/sitemap.xml")
+        {
+            context.Response.ContentType = path == "/robots.txt" ? "text/plain; charset=utf-8" : "application/xml; charset=utf-8";
+            if (!HttpMethods.IsHead(context.Request.Method))
+                await context.Response.WriteAsync(path == "/robots.txt"
+                    ? "User-agent: *\nAllow: /\nDisallow: /api/\nSitemap: " + SeoDocuments.Origin + "/sitemap.xml\n"
+                    : SeoDocuments.Sitemap(), context.RequestAborted);
+            return;
+        }
+        if (path == "/index.html")
+        {
+            context.Response.Redirect("/", permanent: true);
+            return;
+        }
+        context.Response.OnStarting(() =>
+        {
+            if (context.Response.ContentType?.StartsWith("text/html", StringComparison.OrdinalIgnoreCase) == true
+                && SeoDocuments.Find(path) == null)
+                context.Response.Headers["X-Robots-Tag"] = "noindex, nofollow";
+            return Task.CompletedTask;
+        });
+    }
+    await next();
+});
 // Include the last complete figures in the initial document, before Angular renders
 // the tiles. Reading this snapshot never waits for a database query.
 if (useBuiltFrontend)
@@ -191,12 +220,13 @@ if (useBuiltFrontend)
     app.Use(async (context, next) =>
     {
         if ((HttpMethods.IsGet(context.Request.Method) || HttpMethods.IsHead(context.Request.Method))
-            && (context.Request.Path == "/" || context.Request.Path == "/index.html"))
+            && SeoDocuments.Find(context.Request.Path.Value ?? "/") is { } seoPage)
         {
             var statistics = context.RequestServices.GetRequiredService<LandingStatisticsService>().Current;
             var html = await System.IO.File.ReadAllTextAsync(Path.Combine(app.Environment.ContentRootPath,
                 "ClientApp", "dist", "index.html"), context.RequestAborted);
-            if (statistics is not null)
+            html = SeoDocuments.Render(html, seoPage);
+            if (seoPage.Path == "/" && statistics is not null)
             {
                 statistics = await context.RequestServices.GetRequiredService<LandingStatisticsService>()
                     .GetAsync(context.RequestAborted);

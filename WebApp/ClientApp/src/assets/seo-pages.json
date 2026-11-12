@@ -1,0 +1,37 @@
+[
+  {
+    "path": "/",
+    "title": "FindMyClient.pl - Wyszukiwarka firm i leady B2B z CEIDG",
+    "description": "Znajdź potencjalnych klientów B2B w bazie firm CEIDG. Filtruj po PKD, lokalizacji, dacie działalności i danych kontaktowych. Eksportuj wyniki do CSV."
+  },
+  {
+    "path": "/biura-rachunkowe",
+    "title": "Nowi klienci dla biur rachunkowych | FindMyClient.pl",
+    "description": "Wyszukuj nowe firmy w swojej okolicy i buduj bazę potencjalnych klientów biura rachunkowego. Filtry CEIDG, PKD, lokalizacja i eksport CSV."
+  },
+  {
+    "path": "/agencje-marketingowe",
+    "title": "Leady dla agencji marketingowych i SEO | FindMyClient.pl",
+    "description": "Znajdź firmy, które mogą potrzebować marketingu, SEO i stron WWW. Buduj listy potencjalnych klientów według branży, lokalizacji i daty działalności."
+  },
+  {
+    "path": "/agencje-lead-generation",
+    "title": "Prospecting i bazy leadów B2B dla agencji | FindMyClient.pl",
+    "description": "Twórz dopasowane listy prospectingowe B2B z danych CEIDG. Wyszukiwanie po PKD, lokalizacji i danych kontaktowych oraz eksport firm do CSV."
+  },
+  {
+    "path": "/plany",
+    "title": "Plany i cennik wyszukiwarki firm | FindMyClient.pl",
+    "description": "Sprawdź plany FindMyClient.pl. Wybierz dostęp do wyszukiwania firm CEIDG, danych kontaktowych i eksportu CSV dopasowany do potrzeb Twojej firmy."
+  },
+  {
+    "path": "/poradniki/nowo-powstale-firmy",
+    "title": "Jak znaleźć nowo powstałe firmy w swojej okolicy?",
+    "description": "Sprawdź, jak wyszukać nowe firmy w CEIDG według daty rozpoczęcia działalności, miejscowości i promienia. Praktyczny poradnik FindMyClient.pl."
+  },
+  {
+    "path": "/poradniki/wyszukiwanie-firm-po-pkd",
+    "title": "Jak wyszukiwać firmy według kodu PKD?",
+    "description": "Dobieraj kody PKD ręcznie lub z pomocą AI w FindMyClient.pl. Połącz branżę z lokalizacją, datą działalności i dostępnymi danymi kontaktowymi."
+  }
+]

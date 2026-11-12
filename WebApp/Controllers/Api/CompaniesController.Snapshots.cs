@@ -31,8 +31,11 @@ public partial class CompaniesController
             notesVersion = _searchCache.Get<Guid?>("CompanyNotesVersion:" + userId)
         }))));
         if (!refresh && _snapshots!.IsTooLarge(key)) return null;
-        CompanySearchSnapshot? snapshot = null;
-        if (refresh || !_snapshots!.TryGet(key, out snapshot) || snapshot == null)
+        var cached = _snapshots!.TryGet(key, out CompanySearchSnapshot? snapshot) && snapshot != null;
+        // A direct recent-name search should not first search all historical names.
+        // Reuse a complete snapshot when available; otherwise query the recent subset.
+        if (days.HasValue && !pkdIds.Any(id => id > 0) && (refresh || !cached)) return null;
+        if (refresh || snapshot == null)
         {
             var all = await search.BuildCompaniesAsync(criteria, pkdIds, null, addressLocality, token: token);
             var hasNotes = await _db.CompanyUserNotes.AsNoTracking()

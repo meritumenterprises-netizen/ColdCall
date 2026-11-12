@@ -109,7 +109,7 @@ public class CompanyCsvExportService
         var name = Regex.Replace(searchName.Normalize(NormalizationForm.FormC), "[<>:\"/\\\\|?*\\x00-\\x1F]", "_").Trim(' ', '.');
         if (name.Length > 80) name = name[..80].TrimEnd(' ', '.');
         if (string.IsNullOrWhiteSpace(name)) name = "wyszukiwanie";
-        var tab = notesOnly ? "notes" : days switch { null => "all", 3 => "3 days", 7 => "7 days", _ => throw new ArgumentException("Niepoprawna zakladka eksportu.") };
+        var tab = notesOnly ? "notes" : days switch { null => "all", 3 => "3 days", 7 => "7 days", 30 => "30 days", _ => throw new ArgumentException("Niepoprawna zakladka eksportu.") };
         return $"{name}_{tab}_{date.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture)}.CSV";
     }
 
