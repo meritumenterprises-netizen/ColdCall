@@ -4,7 +4,7 @@ namespace ColdCall.Services;
 
 public sealed class CompanySearchSnapshotCache : IDisposable
 {
-    public const int MaximumRecords = 100000;
+    public const int MaximumRecords = 200000;
     // Bound snapshots, including one additional cached ordering, to approximately 24 MB.
     private readonly MemoryCache _cache = new(new MemoryCacheOptions { SizeLimit = 1000000 });
 
@@ -23,7 +23,8 @@ public sealed class CompanySearchSnapshotCache : IDisposable
     {
         _cache.Remove("TooLarge:" + key);
         _cache.Set(key, snapshot, new MemoryCacheEntryOptions().SetSize(snapshot.Ids.Length + 1)
-            .SetAbsoluteExpiration(TimeSpan.FromMinutes(2)));
+            .SetSlidingExpiration(TimeSpan.FromMinutes(2))
+            .SetAbsoluteExpiration(TimeSpan.FromMinutes(10)));
     }
 
     public void Dispose() => _cache.Dispose();
