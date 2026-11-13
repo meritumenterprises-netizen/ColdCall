@@ -47,6 +47,7 @@ public partial class Company
     public string? InstagramAccount { get; set; }
 
     public string? FacebookAccount { get; set; }
+    public string? LinkedInAccount { get; set; }
 
     public DateTime? StartedAt { get; set; }
 

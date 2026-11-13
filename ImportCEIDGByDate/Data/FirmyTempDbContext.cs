@@ -198,6 +198,7 @@ public partial class FirmyTempDbContext : DbContext
             entity.Property(e => e.Website).HasMaxLength(512);
             entity.Property(e => e.InstagramAccount).HasMaxLength(512);
             entity.Property(e => e.FacebookAccount).HasMaxLength(512);
+            entity.Property(e => e.LinkedInAccount).HasMaxLength(512).IsRequired(false);
             entity.Property(e => e.Name).HasMaxLength(1000);
             entity.Property(e => e.Regon).HasMaxLength(50);
             entity.Property(e => e.ResumedOn).HasColumnType("datetime");
