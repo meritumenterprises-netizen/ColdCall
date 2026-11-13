@@ -50,6 +50,7 @@ public class Company
     public string? Website { get; set; }
     public string? InstagramAccount { get; set; }
     public string? FacebookAccount { get; set; }
+    public string? LinkedInAccount { get; set; }
     public DateTime? StartedAt { get; set; }
     public DateTime? SuspendedOn { get; set; }
     public DateTime? ResumedOn { get; set; }

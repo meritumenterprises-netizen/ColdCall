@@ -35,7 +35,7 @@ export interface Company {
   id: number; name: string; businessTypeId: number; businessTypeName?: string; firstName?: string; lastName?: string; krs?: string; nip?: string;
   wojewodztwo?: string; city?: string; gmina?: string; powiat?: string; postalCode?: string; street?: string;
   buildingNumber?: string; apartmentNumber?: string; phone?: string; email?: string; googleEmail?: string;
-  website?: string; instagramAccount?: string; facebookAccount?: string; startedAt?: string; createdOn?: string; dataModifiedOn?: string | null;
+  website?: string; instagramAccount?: string; facebookAccount?: string; linkedInAccount?: string; startedAt?: string; createdOn?: string; dataModifiedOn?: string | null;
   resumedOn?: string | null;
   suspendedOn?: string | null;
   regon?: string | null; statusDzialalnosciId: number; statusDzialalnosciName?: string | null;
@@ -484,6 +484,10 @@ export class ApiService {
     return this.http.get<PagedResult<Company>>(this.url('/api/admin/companies'), { ...this.headers(), params });
   }
   updateCompany(company: Company) { return this.http.put(this.url('/api/admin/companies/' + company.id), company, this.headers()); }
+  updateCompanySocialAccounts(id: number, facebookAccount: string, linkedInAccount: string): Observable<{ facebookAccount: string | null; linkedInAccount: string | null }> {
+    return this.http.put<{ facebookAccount: string | null; linkedInAccount: string | null }>(this.url('/api/companies/' + id + '/social-accounts'),
+      { facebookAccount, linkedInAccount }, this.headers());
+  }
   updateCompanyRodo(id: number, blockedByRODO: boolean): Observable<{ blockedByRODO: boolean }> {
     return this.http.put<{ blockedByRODO: boolean }>(this.url('/api/admin/companies/' + id + '/rodo'), { blockedByRODO }, this.headers());
   }

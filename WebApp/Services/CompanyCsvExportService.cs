@@ -120,7 +120,7 @@ public class CompanyCsvExportService
         {
             "Import date", "Nazwa", "Typ Działalności", "Imię", "Nazwisko", "KRS", "NIP", "Regon", "Województwo",
             "Miejscowość", "Gmina", "Powiat", "Ulica", "Nr Budynku", "Nr lokalu", "Telefon",
-            "Email", "Witryna WWW", "Data rozpoczęcia działalności", "Data zawieszenia aktywności", "Data wznowienia aktywności", "PKD", "Notatki", "Status działalności"
+            "Email", "Witryna WWW", "Facebook", "LinkedIn", "Data rozpoczęcia działalności", "Data zawieszenia aktywności", "Data wznowienia aktywności", "PKD", "Notatki", "Status działalności"
         };
         var csv = new StringBuilder();
         csv.AppendLine(string.Join(',', headers.Select(Cell)));
@@ -133,7 +133,8 @@ public class CompanyCsvExportService
                 company.Krs, company.Nip, company.Regon, company.Wojewodztwo?.Name,
                 company.Miejscowosc?.Name, company.Gmina?.Name, company.Powiat?.Name,
                 company.Street, company.BuildingNumber, company.ApartmentNumber, company.Phone,
-                company.Email, company.Website, company.StartedAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                company.Email, company.Website, company.FacebookAccount, company.LinkedInAccount,
+                company.StartedAt?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 company.SuspendedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 company.ResumedOn?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
                 pkds.TryGetValue(company.Id, out var pkd) ? pkd : "",

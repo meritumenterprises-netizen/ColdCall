@@ -214,6 +214,7 @@ public partial class ColdCallDbContext
                 .IsDescending(true, false).IncludeProperties(nameof(Company.StatusDzialalnosciId)).IsClustered(false);
             entity.Property(x => x.InstagramAccount).HasMaxLength(512);
             entity.Property(x => x.FacebookAccount).HasMaxLength(512);
+            entity.Property(x => x.LinkedInAccount).HasMaxLength(512).IsRequired(false);
             entity.Property(x => x.StartedAt).HasColumnType("datetime2");
             entity.Property(x => x.Regon).HasMaxLength(50);
             // Preserve nullable NIP; an alternate key would make it required in EF.

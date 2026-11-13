@@ -62,7 +62,8 @@ public record CompanyDto(
     DateTime? ResumedOn = null,
     string? UserNotes = null,
     DateTime? SuspendedOn = null,
-    string? AddressSort = null);
+    string? AddressSort = null,
+    string? LinkedInAccount = null);
 
 public record CompanyUpdateDto(
     [System.ComponentModel.DataAnnotations.StringLength(1000)] string Name,

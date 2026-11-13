@@ -77,6 +77,26 @@
                     #plainTextValue>{{ value(field.key) }}</ng-template></ng-template></dd>
           </div>
         </dl>
+        <ng-container *ngIf="section.id === 'contact'">
+          <dl class="company-fields social-accounts-row">
+            <div class="facebook-field">
+              <dt><label for="company-facebook">Facebook</label></dt>
+              <dd><input id="company-facebook" name="companyFacebook" type="text" maxlength="512" [(ngModel)]="facebook"
+                         (ngModelChange)="facebookMessage = ''; facebookError = ''" [readOnly]="!canEditFacebook" [disabled]="facebookSaving"></dd>
+            </div>
+            <div class="linkedin-field">
+              <dt><label for="company-linkedin">LinkedIn</label></dt>
+              <dd><input id="company-linkedin" name="companyLinkedIn" type="text" maxlength="512" [(ngModel)]="linkedIn"
+                         (ngModelChange)="facebookMessage = ''; facebookError = ''" [readOnly]="!canEditFacebook" [disabled]="facebookSaving"></dd>
+            </div>
+          </dl>
+          <div *ngIf="canEditFacebook" class="social-accounts-actions">
+            <button type="button" class="primary-button" (click)="saveFacebook()"
+                    [disabled]="facebookSaving || !facebookChanged">{{ facebookSaving ? 'Zapisywanie...' : 'Zapisz' }}</button>
+            <p *ngIf="facebookError" class="error-state" role="alert">{{ facebookError }}</p>
+            <p *ngIf="facebookMessage" role="status">{{ facebookMessage }}</p>
+          </div>
+        </ng-container>
       </section>
       </div>
       <div *ngIf="showLinkedAddress && (!hideMissingLinkedAddress || hasLinkedAddress)" id="company-address-panel" class="company-address-panel" role="tabpanel"

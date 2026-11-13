@@ -15,6 +15,31 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   @Input() companyId: number;
   @Input() companyName = '';
   @Input() showNotes = true;
+  get canEditFacebook() { return !!this.api.user(); }
+  facebook = '';
+  linkedIn = '';
+  private savedFacebook = '';
+  private savedLinkedIn = '';
+  facebookSaving = false;
+  facebookError = '';
+  facebookMessage = '';
+  private facebookRequest: Subscription | null = null;
+  get facebookChanged() { return this.facebook.trim() !== this.savedFacebook || this.linkedIn.trim() !== this.savedLinkedIn; }
+
+  saveFacebook() {
+    if (!this.canEditFacebook || !this.details || this.facebookSaving || !this.facebookChanged || this.facebook.length > 512 || this.linkedIn.length > 512) { return; }
+    this.facebookSaving = true; this.facebookError = ''; this.facebookMessage = '';
+    this.facebookRequest = this.api.updateCompanySocialAccounts(this.companyId, this.facebook.trim(), this.linkedIn.trim())
+      .pipe(finalize(() => this.facebookSaving = false)).subscribe(result => {
+        this.savedFacebook = result.facebookAccount || '';
+        this.facebook = this.savedFacebook;
+        this.details!.company.facebookAccount = result.facebookAccount || '';
+        this.savedLinkedIn = result.linkedInAccount || '';
+        this.linkedIn = this.savedLinkedIn;
+        this.details!.company.linkedInAccount = result.linkedInAccount || '';
+        this.facebookMessage = 'Zapisano.';
+      }, () => this.facebookError = 'Nie udalo sie zapisac kont spolecznosciowych.');
+  }
   @Input() showLinkedAddress = false;
   @Input() hideMissingLinkedAddress = false;
   @Output() closed = new EventEmitter<void>();
@@ -122,6 +147,9 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
       .subscribe(details => {
         this.details = details;
         const company = details.company;
+        this.facebook = this.savedFacebook = (company.facebookAccount || '').trim();
+        this.linkedIn = this.savedLinkedIn = (company.linkedInAccount || '').trim();
+        this.facebookError = ''; this.facebookMessage = '';
         const geoAddress = (details.addresses || []).find(address =>
           address.latitude != null && address.longitude != null &&
           Number.isFinite(address.latitude) && Number.isFinite(address.longitude) &&
@@ -299,6 +327,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.facebookRequest) { this.facebookRequest.unsubscribe(); }
     if (this.notesFocusFrame !== null) { cancelAnimationFrame(this.notesFocusFrame); }
     if (this.notesRequest) { this.notesRequest.unsubscribe(); }
     if (this.saveNotesRequest) { this.saveNotesRequest.unsubscribe(); }

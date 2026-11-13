@@ -161,7 +161,7 @@ public partial class AdminController : ControllerBase
                     x.CreatedOn,
                     x.Regon, x.StatusDzialalnosciId, x.StatusDzialalnosci!.Nazwa, x.AddressIsMissing, x.BlockedByRODO,
                     x.WojewodztwoId, x.MiejscowoscId, x.GminaId, x.PowiatId, x.DataModifiedOn,
-                    null, null, null, EF.Property<string>(x, "AddressSort")))
+                    null, null, null, EF.Property<string>(x, "AddressSort"), x.LinkedInAccount))
                 .TagWith("AdminCompanySearch.PageDetails").ToListAsync(HttpContext.RequestAborted);
 
             if (addressPageIds != null)
