@@ -303,9 +303,11 @@ export class ApiService {
   deleteAdminLogin(id: number): Observable<void> {
     return this.http.delete<void>(this.url('/api/admin/logins/' + id), this.headers());
   }
-  adminLogins(page: number, sortBy: string, direction: string, email = ''): Observable<{ items: AdminUserLogin[]; total: number; page: number; pageSize: number }> {
+  adminLogins(page: number, sortBy: string, direction: string, email = '', userId?: number): Observable<{ items: AdminUserLogin[]; total: number; page: number; pageSize: number }> {
+    const params: { [key: string]: string } = { page: String(page), sortBy, direction, email };
+    if (userId !== undefined) { params.userId = String(userId); }
     return this.http.get<{ items: AdminUserLogin[]; total: number; page: number; pageSize: number }>(this.url('/api/admin/logins'),
-      { ...this.headers(), params: { page: String(page), sortBy, direction, email } });
+      { ...this.headers(), params });
   }
   saveAdminRegulamin(globalSettingsId: number, regulamin: string): Observable<void> {
     return this.http.put<void>(this.url('/api/admin/regulamin/' + globalSettingsId), { globalSettingsId, regulamin }, this.headers());

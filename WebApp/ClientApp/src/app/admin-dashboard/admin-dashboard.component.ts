@@ -503,7 +503,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     { level: 'miejscowosci', label: 'Miejscowość', selectedId: null, term: '', options: [], loading: false, error: '', request: null }
   ];
   private companiesRequest: Subscription | null = null;
-  private pendingCompaniesLoad: { refresh: boolean; startedAt: number } | null = null;
   private companiesDestroyed = false;
   searchStartedAt = 0;
   searchFinishedAt = 0;
@@ -573,7 +572,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy() {
     if (this.userDetailsRequest) { this.userDetailsRequest.unsubscribe(); }
     this.companiesDestroyed = true;
-    this.pendingCompaniesLoad = null;
     this.userPassword = '';
     this.newUserPassword = '';
     if (this.newUserPlansRequest) { this.newUserPlansRequest.unsubscribe(); }
@@ -898,7 +896,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.companyResultDays = days;
     this.page = 1;
     this.selectedCompanyId = null;
-    this.loadCompanies();
+    this.loadCompanies(false);
   }
 
   loadCompanies(refreshCount = true, startedAt = Date.now()) {
@@ -906,25 +904,19 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.companySearchError = '';
     this.searchStartedAt = startedAt;
     this.searchFinishedAt = 0;
-    if (this.companiesRequest && !this.companiesRequest.closed) {
-      this.pendingCompaniesLoad = { refresh: refreshCount || !!(this.pendingCompaniesLoad && this.pendingCompaniesLoad.refresh), startedAt };
-      return;
-    }
+    if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     this.loading = true;
     this.companiesRequest = this.api.adminCompanies(this.page, this.sortBy, this.direction, '', this.selectedPkds.map(p => p.id), this.filters, this.nipTerm.replace(/[-\s]/g, ''), this.blockedByRodoFilter, refreshCount, this.companyResultDays).pipe(finalize(() => {
       this.loading = false;
       this.companiesRequest = null;
-      const pending = this.pendingCompaniesLoad;
-      this.pendingCompaniesLoad = null;
-      if (pending && !this.companiesDestroyed) { this.loadCompanies(pending.refresh, pending.startedAt); }
     })).subscribe(x => {
-      if (this.pendingCompaniesLoad || this.companiesDestroyed) { return; }
+      if (this.companiesDestroyed) { return; }
       this.searchFinishedAt = Date.now();
       this.companies = x.items;
       this.total = x.total;
       this.pageSize = x.pageSize;
     }, err => {
-      if (this.pendingCompaniesLoad || this.companiesDestroyed) { return; }
+      if (this.companiesDestroyed) { return; }
       this.companySearchError = err.error && err.error.message ? err.error.message : 'Nie udalo sie pobrac firm.';
     });
   }

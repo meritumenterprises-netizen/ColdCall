@@ -16,7 +16,7 @@
           <tr *ngFor="let plan of sortedPlans" [class.selected]="draft && draft.id === plan.id" (click)="selectPlan(plan)">
             <td><button type="button" class="plan-select" [disabled]="saving" (click)="$event.stopPropagation(); selectPlan(plan)" [attr.aria-pressed]="draft && draft.id === plan.id">{{ plan.code }}</button></td>
             <td>{{ plan.maxNumberOfSearches }}</td><td>{{ plan.maxNumberOfCSVExportsPerSearch == null ? '—' : plan.maxNumberOfCSVExportsPerSearch }}</td>
-            <td>{{ plan.maxNumberOfExportedRecords == null ? '—' : plan.maxNumberOfExportedRecords }}</td>
+            <td>{{ plan.maxNumberOfExportedRecords == null ? '—' : formatRecords(plan.maxNumberOfExportedRecords) }}</td>
             <td>{{ plan.expiresAfterDays == null ? '—' : plan.expiresAfterDays }}</td><td>{{ plan.price | number:'1.2-2' }}</td>
             <td><input type="checkbox" [checked]="plan.showInOffer" [disabled]="saving || loading"
                        [attr.aria-label]="'W ofercie: ' + plan.code" (click)="$event.stopPropagation()"

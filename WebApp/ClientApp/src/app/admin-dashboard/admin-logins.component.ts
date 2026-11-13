@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, OnInit, SimpleChanges } from '@angular/core';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged, finalize } from 'rxjs/operators';
 import { ApiService, AdminUserLogin } from '../services/api.service';
@@ -8,7 +8,9 @@ import { ApiService, AdminUserLogin } from '../services/api.service';
   templateUrl: './admin-logins.component.html',
   styleUrls: ['./admin-logins.component.css']
 })
-export class AdminLoginsComponent implements OnInit, OnDestroy {
+export class AdminLoginsComponent implements OnInit, OnChanges, OnDestroy {
+  @Input() userId: number | null | undefined = undefined;
+  @Input() showEmailFilter = true;
   rows: AdminUserLogin[] = [];
   total = 0;
   page = 1;
@@ -26,6 +28,12 @@ export class AdminLoginsComponent implements OnInit, OnDestroy {
   private deleteRequest: Subscription | null = null;
   constructor(private api: ApiService) {}
   get totalPages() { return Math.max(1, Math.ceil(this.total / this.pageSize)); }
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes.userId && !changes.userId.firstChange) {
+      this.page = 1;
+      this.load();
+    }
+  }
   ngOnInit() {
     this.filterRequest = this.filterChanges.pipe(debounceTime(300), distinctUntilChanged()).subscribe(email => {
       this.appliedEmailFilter = email;
@@ -40,13 +48,15 @@ export class AdminLoginsComponent implements OnInit, OnDestroy {
   }
   load() {
     if (this.request) { this.request.unsubscribe(); }
+    this.rows = []; this.total = 0;
+    if (this.userId === null) { this.loading = false; this.error = ''; return; }
     this.loading = true; this.error = '';
-    this.request = this.api.adminLogins(this.page, this.sortBy, this.direction, this.appliedEmailFilter).pipe(finalize(() => this.loading = false)).subscribe(result => {
+    this.request = this.api.adminLogins(this.page, this.sortBy, this.direction, this.appliedEmailFilter, this.userId).pipe(finalize(() => this.loading = false)).subscribe(result => {
       this.rows = result.items; this.total = result.total; this.page = result.page;
     }, () => { this.rows = []; this.error = 'Nie udalo sie pobrac historii logowan.'; });
   }
   sort(column: string) {
-    if (this.loading || !['date', 'user'].includes(column)) { return; }
+    if (this.loading || !['id', 'date', 'user', 'ip', 'dns'].includes(column)) { return; }
     this.direction = this.sortBy === column && this.direction === 'asc' ? 'desc' : 'asc';
     this.sortBy = column; this.page = 1; this.load();
   }

@@ -139,6 +139,8 @@
 .admin-plan-tooltip { position: fixed; z-index: 1100; width: 420px; max-width: calc(100vw - 24px); max-height: min(320px, calc(100vh - 24px)); overflow: auto; padding: 14px 18px; background: #fff; color: var(--text-primary); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 4px 16px #0003; box-sizing: border-box; pointer-events: none; font-size: 12px; line-height: 1.4; }
 
 .admin-users-tabs { flex-wrap: wrap; }
+.admin-user-logins { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border); }
+.admin-user-logins h2 { font-size: 22px; margin: 0 0 12px; }
 .extend-plan-options { border: 0; padding: 0; min-width: 0; }
 .extend-plan-option { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
 .extend-plan-option label { display: inline-flex; align-items: center; gap: 8px; margin: 0; }

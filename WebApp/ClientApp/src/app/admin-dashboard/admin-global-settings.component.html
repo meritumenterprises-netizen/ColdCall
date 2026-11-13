@@ -23,7 +23,7 @@
     <div *ngIf="!valid(row)" id="parallelism-error" class="error" role="alert">Podaj dodatni&#261; liczb&#281; ca&#322;kowit&#261;.</div>
     <label class="maintenance-field" for="application-in-service">
       <input id="application-in-service" name="applicationInService" type="checkbox" [(ngModel)]="row.applicationInService" (ngModelChange)="row.saved = false">
-      System w trybie konserwacji dla u&#380;ytkownik&#243;w (nie administrator&#243;w)
+      System trybie serwisu (pr&#243;cz administrator&#243;w)
     </label>
     <label class="maintenance-field" for="registration-suspended">
       <input id="registration-suspended" name="registrationSuspended" type="checkbox" [(ngModel)]="row.registrationSuspended" (ngModelChange)="row.saved = false">

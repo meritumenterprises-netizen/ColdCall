@@ -20,13 +20,16 @@ public partial class AdminController : ControllerBase
     private readonly AdminAccessService _adminAccess;
     private readonly IEmailSender _emailSender;
     private readonly IMemoryCache _companyCounts;
+    private readonly CompanySearchSnapshotCache? _companySnapshots;
 
-    public AdminController(ColdCallDbContext db, AdminAccessService adminAccess, IEmailSender emailSender, IMemoryCache companyCounts)
+    public AdminController(ColdCallDbContext db, AdminAccessService adminAccess, IEmailSender emailSender, IMemoryCache companyCounts,
+        CompanySearchSnapshotCache? companySnapshots = null)
     {
         _db = db;
         _adminAccess = adminAccess;
         _emailSender = emailSender;
         _companyCounts = companyCounts;
+        _companySnapshots = companySnapshots;
     }
 
     [HttpGet("companies")]
@@ -84,29 +87,41 @@ public partial class AdminController : ControllerBase
                     : query.Where(c => c.Nip != null && c.Nip.Contains(normalizedNip));
             }
 
-            if ((companyName?.Trim().Length ?? 0) >= 3 || hasPhone.HasValue || hasEmail.HasValue || hasWebsite.HasValue
+            var criteria = new SearchProfileCriteria
+            {
+                CompanyName = companyName ?? "", HasPhone = hasPhone, HasEmail = hasEmail, HasWebsite = hasWebsite,
+                CompanyStatusIds = companyStatusIds == null ? null
+                    : CompanyStatusSelection.Serialize(CompanyStatusSelection.Parse(companyStatusIds)),
+                DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue, DateFrom = startedFrom, DateTo = startedTo,
+                WojewodztwoId = wojewodztwoId, PowiatId = powiatId, GminaId = gminaId, MiejscowoscId = miejscowoscId,
+                HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
+            };
+            (int[] Ids, int Total, int Page)? snapshotPage;
+            try
+            {
+                snapshotPage = await TryAdminSnapshotPageAsync(query, criteria, pkdIds, admin.Id,
+                    sortBy, direction, modifiedWithinDays, refreshCount, page, pageSize, HttpContext.RequestAborted);
+            }
+            catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); }
+
+            if (snapshotPage == null && ((companyName?.Trim().Length ?? 0) >= 3 || hasPhone.HasValue || hasEmail.HasValue || hasWebsite.HasValue
                 || startedFrom.HasValue || startedTo.HasValue || wojewodztwoId.HasValue || powiatId.HasValue
                 || gminaId.HasValue || miejscowoscId.HasValue || radiusKm.HasValue || pkdIds?.Length > 0
-                || companyStatusIds != null || modifiedWithinDays.HasValue)
+                || companyStatusIds != null || modifiedWithinDays.HasValue))
             {
             try
             {
-                query = await new CompanySearchQuery(_db).BuildCompaniesAsync(new SearchProfileCriteria
-                {
-                    CompanyName = companyName ?? "", HasPhone = hasPhone, HasEmail = hasEmail, HasWebsite = hasWebsite,
-                    CompanyStatusIds = companyStatusIds == null ? null
-                        : CompanyStatusSelection.Serialize(CompanyStatusSelection.Parse(companyStatusIds)),
-                    DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue, DateFrom = startedFrom, DateTo = startedTo,
-                    WojewodztwoId = wojewodztwoId, PowiatId = powiatId, GminaId = gminaId, MiejscowoscId = miejscowoscId,
-                    HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm
-                }, pkdIds, modifiedWithinDays, includeAllCompanies: true, source: query, token: HttpContext.RequestAborted);
+                query = await new CompanySearchQuery(_db).BuildCompaniesAsync(criteria,
+                    pkdIds, modifiedWithinDays, includeAllCompanies: true, source: query, token: HttpContext.RequestAborted);
             }
             catch (ArgumentException exception) { return BadRequest(new { message = exception.Message }); }
             }
 
             var countKey = "AdminCompanyCount:" + admin.Id + ":" + Convert.ToHexString(
                 SHA256.HashData(Encoding.UTF8.GetBytes(query.ToQueryString())));
-            if (refreshCount || !_companyCounts.TryGetValue(countKey, out int total))
+            int total;
+            if (snapshotPage.HasValue) total = snapshotPage.Value.Total;
+            else if (refreshCount || !_companyCounts.TryGetValue(countKey, out total))
             {
                 total = await query.TagWith("AdminCompanySearch.Count").CountAsync(HttpContext.RequestAborted);
                 _companyCounts.Set(countKey, total, new MemoryCacheEntryOptions()
@@ -115,12 +130,18 @@ public partial class AdminController : ControllerBase
             var offset = (Math.Max(page, 1) - 1) * pageSize;
             int[] addressPageIds;
             IQueryable<Company> pageQuery;
-            if (string.Equals(sortBy, "fullAddress", StringComparison.OrdinalIgnoreCase))
+            if (snapshotPage.HasValue)
+            {
+                page = snapshotPage.Value.Page;
+                addressPageIds = snapshotPage.Value.Ids;
+                pageQuery = _db.Companies.AsNoTracking().Where(company => addressPageIds.Contains(company.Id));
+            }
+            else if (string.Equals(sortBy, "fullAddress", StringComparison.OrdinalIgnoreCase))
             {
                 addressPageIds = await AdminCompanyAddressPage.LoadIdsAsync(query,
                     string.Equals(direction, "desc", StringComparison.OrdinalIgnoreCase), offset, pageSize,
                     HttpContext.RequestAborted);
-                pageQuery = query.Where(company => addressPageIds.Contains(company.Id));
+                pageQuery = _db.Companies.AsNoTracking().Where(company => addressPageIds.Contains(company.Id));
             }
             else
             {
@@ -128,7 +149,7 @@ public partial class AdminController : ControllerBase
                 addressPageIds = await query.ApplyCompanySort(sortBy, direction).ThenBy(x => x.Id)
                     .Skip(offset).Take(pageSize).Select(x => x.Id).TagWith("AdminCompanySearch.PageIds")
                     .ToArrayAsync(HttpContext.RequestAborted);
-                pageQuery = query.Where(company => addressPageIds.Contains(company.Id));
+                pageQuery = _db.Companies.AsNoTracking().Where(company => addressPageIds.Contains(company.Id));
             }
             var items = await pageQuery
                 .Select(x => new CompanyDto(
@@ -230,6 +251,7 @@ public partial class AdminController : ControllerBase
     }
 
     [HttpGet("users")]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<ActionResult<IReadOnlyList<UserDto>>> Users()
     {
         if (await _adminAccess.RequireAdminAsync(User) == null)

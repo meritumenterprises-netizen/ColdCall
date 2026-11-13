@@ -1,20 +1,28 @@
 <section [attr.aria-busy]="loading">
-  <div class="login-filters">
+  <p *ngIf="userId === null">Nie wybrano u&#380;ytkownika.</p>
+  <ng-container *ngIf="userId !== null">
+  <div *ngIf="showEmailFilter" class="login-filters">
     <label for="login-user-email">U&#380;ytkownik</label>
     <input id="login-user-email" type="search" autocomplete="off" placeholder="Email"
       [ngModel]="emailFilter" (ngModelChange)="filterByEmail($event)">
   </div>
   <div *ngIf="error" class="error" role="alert">{{ error }} <button type="button" (click)="load()">Pon&#243;w</button></div>
   <table>
-    <thead><tr><th>ID</th>
+    <thead><tr><th [attr.aria-sort]="sortBy === 'id' ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
+        <button type="button" class="sort-button" [disabled]="loading" (click)="sort('id')">ID <span class="sort-indicator">{{ sortBy === 'id' ? (direction === 'asc' ? '&#9650;' : '&#9660;') : '' }}</span></button>
+      </th>
       <th [attr.aria-sort]="sortBy === 'date' ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
         <button type="button" class="sort-button" [disabled]="loading" (click)="sort('date')">Data <span class="sort-indicator">{{ sortBy === 'date' ? (direction === 'asc' ? '&#9650;' : '&#9660;') : '' }}</span></button>
       </th>
       <th [attr.aria-sort]="sortBy === 'user' ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
         <button type="button" class="sort-button" [disabled]="loading" (click)="sort('user')">U&#380;ytkownik <span class="sort-indicator">{{ sortBy === 'user' ? (direction === 'asc' ? '&#9650;' : '&#9660;') : '' }}</span></button>
       </th>
-      <th>IpAddress</th>
-      <th>DnsAddress</th>
+      <th [attr.aria-sort]="sortBy === 'ip' ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
+        <button type="button" class="sort-button" [disabled]="loading" (click)="sort('ip')">IpAddress <span class="sort-indicator">{{ sortBy === 'ip' ? (direction === 'asc' ? '&#9650;' : '&#9660;') : '' }}</span></button>
+      </th>
+      <th [attr.aria-sort]="sortBy === 'dns' ? (direction === 'asc' ? 'ascending' : 'descending') : 'none'">
+        <button type="button" class="sort-button" [disabled]="loading" (click)="sort('dns')">DnsAddress <span class="sort-indicator">{{ sortBy === 'dns' ? (direction === 'asc' ? '&#9650;' : '&#9660;') : '' }}</span></button>
+      </th>
       <th>Usu&#324;</th>
     </tr></thead>
     <tbody>
@@ -38,4 +46,5 @@
     <span>Strona {{ page }} z {{ totalPages }}</span>
     <button type="button" [disabled]="loading || page >= totalPages" (click)="changePage(page + 1)">Nast&#281;pna</button>
   </footer>
+  </ng-container>
 </section>

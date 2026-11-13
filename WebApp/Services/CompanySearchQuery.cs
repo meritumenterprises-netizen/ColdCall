@@ -107,15 +107,22 @@ public class CompanySearchQuery
                     $"SELECT CompanyId AS [Value] FROM ColdCall.CompanyNameCandidates({name})");
                 // Resolve sparse name matches once, before TOP/ORDER BY can choose
                 // a full company-index scan. Reuse them for count, page and details.
-                const int nameCandidateLimit = 50000;
+                const int nameCandidateLimit = CompanySearchSnapshotCache.MaximumRecords;
                 // Apply PKD/contact/status/address filters before the materialization limit:
                 // a common name can still have only a small number of eligible companies.
                 var matchingCompanies = companies.Where(company => candidateIds.Contains(company.Id));
                 var matchingIds = await matchingCompanies.Select(company => company.Id)
                     .Take(nameCandidateLimit + 1).ToArrayAsync(token);
-                companies = matchingIds.Length <= nameCandidateLimit
-                    ? _db.Companies.AsNoTracking().Where(company => matchingIds.Contains(company.Id))
-                    : matchingCompanies;
+                if (matchingIds.Length <= nameCandidateLimit)
+                {
+                    // Use one JSON parameter rather than tens of thousands of SQL parameters.
+                    var resolvedIds = _db.Database.SqlQueryRaw<int>(
+                        "SELECT [Value] FROM OPENJSON(@NameMatchIds) WITH ([Value] int '$')",
+                        new SqlParameter("@NameMatchIds", System.Data.SqlDbType.NVarChar, -1)
+                        { Value = JsonSerializer.Serialize(matchingIds) });
+                    companies = _db.Companies.AsNoTracking().Where(company => resolvedIds.Contains(company.Id));
+                }
+                else companies = matchingCompanies;
             }
             else if (hasPhone.HasValue || hasEmail.HasValue || hasWebsite.HasValue)
             {

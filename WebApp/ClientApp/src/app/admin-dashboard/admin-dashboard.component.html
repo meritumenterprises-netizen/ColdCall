@@ -316,6 +316,11 @@
 
       </section>
     </ng-container>
+    <section *ngIf="tab === 'users'" class="admin-user-logins" aria-labelledby="admin-user-logins-title">
+      <h2 id="admin-user-logins-title">Logowania u&#380;ytkownika</h2>
+      <p *ngIf="selectedUser">{{ selectedUser.googleEmail }}</p>
+      <app-admin-logins [userId]="selectedUser ? selectedUser.id : null" [showEmailFilter]="false"></app-admin-logins>
+    </section>
     <div *ngIf="tab === 'users' && planHint" id="admin-plan-tooltip" role="tooltip" class="admin-plan-tooltip"
          [style.left.px]="planHint.left" [style.top.px]="planHint.top" [innerHTML]="planHint.html"></div>
     <dialog #createUserDialog class="delete-csv-dialog create-user-dialog" aria-labelledby="create-user-title"

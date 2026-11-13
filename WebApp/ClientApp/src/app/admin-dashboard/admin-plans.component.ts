@@ -12,6 +12,10 @@ export class AdminPlansComponent implements OnInit, OnDestroy {
   plans: AdminPlanDefinition[] = [];
   sortBy: PlanSortKey = 'code';
   sortDirection: 'asc' | 'desc' = 'asc';
+  private readonly recordsFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+  formatRecords(value: number): string {
+    return this.recordsFormatter.format(value).replace(/,/g, ' ');
+  }
   sortableColumns: { key: PlanSortKey; label: string }[] = [
     { key: 'code', label: 'Nazwa planu' },
     { key: 'maxNumberOfSearches', label: 'Wyszukiwania' },
