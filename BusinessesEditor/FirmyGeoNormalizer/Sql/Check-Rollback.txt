@@ -1,9 +1,0 @@
--- Run in SSMS after a rollback timeout. These queries do not change data.
--- Requires permission to inspect server state/performance state.
-SELECT session_id, command, status, percent_complete,
-       estimated_completion_time / 1000 AS EstimatedSecondsRemaining,
-       blocking_session_id, wait_type
-FROM sys.dm_exec_requests
-WHERE database_id = DB_ID(N'Firmy');
-DBCC OPENTRAN(N'Firmy');
--- If ROLLBACK is in progress, wait. An empty request list alone does not prove no transaction is open.

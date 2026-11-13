@@ -1,9 +1,0 @@
-INSERT dbo.Powiat(Nazwa)
-SELECT DISTINCT s.P FROM #Source s WHERE s.P IS NOT NULL AND NOT EXISTS(SELECT 1 FROM dbo.Powiat p WHERE p.Nazwa=s.P);
-SELECT @@ROWCOUNT AS NowePowiaty;
-INSERT dbo.Gmina(Nazwa)
-SELECT DISTINCT s.G FROM #Source s WHERE s.G IS NOT NULL AND NOT EXISTS(SELECT 1 FROM dbo.Gmina g WHERE g.Nazwa=s.G);
-SELECT @@ROWCOUNT AS NoweGminy;
-INSERT dbo.Miejscowosc(Nazwa)
-SELECT DISTINCT s.M FROM #Source s WHERE s.M IS NOT NULL AND NOT EXISTS(SELECT 1 FROM dbo.Miejscowosc m WHERE m.Nazwa=s.M);
-SELECT @@ROWCOUNT AS NoweMiejscowosci;

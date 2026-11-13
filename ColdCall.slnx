@@ -2,6 +2,5 @@
   <Folder Name="/Recurrent Batch Apps/">
     <Project Path="ImportCEIDGByDate/ImportCEIDGByDate.csproj" />
   </Folder>
-  <Project Path="BusinessesEditor/FirmyGeoNormalizer/FirmyGeoNormalizer.csproj" />
   <Project Path="WebApp/ColdCall.csproj" />
 </Solution>

@@ -1,4 +1,5 @@
-using GeoPortalAddressImporter;
+using ImportCEIDGByDate.Geoportal;
+using Company = ImportCEIDGByDate.Data.FirmyTemp.Company;
 using ImportCEIDGByDate.Data;
 using ImportCEIDGByDate.Data.FirmyTemp;
 using ImportCEIDGByDate.Utils;
