@@ -280,7 +280,15 @@ namespace ImportCEIDGByDate
                   )
                 """).ToListAsync();
                 var newImportTargets = await ImportRepository.ImportTargets
-                    .Where(target => target.Nip != null && newNips.Contains(target.Nip))
+                    .FromSqlRaw("""
+                    SELECT target.*
+                    FROM [dbo].[ImportTarget] AS target
+                    WHERE target.NIP IS NOT NULL AND LTRIM(RTRIM(target.NIP)) <> ''
+                      AND NOT EXISTS (
+                          SELECT 1 FROM [Firmy_temp].[ColdCall].[Companies] AS company
+                          WHERE company.Nip COLLATE DATABASE_DEFAULT = target.NIP COLLATE DATABASE_DEFAULT
+                      )
+                    """)
                     .ToListAsync();
                 Console.WriteLine($"Done. Found {newNips.Count} new NIPs");
                 foreach (var newImportTarget in newImportTargets)
@@ -300,7 +308,15 @@ namespace ImportCEIDGByDate
                   )
                 """).ToListAsync();
                 var existingImportTargets = await ImportRepository.ImportTargets
-                    .Where(target => target.Nip != null && existingNips.Contains(target.Nip))
+                    .FromSqlRaw("""
+                    SELECT target.*
+                    FROM [dbo].[ImportTarget] AS target
+                    WHERE target.NIP IS NOT NULL AND LTRIM(RTRIM(target.NIP)) <> ''
+                      AND EXISTS (
+                          SELECT 1 FROM [Firmy_temp].[ColdCall].[Companies] AS company
+                          WHERE company.Nip COLLATE DATABASE_DEFAULT = target.NIP COLLATE DATABASE_DEFAULT
+                      )
+                    """)
                     .ToListAsync();
                 foreach (var existingImportTarget in existingImportTargets)
                 {

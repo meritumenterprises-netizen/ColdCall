@@ -185,5 +185,20 @@ if (!await new ImportSummaryWriter(firmyTempDbContext).SaveAsync(import))
     if (exitCode == 0) exitCode = 1;
 }
 
+var readTask = Task.Run(() => Console.ReadLine());
+for (var secondsRemaining = 30; secondsRemaining > 0; secondsRemaining--)
+{
+    var message = $"Press ENTER to exit (closing in {secondsRemaining,2} seconds)...";
+    if (Console.IsOutputRedirected)
+        Console.WriteLine(message);
+    else
+        Console.Write("\r" + message);
+
+    if (await Task.WhenAny(readTask, Task.Delay(TimeSpan.FromSeconds(1))) == readTask)
+        break;
+}
+if (!Console.IsOutputRedirected) Console.WriteLine();
+
+Console.WriteLine("Application exiting...");
 
 return exitCode;
