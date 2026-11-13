@@ -20,6 +20,12 @@ using ImportCEIDGByDate.Data.FirmyTemp;
 
 Console.OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
+using var consoleLog = new ConsoleFileLog(Path.Combine(Directory.GetCurrentDirectory(), "Logs"));
+Console.WriteLine($"Console log: {consoleLog.FilePath}");
+
+try
+{
+
 var globalSettings = new GlobalSettings();
 
 DateTime newDate = DateTime.MinValue;
@@ -202,3 +208,9 @@ if (!Console.IsOutputRedirected) Console.WriteLine();
 Console.WriteLine("Application exiting...");
 
 return exitCode;
+}
+catch (Exception exception)
+{
+    Console.Error.WriteLine(exception);
+    throw;
+}
