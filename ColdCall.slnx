@@ -2,5 +2,8 @@
   <Folder Name="/Recurrent Batch Apps/">
     <Project Path="ImportCEIDGByDate/ImportCEIDGByDate.csproj" />
   </Folder>
+  <Folder Name="/Single-Run Batch Apps/">
+    <Project Path="AdjustCeidgAddress/AdjustCeidgAddress.csproj" />
+  </Folder>
   <Project Path="WebApp/ColdCall.csproj" />
 </Solution>
