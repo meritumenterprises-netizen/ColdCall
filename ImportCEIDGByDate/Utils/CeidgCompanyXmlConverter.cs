@@ -181,39 +181,64 @@ namespace ImportCEIDGByDate
             if (!string.Equals(company.Nip, nip, StringComparison.Ordinal))
                 throw new InvalidDataException($"Loaded company NIP={company.Nip} does not match XML NIP={nip}.");
 
+            var hasIncomingAddress = new[] { "Powiat", "Gmina", "Miejscowosc", "KodPocztowy", "Ulica", "NrBudynku", "NrLokalu" }
+                .Any(field => !string.IsNullOrWhiteSpace(xmlDoc.GetInnerTextOrEmpty(field)));
+            var hasExistingAddress = company.WojewodztwoId > 1 || company.PowiatId.HasValue
+                || company.GminaId.HasValue || company.MiejscowoscId.HasValue
+                || new[] { company.Street, company.PostalCode, company.BuildingNumber, company.ApartmentNumber }
+                    .Any(value => !string.IsNullOrWhiteSpace(value));
+            var preserveAddress = !hasIncomingAddress && hasExistingAddress;
+
             company.BusinessType = 1; // Jednoosobowa dzialalność gospodarcza
-            company.WojewodztwoId = wojewodztwoId;
-            if (wojewodztwoId == 1)
-                company.SkipAddressVerification = true;
+            if (!preserveAddress)
+            {
+                company.WojewodztwoId = wojewodztwoId;
+                if (wojewodztwoId == 1)
+                    company.SkipAddressVerification = true;
+            }
             company.Name = xmlDoc.GetInnerTextOrEmpty("NazwaPodmiotu");
             company.FirstName = xmlDoc.GetInnerTextOrEmpty("Imie");
             company.LastName = xmlDoc.GetInnerTextOrEmpty("Nazwisko");
             company.Nip = xmlDoc.GetInnerTextOrEmpty("Nip");
             company.Regon = xmlDoc.GetInnerTextOrEmpty("Regon");
-            company.Phone = xmlDoc.GetInnerTextOrEmpty("Telefon");
-            company.Website = xmlDoc.GetInnerTextOrEmpty("AdresWWW");
+            var phone = xmlDoc.GetInnerTextOrEmpty("Telefon");
+            if (!string.IsNullOrWhiteSpace(phone))
+                company.Phone = phone;
+            var email = xmlDoc.GetInnerTextOrEmpty("Email");
+            if (!string.IsNullOrWhiteSpace(email))
+                company.Email = email;
+            var website = xmlDoc.GetInnerTextOrEmpty("AdresWWW");
+            if (!string.IsNullOrWhiteSpace(website))
+                company.Website = website;
             company.DataModifiedOn = Statistics.NewDate;
             company.ImportedOn = Statistics.NewDate;
 
             #region Adresy
-            company.Street = xmlDoc.GetInnerTextOrEmpty("Ulica");
-            company.BuildingNumber = xmlDoc.GetInnerTextOrEmpty("NrBudynku");
-            company.ApartmentNumber = xmlDoc.GetInnerTextOrEmpty("NrLokalu");
-            company.PostalCode = xmlDoc.GetInnerTextOrEmpty("KodPocztowy");
-            if (xmlDoc.HasElement("Powiat"))
+            if (preserveAddress)
             {
-                company.PowiatId = Lookups.CountyId(xmlDoc.GetInnerTextOrEmpty("Powiat"));
+                Console.WriteLine($"WARN | NIP={nip}, CompanyId={company.Id}: XML nie zawiera adresu; zachowano caly dotychczasowy adres firmy.");
             }
-            if (xmlDoc.HasElement("Gmina"))
+            else
             {
-                company.GminaId = Lookups.MunicipalityId(xmlDoc.GetInnerTextOrEmpty("Gmina"));
-            }
+                company.Street = xmlDoc.GetInnerTextOrEmpty("Ulica");
+                company.BuildingNumber = xmlDoc.GetInnerTextOrEmpty("NrBudynku");
+                company.ApartmentNumber = xmlDoc.GetInnerTextOrEmpty("NrLokalu");
+                company.PostalCode = xmlDoc.GetInnerTextOrEmpty("KodPocztowy");
+                if (xmlDoc.HasElement("Powiat"))
+                {
+                    company.PowiatId = Lookups.CountyId(xmlDoc.GetInnerTextOrEmpty("Powiat"));
+                }
+                if (xmlDoc.HasElement("Gmina"))
+                {
+                    company.GminaId = Lookups.MunicipalityId(xmlDoc.GetInnerTextOrEmpty("Gmina"));
+                }
 
-            if (xmlDoc.HasElement("Miejscowosc"))
-            {
-                company.MiejscowoscId = Lookups.CityId(xmlDoc.GetInnerTextOrEmpty("Miejscowosc"));
+                if (xmlDoc.HasElement("Miejscowosc"))
+                {
+                    company.MiejscowoscId = Lookups.CityId(xmlDoc.GetInnerTextOrEmpty("Miejscowosc"));
+                }
+                company.AddressSort = CompanyAddressSort.Build(company, Lookups.CityName(company.MiejscowoscId));
             }
-            company.AddressSort = CompanyAddressSort.Build(company, Lookups.CityName(company.MiejscowoscId));
             #endregion
 
             #region Statusy działalności
@@ -256,6 +281,12 @@ namespace ImportCEIDGByDate
                 .Append(prevailingCode)
                 .Where(code => !string.IsNullOrWhiteSpace(code) && code != "N/A")
                 .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (xmlDoc.SelectSingleNode("Detail/GlownyKodPkd") == null
+                && xmlDoc.SelectSingleNode("Detail/PozostaleKodyPkd") == null)
+            {
+                Console.WriteLine($"WARN | NIP={nip}, CompanyId={company.Id}: XML nie zawiera kodow PKD; zachowano dotychczasowe przypisania PKD.");
+                return company;
+            }
             var desiredPkds = codes.Select(code => new { Id = Lookups.PkdId(code), CodeWithoutDots = code }).DistinctBy(pkd => pkd.Id).ToList();
             var missingCodes = codes.Except(desiredPkds.Select(pkd => pkd.CodeWithoutDots!),
                 StringComparer.OrdinalIgnoreCase).ToList();

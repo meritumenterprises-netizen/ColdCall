@@ -349,3 +349,14 @@ _Pvt_Extensions
 
 # Generated public landing statistics snapshot
 /WebApp/App_Data/landing-statistics.json*
+/AdjustCeidgAddress/Import/Zarejestrowane działalności - województwo dolnośląskie.xml
+/AdjustCeidgAddress/Import/Zarejestrowane działalności - województwo kujawsko-pomorskie.xml
+/AdjustCeidgAddress/Import/Zarejestrowane działalności - województwo lubelskie.xml
+/AdjustCeidgAddress/Import/Zarejestrowane działalności - województwo lubuskie.xml
+/AdjustCeidgAddress/Import/Zarejestrowane działalności - województwo opolskie.xml
+/AdjustCeidgAddress/Import/Zarejestrowane działalności - województwo podkarpackie.xml
+/AdjustCeidgAddress/Import/Zarejestrowane działalności - województwo podlaskie.xml
+/AdjustCeidgAddress/Import/Zarejestrowane działalności - województwo pomorskie.xml
+/AdjustCeidgAddress/Import/Zarejestrowane działalności - województwo warmińsko-mazurskie.xml
+/AdjustCeidgAddress/Import/Zarejestrowane działalności - województwo zachodniopomorskie.xml
+/AdjustCeidgAddress/Import/Zarejestrowane działalności - województwo śląskie.xml
