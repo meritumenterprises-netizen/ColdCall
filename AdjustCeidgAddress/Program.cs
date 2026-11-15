@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using AdjustCeidgAddress.Data.FirmyTemp;
 using System.Text;
+using System.Collections.Concurrent;
 
 Console.InputEncoding = Encoding.UTF8;
 Console.OutputEncoding = new UTF8Encoding(false);
@@ -20,9 +21,9 @@ if (string.IsNullOrWhiteSpace(firmyTempConnection) || string.IsNullOrWhiteSpace(
     return 1;
 }
 
-using var firmyTemp = new FirmyTempDbContext(
-    new DbContextOptionsBuilder<FirmyTempDbContext>()
-        .UseSqlServer(firmyTempConnection, sql => sql.UseNetTopologySuite()).Options);
+var contextOptions = new DbContextOptionsBuilder<FirmyTempDbContext>()
+    .UseSqlServer(firmyTempConnection, sql => sql.UseNetTopologySuite()).Options;
+using var firmyTemp = new FirmyTempDbContext(contextOptions);
 using var firmyImport = new FirmyImportDbContext(
     new DbContextOptionsBuilder<FirmyImportDbContext>()
         .UseSqlServer(firmyImportConnection).Options);
@@ -45,13 +46,16 @@ using var geoHttp = new HttpClient { Timeout = TimeSpan.FromSeconds(45) };
 geoHttp.DefaultRequestHeaders.UserAgent.ParseAdd("AdjustCeidgAddress/1.0");
 using var geoportal = new ImportCEIDGByDate.Geoportal.GeoportalAddressService(
     geoHttp, Path.Combine(AppContext.BaseDirectory, "geoportal"));
-var addressUpdater = new CompanyGeoAddressUpdater(firmyTemp, geoportal);
+using var locationResolver = new LocationResolver(() => new FirmyTempDbContext(contextOptions));
+var companyIdsByNip = companies.Where(company => !string.IsNullOrWhiteSpace(company.Nip))
+    .GroupBy(company => company.Nip!.Trim(), StringComparer.Ordinal)
+    .ToDictionary(group => group.Key, group => group.First().Id, StringComparer.Ordinal);
 
 long recordCount = 0;
 long matchCount = 0;
 long changedCount = 0;
 
-var matchedNips = new HashSet<string>(StringComparer.Ordinal);
+var matchedNips = new ConcurrentDictionary<string, byte>(StringComparer.Ordinal);
 var fileCount = 0;
 var failedFiles = 0;
 foreach (var file in Directory.EnumerateFiles(importFolder, "Zarejestrowane działalności*.xml", SearchOption.TopDirectoryOnly))
@@ -68,110 +72,113 @@ foreach (var file in Directory.EnumerateFiles(importFolder, "Zarejestrowane dzia
             continue;
         }
         Console.WriteLine($"WojewodztwoId={wojewodztwoId.Value}");
-        foreach (var xmlCompanyDetail in CompanyXmlReader.Read(file))
+        var records = CompanyXmlReader.Read(file).ToList();
+        recordCount += records.Count;
+        var groups = records.Select(detail => new
+            {
+                Detail = detail,
+                Nip = detail.Elements().FirstOrDefault(element => element.Name.LocalName == "Nip")?.Value.Trim()
+            })
+            .Where(record => !string.IsNullOrWhiteSpace(record.Nip) && nips.Contains(record.Nip))
+            .GroupBy(record => record.Nip!, StringComparer.Ordinal).ToList();
+        // Preserve XML order within each NIP; only independent companies run in parallel.
+        await Parallel.ForEachAsync(groups, new ParallelOptions { MaxDegreeOfParallelism = 8 }, async (group, token) =>
         {
-            recordCount++;
-            var nip = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "Nip")?.Value.Trim();
-            if (string.IsNullOrWhiteSpace(nip) || !nips.Contains(nip))
-                continue;
-
-            matchCount++;
-            
-            matchedNips.Add(nip);
-            bool changedAddressData = false;
-
-            var name = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "NazwaPodmiotu")?.Value;
-            Console.WriteLine($"Znaleziono NIP={nip}, firma={name}");
-
-            var message = new StringBuilder();
-            var company = companies.First(c => c.Nip?.Trim() == nip);
-            company.WojewodztwoId = wojewodztwoId;
-
-            message.Append($"Zmieniono województwo: {firmyTemp.Wojewodztwas.FirstOrDefault((w) => w.Id == wojewodztwoId)?.Name}.\r\n");
-
-            var miejscowosc = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "Miejscowosc")?.Value.Trim();
-            if (!string.IsNullOrWhiteSpace(miejscowosc) && miejscowosc != company.Miejscowosc?.Name)
+            await using var workerContext = new FirmyTempDbContext(contextOptions);
+            var company = await workerContext.Companies
+                .Include(row => row.Miejscowosc).Include(row => row.Powiat).Include(row => row.Gmina)
+                .SingleOrDefaultAsync(row => row.Id == companyIdsByNip[group.Key], token);
+            if (company == null)
             {
-                company.MiejscowoscId = firmyTemp.Miejscowoscis.Where((m) => m.Name == miejscowosc).FirstOrDefault()?.Id;
-                if (company.MiejscowoscId == null)
+                Console.Error.WriteLine($"Pominieto usunieta firme NIP={group.Key}.");
+                return;
+            }
+            var addressUpdater = new CompanyGeoAddressUpdater(workerContext, geoportal);
+            foreach (var record in group)
+            {
+                var xmlCompanyDetail = record.Detail;
+                var nip = group.Key;
+
+                Interlocked.Increment(ref matchCount);
+                
+                matchedNips.TryAdd(nip, 0);
+                bool changedAddressData = false;
+
+                var name = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "NazwaPodmiotu")?.Value;
+                Console.WriteLine($"Znaleziono NIP={nip}, firma={name}");
+
+                var message = new StringBuilder();
+                bool changedProvince = company.WojewodztwoId != wojewodztwoId;
+                company.WojewodztwoId = wojewodztwoId;
+
+                message.Append($"Zmieniono województwo: {wojewodztwa.FirstOrDefault((w) => w.Id == wojewodztwoId)?.Name}.\r\n");
+
+                var miejscowosc = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "Miejscowosc")?.Value.Trim();
+                if (!string.IsNullOrWhiteSpace(miejscowosc) && miejscowosc != company.Miejscowosc?.Name)
                 {
-                    var miejscowoscRecord = new Miejscowosci { Name = miejscowosc };
-                    firmyTemp.Miejscowoscis.Add(miejscowoscRecord);
+                    company.MiejscowoscId = await locationResolver.ResolveAsync<Miejscowosci>(miejscowosc, token);
+                    message.Append($"Zmieniono miejscowość: {miejscowosc}.\r\n");
+                    changedAddressData = true;
                 }
-                message.Append($"Zmieniono miejscowość: {miejscowosc}.\r\n");
-                changedAddressData = true;
-            }
 
-            var postalCode = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "KodPocztowy")?.Value.Trim();
-            if (!string.IsNullOrWhiteSpace(postalCode) && postalCode != company.PostalCode)
-            {
-                company.PostalCode = postalCode;
-                message.Append($"Zmieniono kod pocztowy: {postalCode}.\r\n");
-                changedAddressData = true;
-            }
-
-            var powiat = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "Powiat")?.Value.Trim();
-            if (!string.IsNullOrWhiteSpace(powiat) && powiat != company.Powiat?.Name)
-            {
-                company.PowiatId = firmyTemp.Powiaties.Where((m) => m.Name == powiat).FirstOrDefault()?.Id;
-                if (company.PowiatId == null)
+                var postalCode = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "KodPocztowy")?.Value.Trim();
+                if (!string.IsNullOrWhiteSpace(postalCode) && postalCode != company.PostalCode)
                 {
-                    var powiatRecord = new Powiaty { Name = powiat };
-                    firmyTemp.Powiaties.Add(powiatRecord);
-                    firmyTemp.Powiaties.Update(powiatRecord);
+                    company.PostalCode = postalCode;
+                    message.Append($"Zmieniono kod pocztowy: {postalCode}.\r\n");
+                    changedAddressData = true;
                 }
-                message.Append($"Zmieniono powiat: {powiat}.\r\n");
-                changedAddressData = true;
-            }
 
-            var gmina = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "Gmina")?.Value.Trim();
-            if (!string.IsNullOrWhiteSpace(gmina) && gmina != company.Gmina?.Name)
-            {
-                company.GminaId = firmyTemp.Gminies.Where((m) => m.Name == gmina).FirstOrDefault()?.Id;
-                if (company.GminaId == null)
+                var powiat = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "Powiat")?.Value.Trim();
+                if (!string.IsNullOrWhiteSpace(powiat) && powiat != company.Powiat?.Name)
                 {
-                    var gminaRecord = new Gminy { Name = gmina};
-                    firmyTemp.Gminies.Add(gminaRecord);
-                    firmyTemp.Gminies.Update(gminaRecord);
+                    company.PowiatId = await locationResolver.ResolveAsync<Powiaty>(powiat, token);
+                    message.Append($"Zmieniono powiat: {powiat}.\r\n");
+                    changedAddressData = true;
                 }
-                message.Append($"Zmieniono gminę: {gmina}.\r\n");
-                changedAddressData = true;
-            }
 
-            var street = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "Ulica")?.Value.Trim();
-            if (!string.IsNullOrWhiteSpace(street) && street != company.Street)
-            {
-                company.Street = street;
-                message.Append($"Zmieniono ulicę: {street}.\r\n");
-                changedAddressData = true;
-            }
+                var gmina = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "Gmina")?.Value.Trim();
+                if (!string.IsNullOrWhiteSpace(gmina) && gmina != company.Gmina?.Name)
+                {
+                    company.GminaId = await locationResolver.ResolveAsync<Gminy>(gmina, token);
+                    message.Append($"Zmieniono gminę: {gmina}.\r\n");
+                    changedAddressData = true;
+                }
 
-            var buildingNumber = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "NrBudynku")?.Value.Trim();
-            if (!string.IsNullOrWhiteSpace(buildingNumber) && buildingNumber != company.BuildingNumber)
-            {
-                company.BuildingNumber = buildingNumber;
-                message.Append($"Zmieniono numer budynku: {buildingNumber}.\r\n");
-                changedAddressData = true;
-            }
+                var street = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "Ulica")?.Value.Trim();
+                if (!string.IsNullOrWhiteSpace(street) && street != company.Street)
+                {
+                    company.Street = street;
+                    message.Append($"Zmieniono ulicę: {street}.\r\n");
+                    changedAddressData = true;
+                }
 
-            var apartmentNumber = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "NrLokalu")?.Value.Trim();
-            if (!string.IsNullOrWhiteSpace(apartmentNumber) && apartmentNumber != company.ApartmentNumber)
-            {
-                company.ApartmentNumber = apartmentNumber;
-                message.Append($"Zmieniono numer lokalu: {apartmentNumber}.\r\n");
-                changedAddressData = true;
-            }
+                var buildingNumber = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "NrBudynku")?.Value.Trim();
+                if (!string.IsNullOrWhiteSpace(buildingNumber) && buildingNumber != company.BuildingNumber)
+                {
+                    company.BuildingNumber = buildingNumber;
+                    message.Append($"Zmieniono numer budynku: {buildingNumber}.\r\n");
+                    changedAddressData = true;
+                }
 
-            if (changedAddressData)
-            {
-                await addressUpdater.UpdateAsync(company);
-                Console.WriteLine($"NIP: {company.Nip}\r\n" + message.ToString());
-                firmyTemp.Companies.Update(company);
-                await firmyTemp.SaveChangesAsync();
-            }
+                var apartmentNumber = xmlCompanyDetail.Elements().FirstOrDefault(element => element.Name.LocalName == "NrLokalu")?.Value.Trim();
+                if (!string.IsNullOrWhiteSpace(apartmentNumber) && apartmentNumber != company.ApartmentNumber)
+                {
+                    company.ApartmentNumber = apartmentNumber;
+                    message.Append($"Zmieniono numer lokalu: {apartmentNumber}.\r\n");
+                    changedAddressData = true;
+                }
 
-            changedCount++;
-        }
+                if (changedAddressData || changedProvince)
+                {
+                    await addressUpdater.UpdateAsync(company, token);
+                    Console.WriteLine($"NIP: {company.Nip}\r\n" + message.ToString());
+                    await workerContext.SaveChangesAsync(token);
+                    Interlocked.Increment(ref changedCount);
+                }
+
+            }
+        });
     }
     catch (Exception ex) when (ex is System.Xml.XmlException or IOException or UnauthorizedAccessException)
     {
@@ -180,7 +187,7 @@ foreach (var file in Directory.EnumerateFiles(importFolder, "Zarejestrowane dzia
     }
 }
 
-Console.WriteLine($"Pliki: {fileCount}, bledne: {failedFiles}, rekordy XML: {recordCount}, dopasowania: {matchCount}, unikalne dopasowane NIP-y: {matchedNips.Count}.");
+Console.WriteLine($"Pliki: {fileCount}, bledne: {failedFiles}, rekordy XML: {recordCount}, dopasowania: {matchCount}, zapisane zmiany: {changedCount}, unikalne dopasowane NIP-y: {matchedNips.Count}.");
 Console.WriteLine("Przetwarzanie adresow zakonczone.");
 if (fileCount == 0)
     Console.WriteLine($"Brak plikow .xml w {importFolder}");

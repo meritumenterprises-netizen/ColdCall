@@ -10,6 +10,8 @@ namespace AdjustCeidgAddress;
 
 public sealed class CompanyGeoAddressUpdater(FirmyTempDbContext context, GeoportalAddressService geoportal)
 {
+    private static readonly SemaphoreSlim addressWriteGate = new(1, 1);
+
     public async Task<bool> UpdateAsync(Company company, CancellationToken token = default)
     {
         if (company.BlockedByRodo)
@@ -47,6 +49,19 @@ public sealed class CompanyGeoAddressUpdater(FirmyTempDbContext context, Geoport
         if (!result.Found || result.ErrorCode != GeoportalAddressErrorCode.None)
             return false;
 
+        // Different companies may resolve to the same source key. Commit before another worker checks it.
+        await addressWriteGate.WaitAsync(token);
+        try
+        {
+            await ApplyAsync(company, result, token);
+            await context.SaveChangesAsync(token);
+            return true;
+        }
+        finally { addressWriteGate.Release(); }
+    }
+
+    private async Task ApplyAsync(Company company, GeoportalAddressResult result, CancellationToken token)
+    {
         var address = await context.Adresies.FirstOrDefaultAsync(row => row.PrngId == result.SourceKey, token);
         if (address == null)
         {
@@ -81,6 +96,5 @@ public sealed class CompanyGeoAddressUpdater(FirmyTempDbContext context, Geoport
         }
         company.AddressIsMissing = result.IsCity;
         company.SkipAddressVerification = false;
-        return true;
     }
 }
