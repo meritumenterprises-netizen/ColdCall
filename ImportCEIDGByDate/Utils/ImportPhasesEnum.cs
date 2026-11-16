@@ -25,6 +25,7 @@ namespace ImportCEIDGByDate
         UpdateAdresyForChangedCompaniesFromTarget,
         RemoveNIPsFromImportOriginThatArePresentInOriginTarget,
         UpdateSQLStatistics,
-        ShrinkDatabase
+        ShrinkDatabase,
+        ImportNewCompaniesToDatabaseFromAdjustName
     }
 }

@@ -158,6 +158,7 @@ var ceidgUpdater = new CeidgCompanyUpdater(statistics, firmyTempRepository, firm
 
 await ceidgUpdater.AddNewCompaniesFromImportTargetToTemp();
 await ceidgUpdater.UpdateExistingCompaniesFromImportTargetToTemp();
+// await ceidgUpdater.AddNewCompaniesFromAdjustName(); // THIS IS NOT NEEDED; AdjustName is now processed in AdjustCeidgAddress/Workers/CompanyNameAdjuster.cs
 
 var ceidgCompanyXmlUpdater = new CeidgCompanyXmlUpdater(statistics, firmyTempRepository, firmyImportRepository, firmyImportDbContext, firmyTempDbContext, globalSettings);
 await ceidgCompanyXmlUpdater.UpdateCompaniesXml();

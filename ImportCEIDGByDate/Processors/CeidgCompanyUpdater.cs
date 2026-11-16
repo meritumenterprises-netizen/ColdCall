@@ -46,6 +46,109 @@ namespace ImportCEIDGByDate
             this.GlobalSettings = settings;
         }
 
+        public async Task AddNewCompaniesFromAdjustName()
+        {
+            Console.WriteLine("Importing new companies from AdjustName");
+            Statistics.StartNewPhase(ImportPhasesEnum.ImportNewCompaniesToDatabaseFromAdjustName,
+                "Importing new companies from AdjustName");
+            var pending = FirmyTempDbContext.AdjustNames.Where(row => !row.Processed
+                && !FirmyTempDbContext.Companies.Any(company => company.Nip == row.Nip));
+            var total = await pending.CountAsync();
+            Statistics.CurrentPhase.EntriesCount = total;
+            var added = 0;
+            var processed = 0;
+            var batchNumber = 0;
+            Console.WriteLine($"AdjustName: do przetworzenia {total} rekordow; rozmiar batcha: 100.");
+            var afterId = 0;
+            var addressProgress = new AddressImportProgress("Adresy nowych firm z AdjustName", total);
+            using var addressUpdater = new CeidgCompanyAddressUpdater(FirmyTempDbContext, Statistics, GlobalSettings);
+            while (true)
+            {
+                var batch = await pending.Where(row => row.AdjustId > afterId)
+                    .OrderBy(row => row.AdjustId).Take(100).ToListAsync();
+                if (batch.Count == 0)
+                    break;
+                afterId = batch[^1].AdjustId;
+                Console.WriteLine($"AdjustName: rozpoczynam batch {batchNumber + 1} ({batch.Count} rekordow); przetworzono {processed}/{total}, pozostalo {Math.Max(0, total - processed)}.");
+                var nips = batch.Select(row => row.Nip).ToArray();
+                var xmlRows = await FirmyTempDbContext.CompanyXml.Where(row => nips.Contains(row.Nip))
+                    .ToDictionaryAsync(row => row.Nip!, StringComparer.Ordinal);
+                var newCompanies = new List<Company>();
+                var validRows = new List<AdjustName>();
+                foreach (var row in batch)
+                {
+                    if (string.IsNullOrWhiteSpace(row.Nip) || string.IsNullOrWhiteSpace(row.Nazwa)
+                        || string.IsNullOrWhiteSpace(row.CompanyXml) || !row.WojewodztwoId.HasValue)
+                    {
+                        Console.WriteLine($"AdjustName Id={row.AdjustId}, NIP={row.Nip}: missing NIP, name, XML or province; skipped.");
+                        continue;
+                    }
+
+                    try
+                    {
+                        var document = new XmlDocument { XmlResolver = null };
+                        document.LoadXml(row.CompanyXml);
+                        if (document.DocumentElement?.Name != "Detail")
+                            throw new XmlException("Expected a Detail XML record.");
+                        if (string.Equals(document.GetInnerTextOrEmpty("StatusDzialalnosci").Trim(),
+                            "Wykreślony", StringComparison.OrdinalIgnoreCase))
+                        {
+                            row.Processed = true;
+                            Console.WriteLine($"AdjustName Id={row.AdjustId}, NIP={row.Nip}: status Wykreślony; pominieto import firmy i XML.");
+                            continue;
+                        }
+                    }
+                    catch (XmlException ex)
+                    {
+                        Console.WriteLine($"AdjustName Id={row.AdjustId}, NIP={row.Nip}: invalid XML; {ex.Message}");
+                        continue;
+                    }
+
+                    validRows.Add(row);
+                }
+                await CeidgConverter.Lookups.PrepareBatchAsync(validRows.Select(row => row.CompanyXml!));
+                foreach (var row in validRows)
+                {
+                    var company = await CeidgConverter.ConvertXmlToNewCompany(row.WojewodztwoId!.Value, row.CompanyXml!);
+                    // Explicit staging columns are authoritative, even when XML values differ.
+                    company.Nip = row.Nip;
+                    company.Name = row.Nazwa;
+                    company.WojewodztwoId = row.WojewodztwoId.Value;
+                    FirmyTempDbContext.Companies.Add(company);
+                    newCompanies.Add(company);
+
+                    if (!xmlRows.TryGetValue(row.Nip, out var companyXml))
+                    {
+                        companyXml = new CompanyXml { Nip = row.Nip };
+                        FirmyTempDbContext.CompanyXml.Add(companyXml);
+                        xmlRows.Add(row.Nip, companyXml);
+                    }
+                    companyXml.XmlContent = row.CompanyXml;
+                    companyXml.Md5 = MD5Utils.CalculateMD5(row.CompanyXml);
+                    companyXml.WojewodztwoId = row.WojewodztwoId;
+                    companyXml.DateModified = row.DateModified;
+                    row.Processed = true;
+                }
+
+                // Save the company, XML and processing flag atomically before resolving addresses.
+                await FirmyTempDbContext.SaveChangesAsync();
+                added += newCompanies.Count;
+                if (!GlobalSettings.SkipProcessingAddresses && newCompanies.Count > 0)
+                {
+                    var results = await addressUpdater.UpdateBatchAsync(newCompanies, progress: addressProgress);
+                    foreach (var result in results)
+                        addressProgress.Complete(result);
+                }
+                processed += batch.Count;
+                batchNumber++;
+                var remaining = Math.Max(0, total - processed);
+                var percent = total == 0 ? 100 : 100d * processed / total;
+                Console.WriteLine($"AdjustName BATCH {batchNumber} ZAKONCZONY | Przetworzono: {processed}/{total} | Pozostalo: {remaining} | Postep: {percent:F2}% | Dodano firm: {added} | Pominieto: {processed - added}");
+                FirmyTempDbContext.ChangeTracker.Clear();
+            }
+            Statistics.FinishCurrentPhase("Finished", added);
+        }
+
 
         public async Task AddNewCompaniesFromImportTargetToTemp()
         {

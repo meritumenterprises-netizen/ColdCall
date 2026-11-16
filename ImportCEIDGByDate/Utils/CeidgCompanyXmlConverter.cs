@@ -196,7 +196,9 @@ namespace ImportCEIDGByDate
                 if (wojewodztwoId == 1)
                     company.SkipAddressVerification = true;
             }
-            company.Name = xmlDoc.GetInnerTextOrEmpty("NazwaPodmiotu");
+            var name = xmlDoc.GetInnerTextOrEmpty("NazwaPodmiotu");
+            if (!string.IsNullOrWhiteSpace(name))
+                company.Name = name;
             company.FirstName = xmlDoc.GetInnerTextOrEmpty("Imie");
             company.LastName = xmlDoc.GetInnerTextOrEmpty("Nazwisko");
             company.Nip = xmlDoc.GetInnerTextOrEmpty("Nip");
