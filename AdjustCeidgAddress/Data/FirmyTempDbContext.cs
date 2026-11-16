@@ -17,6 +17,7 @@ public partial class FirmyTempDbContext : DbContext
     public virtual DbSet<BusinessType> BusinessTypes { get; set; }
 
     public virtual DbSet<Company> Companies { get; set; }
+    public virtual DbSet<AdjustName> AdjustNames { get; set; }
     public virtual DbSet<GlobalSetting> GlobalSettings { get; set; }
     public virtual DbSet<UserLogin> UserLogins { get; set; }
     public virtual DbSet<CompanyXml> CompanyXml { get; set; }
@@ -41,6 +42,20 @@ public partial class FirmyTempDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureNameGramSchema(modelBuilder);
+        modelBuilder.Entity<AdjustName>(entity =>
+        {
+            entity.ToTable("AdjustName", "ColdCall");
+            entity.HasKey(e => e.AdjustId).HasName("PK_AdjustName");
+            entity.HasIndex(e => e.Nip, "NonClusteredIndex-20261116-134625").IsUnique();
+            entity.Property(e => e.AdjustId).UseIdentityColumn();
+            entity.Property(e => e.Nip).HasColumnName("NIP").HasMaxLength(50).IsUnicode(false).IsRequired();
+            entity.Property(e => e.Nazwa).HasMaxLength(1000).IsRequired();
+            entity.Property(e => e.CompanyXml).HasColumnType("nvarchar(max)").IsRequired(false);
+            entity.Property(e => e.WojewodztwoId).HasColumnType("int").IsRequired(false);
+            entity.Property(e => e.Processed).HasDefaultValue(false);
+            entity.Property(e => e.Adjusted).HasDefaultValue(false);
+            entity.Property(e => e.DateModified).HasColumnType("datetime").HasDefaultValueSql("(getdate())");
+        });
         modelBuilder.Entity<UserLogin>(entity =>
         {
             entity.ToTable("UserLogin", "ColdCall");

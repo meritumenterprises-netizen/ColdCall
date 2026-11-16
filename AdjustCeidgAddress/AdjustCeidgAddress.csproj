@@ -14,9 +14,6 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <None Update="Import\Zarejestrowane działalności - województwo dolnośląskie.xml">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Update="Import\Zarejestrowane działalności - województwo kujawsko-pomorskie.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -47,5 +44,29 @@
     <None Update="Import\Zarejestrowane działalności - województwo śląskie.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Import\Zarejestrowane działalności - brak województwa.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Import\Zarejestrowane działalności - województwo dolnośląskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Import\Zarejestrowane działalności - województwo mazowieckie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Import\Zarejestrowane działalności - województwo małopolskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Import\Zarejestrowane działalności - województwo wielkopolskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Import\Zarejestrowane działalności - województwo łódzkie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Import\Zarejestrowane działalności - województwo świętokrzyskie.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Import\Old\" />
   </ItemGroup>
 </Project>

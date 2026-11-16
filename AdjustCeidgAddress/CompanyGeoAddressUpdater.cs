@@ -54,6 +54,7 @@ public sealed class CompanyGeoAddressUpdater(FirmyTempDbContext context, Geoport
         try
         {
             await ApplyAsync(company, result, token);
+            company.AddressSort = CompanyAddressSort.Build(company, city ?? "");
             await context.SaveChangesAsync(token);
             return true;
         }

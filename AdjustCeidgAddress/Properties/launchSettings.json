@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "AdjustCeidgAddress": {
+      "commandName": "Project",
+      "commandLineArgs": "name"
+    }
+  }
+}
