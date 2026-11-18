@@ -12,6 +12,7 @@ namespace ImportCEIDGByDate
         public DateTime? ProcessEnd { get; set; }
 
         public string FinishMessage { get; set; }
+        public long SkippedDeletedRecords { get; set; }
 
         public string Summary
         {
@@ -43,6 +44,7 @@ namespace ImportCEIDGByDate
                 }
                 sb.AppendLine();
                 sb.AppendLine($"==== SUMMARY ====");
+                sb.AppendLine($"Skipped Wykreslony XML records: {SkippedDeletedRecords}");
                 this.ProcessEnd = DateTime.Now;
                 sb.AppendLine($"Process started at: {ProcessStart}");
                 if (ProcessEnd.HasValue)
@@ -107,6 +109,7 @@ namespace ImportCEIDGByDate
             this.NewDate = newDate;
             this.NewFilesFolder = newFilesFolder;
             this.Phases.Clear();
+            this.SkippedDeletedRecords = 0;
             this.StartNewPhase(ImportPhasesEnum.Initialization, "Initialization of program data");
         }
 

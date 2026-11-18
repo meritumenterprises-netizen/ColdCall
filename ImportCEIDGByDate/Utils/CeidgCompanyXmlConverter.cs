@@ -62,16 +62,16 @@ namespace ImportCEIDGByDate
             company.BuildingNumber = xmlDoc.GetInnerTextOrEmpty("NrBudynku");
             company.ApartmentNumber = xmlDoc.GetInnerTextOrEmpty("NrLokalu");
             company.PostalCode = xmlDoc.GetInnerTextOrEmpty("KodPocztowy");
-            if (xmlDoc.HasElement("Powiat"))
+            if (!string.IsNullOrWhiteSpace(xmlDoc.GetInnerTextOrEmpty("Powiat")))
             {
                 company.PowiatId = Lookups.CountyId(xmlDoc.GetInnerTextOrEmpty("Powiat"));
             }
-            if (xmlDoc.HasElement("Gmina"))
+            if (!string.IsNullOrWhiteSpace(xmlDoc.GetInnerTextOrEmpty("Gmina")))
             {
                 company.GminaId = Lookups.MunicipalityId(xmlDoc.GetInnerTextOrEmpty("Gmina"));
             }
 
-            if (xmlDoc.HasElement("Miejscowosc"))
+            if (!string.IsNullOrWhiteSpace(xmlDoc.GetInnerTextOrEmpty("Miejscowosc")))
             {
                 company.MiejscowoscId = Lookups.CityId(xmlDoc.GetInnerTextOrEmpty("Miejscowosc"));
             }
@@ -181,21 +181,17 @@ namespace ImportCEIDGByDate
             if (!string.Equals(company.Nip, nip, StringComparison.Ordinal))
                 throw new InvalidDataException($"Loaded company NIP={company.Nip} does not match XML NIP={nip}.");
 
-            var hasIncomingAddress = new[] { "Powiat", "Gmina", "Miejscowosc", "KodPocztowy", "Ulica", "NrBudynku", "NrLokalu" }
-                .Any(field => !string.IsNullOrWhiteSpace(xmlDoc.GetInnerTextOrEmpty(field)));
-            var hasExistingAddress = company.WojewodztwoId > 1 || company.PowiatId.HasValue
-                || company.GminaId.HasValue || company.MiejscowoscId.HasValue
-                || new[] { company.Street, company.PostalCode, company.BuildingNumber, company.ApartmentNumber }
-                    .Any(value => !string.IsNullOrWhiteSpace(value));
-            var preserveAddress = !hasIncomingAddress && hasExistingAddress;
-
-            company.BusinessType = 1; // Jednoosobowa dzialalność gospodarcza
-            if (!preserveAddress)
+            var previousAddress = (company.WojewodztwoId, company.PowiatId, company.GminaId,
+                company.MiejscowoscId, company.PostalCode, company.Street, company.BuildingNumber, company.ApartmentNumber);
+            string? AddressField(string field)
             {
-                company.WojewodztwoId = wojewodztwoId;
-                if (wojewodztwoId == 1)
-                    company.SkipAddressVerification = true;
+                var value = xmlDoc.GetInnerTextOrEmpty(field);
+                return string.IsNullOrWhiteSpace(value) ? null : value;
             }
+            var hasIncomingAddress = new[] { "Powiat", "Gmina", "Miejscowosc", "KodPocztowy", "Ulica", "NrBudynku", "NrLokalu" }
+                .Any(field => AddressField(field) != null);
+
+            company.BusinessType = 1;
             var name = xmlDoc.GetInnerTextOrEmpty("NazwaPodmiotu");
             if (!string.IsNullOrWhiteSpace(name))
                 company.Name = name;
@@ -216,30 +212,36 @@ namespace ImportCEIDGByDate
             company.ImportedOn = Statistics.NewDate;
 
             #region Adresy
-            if (preserveAddress)
+            if (!hasIncomingAddress)
             {
                 Console.WriteLine($"WARN | NIP={nip}, CompanyId={company.Id}: XML nie zawiera adresu; zachowano caly dotychczasowy adres firmy.");
             }
             else
             {
-                company.Street = xmlDoc.GetInnerTextOrEmpty("Ulica");
-                company.BuildingNumber = xmlDoc.GetInnerTextOrEmpty("NrBudynku");
-                company.ApartmentNumber = xmlDoc.GetInnerTextOrEmpty("NrLokalu");
-                company.PostalCode = xmlDoc.GetInnerTextOrEmpty("KodPocztowy");
-                if (xmlDoc.HasElement("Powiat"))
+                var street = AddressField("Ulica") ?? company.Street;
+                var building = AddressField("NrBudynku") ?? company.BuildingNumber;
+                var apartment = AddressField("NrLokalu") ?? company.ApartmentNumber;
+                var postalCode = AddressField("KodPocztowy") ?? company.PostalCode;
+                var countyId = AddressField("Powiat") is { } county ? Lookups.CountyId(county) : company.PowiatId;
+                var municipalityId = AddressField("Gmina") is { } municipality ? Lookups.MunicipalityId(municipality) : company.GminaId;
+                var cityId = AddressField("Miejscowosc") is { } city ? Lookups.CityId(city) : company.MiejscowoscId;
+                var addressChanged = previousAddress != ((int?)wojewodztwoId, countyId, municipalityId,
+                    cityId, postalCode, street, building, apartment);
+                if (addressChanged)
                 {
-                    company.PowiatId = Lookups.CountyId(xmlDoc.GetInnerTextOrEmpty("Powiat"));
+                    company.WojewodztwoId = wojewodztwoId;
+                    company.Street = street;
+                    company.BuildingNumber = building;
+                    company.ApartmentNumber = apartment;
+                    company.PostalCode = postalCode;
+                    company.PowiatId = countyId;
+                    company.GminaId = municipalityId;
+                    company.MiejscowoscId = cityId;
+                    company.AddressSort = CompanyAddressSort.Build(company, Lookups.CityName(company.MiejscowoscId));
+                    company.AddressIsMissing = true;
+                    company.SkipAddressVerification = wojewodztwoId == 1;
+                    Console.WriteLine($"NIP={nip}, CompanyId={company.Id}: zmieniono niepusty adres z XML; adres skierowany do GeoPortalu.");
                 }
-                if (xmlDoc.HasElement("Gmina"))
-                {
-                    company.GminaId = Lookups.MunicipalityId(xmlDoc.GetInnerTextOrEmpty("Gmina"));
-                }
-
-                if (xmlDoc.HasElement("Miejscowosc"))
-                {
-                    company.MiejscowoscId = Lookups.CityId(xmlDoc.GetInnerTextOrEmpty("Miejscowosc"));
-                }
-                company.AddressSort = CompanyAddressSort.Build(company, Lookups.CityName(company.MiejscowoscId));
             }
             #endregion
 

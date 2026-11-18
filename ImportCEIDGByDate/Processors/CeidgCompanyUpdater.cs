@@ -90,10 +90,10 @@ namespace ImportCEIDGByDate
                         document.LoadXml(row.CompanyXml);
                         if (document.DocumentElement?.Name != "Detail")
                             throw new XmlException("Expected a Detail XML record.");
-                        if (string.Equals(document.GetInnerTextOrEmpty("StatusDzialalnosci").Trim(),
-                            "Wykreślony", StringComparison.OrdinalIgnoreCase))
+                        if (CeidgActivityStatus.IsDeleted(document.GetInnerTextOrEmpty("StatusDzialalnosci")))
                         {
                             row.Processed = true;
+                            Statistics.SkippedDeletedRecords++;
                             Console.WriteLine($"AdjustName Id={row.AdjustId}, NIP={row.Nip}: status Wykreślony; pominieto import firmy i XML.");
                             continue;
                         }
@@ -234,6 +234,8 @@ namespace ImportCEIDGByDate
                         //    continue;
                         //}
 
+                        var previousAddress = (dbCompany.WojewodztwoId, dbCompany.PowiatId, dbCompany.GminaId,
+                            dbCompany.MiejscowoscId, dbCompany.PostalCode, dbCompany.Street, dbCompany.BuildingNumber, dbCompany.ApartmentNumber);
                         var existingCompany = await CeidgConverter.ConvertXmlToExistingCompany(company.WojewodztwoId, company.CompanyXml, dbCompany);
                         if (existingCompany == null)
                             throw new InvalidDataException($"Company with NIP={company.Nip} was not found.");
@@ -244,7 +246,15 @@ namespace ImportCEIDGByDate
                         {
                             Console.WriteLine($"Updating existing company {companyCounter + 1}/{companyTotal}");
                         }
-                        pendingAddresses.Add(new PendingCompanyAddressImport { Company = existingCompany, Target = company });
+                        var addressChanged = previousAddress != (existingCompany.WojewodztwoId, existingCompany.PowiatId, existingCompany.GminaId,
+                            existingCompany.MiejscowoscId, existingCompany.PostalCode, existingCompany.Street, existingCompany.BuildingNumber, existingCompany.ApartmentNumber);
+                        if (addressChanged)
+                            pendingAddresses.Add(new PendingCompanyAddressImport { Company = existingCompany, Target = company });
+                        else
+                        {
+                            await FirmyImportRepository.MarkImportedAsync(new[] { company.Id });
+                            addressProgress.Complete(false);
+                        }
                         if (pendingAddresses.Count == 100)
                             await FlushAddressesAsync(pendingAddresses, addressUpdater, addressProgress);
                         companyCounter++;

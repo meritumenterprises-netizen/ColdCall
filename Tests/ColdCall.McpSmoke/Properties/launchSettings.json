@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "ColdCall.McpSmoke": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:54019;http://localhost:54020"
+    }
+  }
+}

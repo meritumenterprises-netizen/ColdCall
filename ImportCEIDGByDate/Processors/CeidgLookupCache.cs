@@ -39,17 +39,17 @@ public sealed class CeidgLookupCache(FirmyTempDbContext context)
         {
             var document = new XmlDocument(); document.LoadXml(xml);
             var county = document.GetInnerTextOrEmpty("Powiat");
-            if (document.HasElement("Powiat") && !counties.ContainsKey(county))
+            if (!string.IsNullOrWhiteSpace(county) && !counties.ContainsKey(county))
             {
                 var row = new Powiaty { Name = county }; counties.Add(county, row); context.Powiaties.Add(row); changed = true;
             }
             var municipality = document.GetInnerTextOrEmpty("Gmina");
-            if (document.HasElement("Gmina") && !municipalities.ContainsKey(municipality))
+            if (!string.IsNullOrWhiteSpace(municipality) && !municipalities.ContainsKey(municipality))
             {
                 var row = new Gminy { Name = municipality }; municipalities.Add(municipality, row); context.Gminies.Add(row); changed = true;
             }
             var city = document.GetInnerTextOrEmpty("Miejscowosc");
-            if (document.HasElement("Miejscowosc") && !cities.ContainsKey(city))
+            if (!string.IsNullOrWhiteSpace(city) && !cities.ContainsKey(city))
             {
                 var row = new Miejscowosci { Name = city }; cities.Add(city, row); context.Miejscowoscis.Add(row); changed = true;
             }

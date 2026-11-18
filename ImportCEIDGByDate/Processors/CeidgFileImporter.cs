@@ -121,6 +121,7 @@ namespace ImportCEIDGByDate
                             var skippedKnownMd5Counter = 0;
                             var skippedDuplicateCounter = 0;
                             var skippedBlankNips = 0;
+                            var skippedDeletedRecords = 0;
                             double progress = fileCount > 0 ? (double)fileCounter / fileCount * 100.0 : 0;
 
                             Console.WriteLine($"Importing {progress:F2}% {fileCounter}/{fileCount} - {Path.GetFileName(report.FileName)} to table ImportTarget");
@@ -157,6 +158,16 @@ namespace ImportCEIDGByDate
                                 parsedRecordCounter++;
                                 using var subtree = reader.ReadSubtree();
                                 var detail = XElement.Load(subtree);
+
+                                var status = detail.Elements()
+                                    .FirstOrDefault(element => element.Name.LocalName == "StatusDzialalnosci")?.Value;
+                                if (CeidgActivityStatus.IsDeleted(status))
+                                {
+                                    skippedRecordCounter++;
+                                    skippedDeletedRecords++;
+                                    Statistics.SkippedDeletedRecords++;
+                                    continue;
+                                }
 
                                 var nip = detail.Elements()
                                     .FirstOrDefault(element => element.Name.LocalName == "Nip")?.Value.Trim() ?? "";
@@ -241,7 +252,7 @@ namespace ImportCEIDGByDate
                             sw.Stop();
                             var pendingFileRecords = fileStagedNips.Count(stagedNips.Contains);
                             Statistics.CurrentPhase.EntriesCount = pendingFileRecords;
-                            Console.WriteLine($"Done reading. Read {parsedRecordCounter} XML records; staging writes {recordCounter}; pending NIPs from this file {pendingFileRecords}; skipped {skippedRecordCounter} (known MD5: {skippedKnownMd5Counter}, duplicate MD5: {skippedDuplicateCounter}); blank NIPs: {skippedBlankNips}, new NIPs: {localNewNips.Count}. Elapsed time: {sw.ElapsedTime()}");
+                            Console.WriteLine($"Done reading. Read {parsedRecordCounter} XML records; staging writes {recordCounter}; pending NIPs from this file {pendingFileRecords}; skipped {skippedRecordCounter} (known MD5: {skippedKnownMd5Counter}, duplicate MD5: {skippedDuplicateCounter}, Wykreslony: {skippedDeletedRecords}); blank NIPs: {skippedBlankNips}, new NIPs: {localNewNips.Count}. Elapsed time: {sw.ElapsedTime()}");
                             globalRecordCounter = await ImportDbContext.ImportTargets.CountAsync();
                             fileCounter++;
                             Statistics.CurrentPhase.EntriesCount = pendingFileRecords;
@@ -256,7 +267,7 @@ namespace ImportCEIDGByDate
                 }
                 swGlobal.Stop();
                 globalRecordCounter = ImportDbContext.ImportTargets.Count();
-                Console.WriteLine($"Done importing. Total records: {globalRecordCounter}. Total new NIPs: {newNips.Count}. Total elapsed time: {swGlobal.ElapsedTime()}");
+                Console.WriteLine($"Done importing. Total records: {globalRecordCounter}. Total new NIPs: {newNips.Count}. Skipped Wykreslony XML records: {Statistics.SkippedDeletedRecords}. Total elapsed time: {swGlobal.ElapsedTime()}");
                 Statistics.ImportTargetRecordCount = globalRecordCounter;
             }
         }
