@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable><UserSecretsId>ColdCall-LocalDevelopment</UserSecretsId></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../WebApp/ColdCall.csproj" /><PackageReference Include="ModelContextProtocol.AspNetCore" Version="2.4.0" /></ItemGroup>
+</Project>
