@@ -14,7 +14,7 @@ public static class LocalAuthentication
     public const string UserIdClaim = "coldcall:user_id";
     public const string StampClaim = "coldcall:security_stamp";
     public const string GoogleSubjectClaim = "coldcall:google_subject";
-    public static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(7);
+    public static readonly TimeSpan SessionLifetime = TimeSpan.FromDays(3);
 
     public static AuthenticationProperties SessionProperties() => new()
     {

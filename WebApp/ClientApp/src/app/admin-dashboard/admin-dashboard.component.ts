@@ -5,7 +5,7 @@ import { PasswordGenerator } from '../services/password-generator';
 import { NipGenerator } from '../services/nip-generator';
 import { isValidNip } from '../services/nip-validation';
 import { Subscription, timer } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import { finalize, timeout } from 'rxjs/operators';
 import { AddressLevel, AddressOption, ApiService, AppUser, BusinessType, Company, CompanyFilters, Pkd, PlanDefinitionOption, SortableColumn } from '../services/api.service';
 
 @Component({
@@ -492,7 +492,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   dateTo = new Date().toLocaleDateString('sv-SE');
   radiusEnabled = false;
   radiusKm = 1;
-  radiusOptions = [1, 5, 10, 20, 30, 50, 100, 200, 500];
+  radiusOptions = [1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 300, 400, 500];
   pkdDescription = '';
   classifyingPkd = false;
   filterError = '';
@@ -906,7 +906,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     this.searchFinishedAt = 0;
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     this.loading = true;
-    this.companiesRequest = this.api.adminCompanies(this.page, this.sortBy, this.direction, '', this.selectedPkds.map(p => p.id), this.filters, this.nipTerm.replace(/[-\s]/g, ''), this.blockedByRodoFilter, refreshCount, this.companyResultDays).pipe(finalize(() => {
+    this.companiesRequest = this.api.adminCompanies(this.page, this.sortBy, this.direction, '', this.selectedPkds.map(p => p.id), this.filters, this.nipTerm.replace(/[-\s]/g, ''), this.blockedByRodoFilter, refreshCount, this.companyResultDays).pipe(timeout(150000), finalize(() => {
       this.loading = false;
       this.companiesRequest = null;
     })).subscribe(x => {

@@ -12,6 +12,8 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.KeyManagement;
 
 var initializeDatabase = args.Contains("--initialize-database", StringComparer.OrdinalIgnoreCase);
 var angularDevelopment = args.Contains("--angular-dev-server", StringComparer.OrdinalIgnoreCase);
@@ -63,13 +65,22 @@ builder.Services.AddScoped<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<AdminAccessService>();
 builder.Services.AddScoped<CompanyCsvExportService>();
 builder.Services.AddScoped<CsvExportCleanupService>();
-builder.Services.AddDataProtection();
+builder.Services.AddSingleton<SqlDataProtectionXmlRepository>();
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("ColdCall");
+if (OperatingSystem.IsWindows()) dataProtection.ProtectKeysWithDpapi(protectToLocalMachine: true);
+builder.Services.AddOptions<KeyManagementOptions>().Configure<SqlDataProtectionXmlRepository>(
+    (options, repository) => options.XmlRepository = repository);
 builder.Services.AddScoped<TrialPlanService>();
 builder.Services.AddHttpClient<IStripeCheckoutGateway, StripeCheckoutGateway>(client => client.Timeout = TimeSpan.FromSeconds(120));
 builder.Services.AddScoped<StripePaymentService>();
 builder.Services.AddHttpClient<InFaktService>(client => client.Timeout = TimeSpan.FromSeconds(120));
 builder.Services.AddHttpClient<TurnstileVerifier>(client => client.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient<PkdClassifier>(client => client.Timeout = TimeSpan.FromMinutes(2));
+builder.Services.AddHttpClient<AiSearchPlanner>(client => client.Timeout = TimeSpan.FromMinutes(2));
+builder.Services.AddScoped<AiCompanySearchService>();
+builder.Services.AddScoped<ColdCallMcpClient>();
+builder.Services.AddHttpClient<CeidgService>(client => client.Timeout = TimeSpan.FromSeconds(30))
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false });
 builder.Services.AddSpaStaticFiles(configuration => configuration.RootPath = "ClientApp/dist");
 builder.Services.AddCors(options =>
 {
@@ -266,8 +277,8 @@ app.Use(async (context, next) =>
 app.UseMiddleware<RequestCancellationMiddleware>();
 app.UseRouting();
 app.UseCors("LocalAngular");
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseMiddleware<AccountEnabledMiddleware>();
 app.UseMiddleware<TermsAcceptanceMiddleware>();
 app.UseMiddleware<ProfileCompletionMiddleware>();
@@ -292,10 +303,13 @@ app.Use(async (context, next) =>
     }
     await next();
 });
+// Execute matched controllers before the unmatched-API middleware and SPA fallback.
+#pragma warning disable ASP0014
 app.UseEndpoints(endpoints =>
 {
     endpoints.MapControllers();
 });
+#pragma warning restore ASP0014
 
 // Unmatched API requests must not fall through to the Angular default page.
 app.Use(async (context, next) =>

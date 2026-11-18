@@ -81,9 +81,17 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
   get dialogTitle(): string {
     if (!this.details) { return 'Dzia\u0142alno\u015b\u0107'; }
     const company = this.details.company;
-    const civilPartnershipStatus = 'Dzia\u0142alno\u015b\u0107 prowadzona wy\u0142\u0105cznie w formie sp\u00f3\u0142ki cywilnej';
-    return (company.statusDzialalnosciName || '').trim().toLowerCase() === civilPartnershipStatus.toLowerCase()
-      ? civilPartnershipStatus : company.businessTypeName || 'Dzia\u0142alno\u015b\u0107';
+    const title = company.businessTypeName || 'Dzia\u0142alno\u015b\u0107';
+    return this.companyStatusLabel ? title + ' - ' + this.companyStatusLabel : title;
+  }
+
+  get companyStatusLabel(): string {
+    if (!this.details) { return ''; }
+    const company = this.details.company;
+    if (company.statusDzialalnosciId === 1) { return 'Aktywna'; }
+    if (company.statusDzialalnosciId === 2) { return 'Zawieszona'; }
+    const status = (company.statusDzialalnosciName || '').trim();
+    return status ? status.charAt(0).toUpperCase() + status.slice(1).toLowerCase() : '';
   }
 
   get activityDateKey(): 'startedAt' | 'resumedOn' | 'suspendedOn' {
@@ -268,14 +276,36 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
     if (!this.details || this.loading || this.copying || !(this.details.company.nip || '').trim()) { return; }
     this.copying = true;
     this.copyError = '';
+    let ceidgWindow: Window | null = null;
     try {
-      await navigator.clipboard.writeText(this.details.company.nip!.trim());
-      this.copyConfirmationMessage = 'Skopiowano NIP do schowka. Otwieram stron\u0119 CEIDG';
+      const company = this.details.company;
+      const nip = company.nip!.trim();
+      const status = (company.statusDzialalnosciName || '').trim().toUpperCase();
+      let ceidgCompanyId = '';
+      if (['AKTYWNY', 'WYKRE\u015aLONY', 'DZIA\u0141ALNO\u015a\u0106 PROWADZONA WY\u0141\u0104CZNIE W FORMIE SP\u00d3\u0141KI CYWILNEJ'].indexOf(status) >= 0) {
+        // Open synchronously from the click so the browser does not block the tab after the API call.
+        ceidgWindow = window.open('about:blank', '_blank');
+        if (ceidgWindow) { ceidgWindow.opener = null; }
+        try { ceidgCompanyId = (await this.api.getCompanyId(nip, status).toPromise() || '').trim(); }
+        catch { ceidgCompanyId = ''; }
+      }
+      if (!this.details || this.details.company !== company) { return; }
+      if (ceidgCompanyId) {
+        const url = 'https://aplikacja.ceidg.gov.pl/ceidg/ceidg.public.ui/SearchDetails.aspx?Id=' + encodeURIComponent(ceidgCompanyId);
+        if (ceidgWindow && !ceidgWindow.closed) { ceidgWindow.location.replace(url); ceidgWindow = null; }
+        else { window.location.assign(url); }
+        return;
+      }
+      if (ceidgWindow && !ceidgWindow.closed) { ceidgWindow.close(); ceidgWindow = null; }
+      await navigator.clipboard.writeText(nip);
+      if (!this.details || this.details.company !== company) { return; }
+      this.copyConfirmationMessage = 'Skopiowano NIP do schowka. Otwieram CEIDG';
       this.openCeidgAfterConfirmation = true;
       this.copyConfirmation.nativeElement.showModal();
     } catch {
       this.copyError = 'Nie uda\u0142o si\u0119 skopiowa\u0107 NIP do schowka.';
     } finally {
+      if (ceidgWindow && !ceidgWindow.closed) { ceidgWindow.close(); }
       this.copying = false;
     }
   }

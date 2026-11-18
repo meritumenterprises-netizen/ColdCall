@@ -43,7 +43,7 @@ public class CompanySearchQuery
             throw new ArgumentException("Niepoprawny identyfikator adresu.");
         if (addressLocality && !miejscowoscId.HasValue)
             throw new ArgumentException("Wybierz miejscowosc.");
-        if (radiusKm.HasValue && (!new[] { 1, 5, 10, 20, 30, 50, 100, 200, 500 }.Contains(radiusKm.Value)
+        if (radiusKm.HasValue && (!new[] { 1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 300, 400, 500 }.Contains(radiusKm.Value)
             || !miejscowoscId.HasValue))
             throw new ArgumentException("Wybierz miejscowosc i poprawny promien.");
         var companies = await ApplyPkdFilterAsync(source ?? _db.Companies.AsNoTracking(), pkdIds, token);
@@ -160,11 +160,15 @@ public class CompanySearchQuery
                         { Value = startedTo.Value == DateOnly.MaxValue ? DateTime.MaxValue
                             : startedTo.Value.AddDays(1).ToDateTime(TimeOnly.MinValue) });
                 }
+                // Only byte-valued flags/statuses and fixed SQL predicates are interpolated;
+                // user text and dates are SqlParameters. Keep literals for index selectivity.
+#pragma warning disable EF1002
                 var contactNameIds = _db.Database.SqlQueryRaw<int>($"""
                     SELECT Id AS [Value]
                     FROM ColdCall.Companies WITH (INDEX(IX_Companies_ContactFlags_Status_StartedAt_Id))
                     WHERE ContactFlags IN ({flags}) AND Name LIKE @Pattern ESCAPE N'~' {predicates}
                     """, parameters.ToArray());
+#pragma warning restore EF1002
                 const int candidateLimit = 50000;
                 var ids = await contactNameIds.Take(candidateLimit + 1).ToArrayAsync(token);
                 companies = ids.Length <= candidateLimit
@@ -290,7 +294,10 @@ public class CompanySearchQuery
                 WHERE p.PkdCodeId IN (SELECT [Value] FROM OPENJSON(@PkdIds) WITH ([Value] int '$'))
                 OPTION (RECOMPILE);
                 """, new object[] { new SqlParameter("@PkdIds", System.Data.SqlDbType.NVarChar, -1) { Value = key } }, token);
+            // SQL identifiers cannot be parameters; table is a fixed prefix plus a generated GUID.
+#pragma warning disable EF1002
             ids = _db.Database.SqlQueryRaw<int>($"SELECT [Value] FROM [{table}]");
+#pragma warning restore EF1002
             _pkdCandidates.Add(key, ids);
         }
         return query.Where(company => ids.Contains(company.Id));
@@ -380,7 +387,9 @@ public class CompanySearchQuery
                 new SqlParameter("@MaxLongitude", center.X + longitudeHalfWidth)
             }, token);
         // Only the generated GUID identifier is interpolated; all coordinates are parameters.
+#pragma warning disable EF1002
         var ids = _db.Database.SqlQueryRaw<int>($"SELECT [Value] FROM [{table}]");
+#pragma warning restore EF1002
         return query.Where(company => ids.Contains(company.Id));
     }
 

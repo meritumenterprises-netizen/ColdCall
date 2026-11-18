@@ -19,6 +19,74 @@ interface ResultTab {
   styleUrls: ['./user-dashboard.component.css']
 })
 export class UserDashboardComponent implements OnInit, OnDestroy {
+  aiQuestion = '';
+  aiBusy = false;
+  aiElapsedSeconds = 0;
+  private aiElapsedTimer: Subscription | null = null;
+  aiError = '';
+  aiSummary = '';
+  private aiRequest: Subscription | null = null;
+  @ViewChild('aiSearchProgressDialog', { static: true }) aiSearchProgressDialog: ElementRef;
+
+  get aiSearchAvailable(): boolean {
+    const user = this.api.user();
+    return !!user && (user.isAdmin || (user.hasActivePlan && !!user.plan && !user.plan.isTrial));
+  }
+
+  onAiQuestionChange(text: string) {
+    this.aiQuestion = text;
+    if (this.currentSearchId !== null && this.currentSearchId > 0) { return; }
+    this.searchName = text.replace(/\s+/g, ' ').trim().slice(0, 128);
+    this.error = '';
+  }
+
+  onAiQuestionEnter(event: KeyboardEvent & { isComposing?: boolean }) {
+    if (event.shiftKey || event.isComposing || event.keyCode === 229) { return; }
+    event.preventDefault();
+    if (!event.repeat) { this.runAiSearch(); }
+  }
+
+  runAiSearch() {
+    const text = this.aiQuestion.trim();
+    if (!this.aiSearchAvailable || text.length < 3 || this.aiBusy || this.savingSearch || this.restoringSearch || this.classifyingPkd || this.exportingCsv) { return; }
+    const targetSearchId = this.currentSearchId;
+    this.aiBusy = true;
+    const progressDialog = this.aiSearchProgressDialog.nativeElement as HTMLDialogElement;
+    progressDialog.showModal();
+    this.aiElapsedSeconds = 0;
+    const startedAt = performance.now();
+    this.aiElapsedTimer = timer(0, 250).subscribe(() => {
+      this.aiElapsedSeconds = Math.floor((performance.now() - startedAt) / 1000);
+    });
+    this.aiError = ''; this.aiSummary = '';
+    this.aiRequest = this.api.aiSearch(text).pipe(timeout(190000), finalize(() => {
+      this.aiBusy = false;
+      if (this.aiElapsedTimer) { this.aiElapsedTimer.unsubscribe(); this.aiElapsedTimer = null; }
+      if (progressDialog.open) { progressDialog.close(); }
+    })).subscribe(result => {
+      if (this.savingSearch || this.restoringSearch || this.classifyingPkd || this.exportingCsv || this.currentSearchId !== targetSearchId) {
+        this.aiError = 'Zakoncz biezaca operacje i ponow wyszukiwanie AI.';
+        return;
+      }
+      this.aiSummary = result.summary;
+      let name = this.searchName.trim();
+      if (!name) {
+        const baseName = text.slice(0, 128).trim();
+        name = baseName;
+        let suffix = 2;
+        while (this.searches.some(search => search.name.trim().toLowerCase() === name.toLowerCase())) {
+          const ending = ' (' + suffix++ + ')';
+          name = baseName.slice(0, 128 - ending.length).trim() + ending;
+        }
+      }
+      this.error = '';
+      this.applySearchProfile({ id: targetSearchId === null ? this.nextDraftId-- : targetSearchId,
+        name, pkdCodes: result.pkdCodes, criteria: result.criteria }, true);
+    }, error => {
+      this.aiError = error && error.error && error.error.message
+        ? error.error.message : 'Nie udalo sie wyszukac firm. Sprobuj ponownie.';
+    });
+  }
   isFutureActivityDate = isFutureActivityDate;
   searches: SearchProfile[] = [];
   searchRecordCounts: { [id: number]: number | null } = {};
@@ -90,7 +158,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private deleteExportRequest: Subscription | null = null;
   private exportsRequest: Subscription | null = null;
   private downloadRequest: Subscription | null = null;
-  activeFilterTab: 'pkd' | 'criteria' | 'contact' | 'address' = 'criteria';
+  activeFilterTab: 'ai' | 'pkd' | 'criteria' | 'contact' | 'address' = 'criteria';
   readonly resultTabs: ResultTab[] = [
     { key: 'all', label: 'Wszystkie', days: undefined, page: 1 },
     { key: '30', label: 'Zmienione w ost. 30 dniach', days: 30, page: 1 },
@@ -115,7 +183,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   radiusKm = 1;
   private addressFiltersChanged = false;
   maxRecordLimit = 0;
-  readonly radiusOptions = [1, 5, 10, 20, 30, 50, 100, 200, 500];
+  readonly radiusOptions = [1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 300, 400, 500];
   pkdSuggestions: Pkd[] = [];
   maxSelectedPkds = 20;
   foundPkdId: number | null = null;
@@ -186,6 +254,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   constructor(private api: ApiService, private route: ActivatedRoute, private router: Router, private searchDraftStore: SearchDraftStore) {}
 
   ngOnInit() {
+    this.activeFilterTab = this.aiSearchAvailable ? 'ai' : 'criteria';
     this.dashboardNavigationRequest = this.api.dashboardSearchRequested.subscribe(() => {
       if (!this.publicPageTitle) { this.selectDashboardTab('search'); }
     });
@@ -369,6 +438,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   newSearch() {
     if (this.publicPageTitle) { this.router.navigate(['/dashboard'], { queryParams: { newSearch: 'true' } }); return; }
     if (!this.canAddSearch || this.savingSearch || this.restoringSearch || this.classifyingPkd) { return; }
+    this.aiQuestion = ''; this.aiError = ''; this.aiSummary = '';
     this.rememberDraft();
     this.activeDashboardTab = 'search';
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
@@ -401,7 +471,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.dateRangeEnabled = false; this.dateFrom = '2020-01-01'; this.dateTo = this.todayDate();
     this.radiusEnabled = false; this.radiusKm = 1;
     this.sortBy = 'dataAktywnosci'; this.direction = 'desc';
-    this.activeFilterTab = 'criteria';
+    this.activeFilterTab = this.aiSearchAvailable ? 'ai' : 'criteria';
     this.hasNotes = false;
     this.activeResultTab = this.resultTabs[0];
     this.error = ''; this.filterError = '';
@@ -546,7 +616,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
   }
 
-  selectFilterTab(tab: 'pkd' | 'criteria' | 'contact' | 'address') {
+  selectFilterTab(tab: 'ai' | 'pkd' | 'criteria' | 'contact' | 'address') {
     this.activeFilterTab = tab;
     this.pkdHint = null;
   }
@@ -554,7 +624,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   navigateFilterTabs(event: KeyboardEvent) {
     if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(event.key) === -1) { return; }
     event.preventDefault();
-    const tabs: ('pkd' | 'criteria' | 'contact' | 'address')[] = ['criteria', 'pkd', 'address', 'contact'];
+    const tabs: ('ai' | 'pkd' | 'criteria' | 'contact' | 'address')[] = this.aiSearchAvailable
+      ? ['ai', 'criteria', 'pkd', 'address', 'contact'] : ['criteria', 'pkd', 'address', 'contact'];
     const index = tabs.indexOf(this.activeFilterTab);
     const tab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[tabs.length - 1] :
       tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
@@ -664,14 +735,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.error = '';
     this.searchStartedAt = startedAt;
     this.searchFinishedAt = 0;
-    if (this.companiesRequest && !this.companiesRequest.closed) {
-      this.pendingCompaniesLoad = { refresh: refreshSearchCount || !!(this.pendingCompaniesLoad && this.pendingCompaniesLoad.refresh), startedAt };
-      return;
-    }
+    this.pendingCompaniesLoad = null;
+    if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
+    if (this.allResultsCountRequest) { this.allResultsCountRequest.unsubscribe(); }
     this.loading = true;
     this.refreshingSearchCount = refreshSearchCount;
     this.companiesRequest = this.api.companies(this.page, this.sortBy, this.direction, this.selectedPkds.map(x => x.id), this.appliedFilters, this.activeResultTab.days, this.activeResultTab.key === 'notes', refreshSearchCount)
-      .pipe(finalize(() => {
+      .pipe(timeout(150000), finalize(() => {
         this.loading = false; this.refreshingSearchCount = false;
         this.companiesRequest = null;
         const pending = this.pendingCompaniesLoad;
@@ -698,7 +768,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       if (refreshSearchCount && this.activeResultTab.key !== 'all' && this.currentSearchId !== null) {
         const searchId = this.currentSearchId;
         this.allResultsCountRequest = this.api.companies(1, this.sortBy, this.direction,
-          this.selectedPkds.map(x => x.id), this.appliedFilters).subscribe(count => {
+          this.selectedPkds.map(x => x.id), this.appliedFilters).pipe(timeout(150000)).subscribe(count => {
             if (!this.companiesDestroyed && generation === this.companiesGeneration && this.currentSearchId === searchId) { this.rememberRecordCount(searchId, count.totalWithoutLimit == null ? count.total : count.totalWithoutLimit); }
           }, () => {
             if (!this.companiesDestroyed && generation === this.companiesGeneration && this.currentSearchId === searchId) { this.searchRecordCounts[searchId] = null; }
@@ -710,7 +780,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       this.total = 0;
       this.totalWithoutLimit = 0;
       if (refreshSearchCount && this.activeResultTab.key === 'all' && this.currentSearchId !== null) { this.searchRecordCounts[this.currentSearchId] = null; }
-      this.error = err.status === 402 ? '' :
+      this.error = err.name === 'TimeoutError' ? 'Wyszukiwanie przekroczylo limit czasu. Sprobuj ponownie.' : err.status === 402 ? '' :
         (err.status === 400 || err.status === 503) && err.error && err.error.message ? err.error.message : 'Nie udalo sie pobrac firm.';
     });
   }
@@ -723,9 +793,11 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
+    if (this.aiRequest) { this.aiRequest.unsubscribe(); }
     if (this.dashboardNavigationRequest) { this.dashboardNavigationRequest.unsubscribe(); }
     this.showCsvProgress(false);
     this.companiesDestroyed = true;
+    if (this.aiElapsedTimer) { this.aiElapsedTimer.unsubscribe(); this.aiElapsedTimer = null; }
     this.pendingCompaniesLoad = null;
     this.preserveSearchDrafts();
     if (this.deletionQuotaRequest) { this.deletionQuotaRequest.unsubscribe(); }
@@ -864,6 +936,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     this.searchName = this.sanitizeNameInput(event).slice(0, 128);
     input.value = this.searchName;
+    this.error = '';
   }
 
   private sanitizeNameInput(event: Event): string {
@@ -1028,6 +1101,12 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       if (!this.saveNewSearchDialog.nativeElement.open) { this.saveNewSearchDialog.nativeElement.showModal(); }
       return;
     }
+    this.aiQuestion = ''; this.aiError = ''; this.aiSummary = '';
+    this.applySearchProfile(profile);
+  }
+
+  private applySearchProfile(profile: SearchProfile, preserveSavedState = false) {
+    const savedState = this.savedSearchState;
     this.rememberDraft();
     if (this.searchCountsRequest) { this.searchCountsRequest.unsubscribe(); }
     if (this.companyNameDelay) { this.companyNameDelay.unsubscribe(); }
@@ -1095,7 +1174,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       });
       this.appliedFilters.radiusKm = this.radiusEnabled ? this.radiusKm : undefined;
       this.lastUpdatedFilterState = this.filterState();
-      this.savedSearchState = profile.id > 0 ? this.searchState() : null;
+      this.savedSearchState = preserveSavedState ? savedState : profile.id > 0 ? this.searchState(profile.name) : null;
       this.addressFiltersChanged = false;
       this.resultTabs.forEach(tab => tab.page = 1);
       this.page = 1;
@@ -1164,7 +1243,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         this.searchSaved = true;
         this.switchAfterSave = this.pendingSearchSwitch;
         this.pendingSearchSwitch = null;
-        if (!this.switchAfterSave) { this.loadCompanies(); }
       }, err => {
         if (persistedId === null && err.status === 409 && err.error && err.error.code === 'DuplicateSearchCriteria') {
           this.duplicateSearchDialog.nativeElement.showModal();
@@ -1191,8 +1269,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       && (this.savedSearchState === null || this.searchState() !== this.savedSearchState);
   }
 
-  private searchState() {
-    return JSON.stringify({ name: this.searchName.trim(), sortBy: this.sortBy, direction: this.direction, filters: this.filterState() });
+  private searchState(name = this.searchName) {
+    return JSON.stringify({ name: name.trim(), sortBy: this.sortBy, direction: this.direction, filters: this.filterState() });
   }
 
   sort(column: string) {

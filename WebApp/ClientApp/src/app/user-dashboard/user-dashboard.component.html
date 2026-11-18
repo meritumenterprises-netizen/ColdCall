@@ -31,6 +31,12 @@
         aria-busy="true" (cancel)="$event.preventDefault()">
   <h2 id="csv-progress-title" role="status" aria-live="polite">Eksportowanie do CSV...</h2>
 </dialog>
+<dialog #aiSearchProgressDialog class="ai-search-progress" aria-labelledby="ai-search-progress-title"
+        aria-busy="true" (cancel)="$event.preventDefault()">
+  <span class="grid-spinner" aria-hidden="true"></span>
+  <p id="ai-search-progress-title" role="status" aria-live="polite">Szukanie firm...</p>
+  <p class="ai-search-elapsed" role="timer" aria-live="off">Czas: {{ aiElapsedSeconds }} s</p>
+</dialog>
 <dialog #saveNewSearchDialog class="save-search-dialog" aria-labelledby="save-new-search-title"
         (cancel)="$event.preventDefault(); cancelSearchSwitch()">
   <h2 id="save-new-search-title">Zapis wyszukiwania</h2>
@@ -90,6 +96,9 @@
 
     <section class="filters-layout" aria-label="Filtry wyszukiwania">
     <div class="filter-tabs" role="tablist" aria-label="Filtry firm">
+      <button *ngIf="aiSearchAvailable" type="button" id="ai-tab" role="tab" aria-controls="ai-panel"
+              [attr.aria-selected]="activeFilterTab === 'ai'" [attr.tabindex]="activeFilterTab === 'ai' ? 0 : -1"
+              (click)="selectFilterTab('ai')" (keydown)="navigateFilterTabs($event)">Opisz poszukiwane firmy</button>
       <button type="button" id="criteria-tab" role="tab" aria-controls="criteria-panel"
               [attr.aria-selected]="activeFilterTab === 'criteria'" [attr.tabindex]="activeFilterTab === 'criteria' ? 0 : -1"
               (click)="selectFilterTab('criteria')" (keydown)="navigateFilterTabs($event)">Og&#243;lne</button>
@@ -103,6 +112,18 @@
               [attr.aria-selected]="activeFilterTab === 'contact'" [attr.tabindex]="activeFilterTab === 'contact' ? 0 : -1"
               (click)="selectFilterTab('contact')" (keydown)="navigateFilterTabs($event)">Kontakt</button>
     </div>
+    <section class="ai-search" *ngIf="aiSearchAvailable" id="ai-panel" role="tabpanel" aria-labelledby="ai-tab"
+             [hidden]="activeFilterTab !== 'ai'" [attr.aria-busy]="aiBusy">
+      <div class="ai-search-input">
+        <textarea id="ai-question" name="aiQuestion" aria-label="Opisz poszukiwane firmy" [ngModel]="aiQuestion" (ngModelChange)="onAiQuestionChange($event)" maxlength="2000" rows="4" (keydown.enter)="onAiQuestionEnter($event)"
+          placeholder="Podaj typ firmy, specjalizację i możliwy adres (miejscowość lub firmy w promieniu x km)" [disabled]="aiBusy"></textarea>
+        <button type="button" class="primary-button" (click)="runAiSearch()"
+          [disabled]="aiBusy || aiQuestion.trim().length < 3 || savingSearch || restoringSearch || classifyingPkd || exportingCsv">
+          {{ aiBusy ? 'Szukanie...' : 'Szukaj' }}
+        </button>
+      </div>
+      <p *ngIf="aiError" class="error" role="alert">{{ aiError }}</p>
+    </section>
     <fieldset class="filter-controls" [disabled]="filtersLocked" [attr.aria-busy]="classifyingPkd || restoringSearch">
     <section class="pkd-filter-panel" id="pkd-panel" role="tabpanel" aria-labelledby="pkd-tab" [hidden]="activeFilterTab !== 'pkd'">
       <div class="pkd-search-row">

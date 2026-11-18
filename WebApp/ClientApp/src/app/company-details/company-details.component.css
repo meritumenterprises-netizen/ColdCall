@@ -16,7 +16,7 @@ dialog:not(.copy-confirmation) > header { flex: 0 0 auto; }
 dialog:not(.copy-confirmation) > .dialog-body { flex: 1; min-height: 0; overflow: auto; }
 dialog::backdrop { background: rgba(20, 23, 30, .35); }
 header { display: flex; gap: 16px; align-items: flex-start; padding: 20px 24px; border-bottom: 1px solid var(--border); background: var(--surface); color: var(--text-primary); }
-h2 { flex: 1; min-width: 0; margin: 0; font-size: 20px; line-height: 1.4; overflow-wrap: anywhere; }
+h2 { flex: 1; min-width: 0; margin: 0; font-size: 20px; line-height: 1.4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .header-actions { display: flex; flex: 0 0 auto; gap: 8px; }
 .close-button, .header-icon-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: var(--surface-muted); color: var(--text-secondary); font-size: 24px; line-height: 32px; cursor: pointer; }
 .close-button:hover, .header-icon-button:hover { background: var(--accent-soft); }
@@ -28,7 +28,7 @@ h2 { flex: 1; min-width: 0; margin: 0; font-size: 20px; line-height: 1.4; overfl
 .dialog-body { padding: 20px 24px; }
 .company-name { display: grid; grid-template-columns: minmax(0, 3fr) repeat(2, minmax(0, 1fr)); gap: 16px 24px; margin: 0; }
 .company-name > div { min-width: 0; }
-.future-activity-date dd { color: #b42318; }
+.future-activity-date dd, .suspended-activity-date dd { color: #b42318; }
 .company-tabs { display: flex; gap: 20px; margin-top: 20px; border-bottom: 1px solid var(--border); }
 .company-tabs button { border: 0; border-radius: 0; background: transparent; padding: 10px 4px; margin-bottom: -1px; border-bottom: 2px solid transparent; color: var(--text-secondary); font-size: 14px; cursor: pointer; }
 .company-tabs button[aria-selected="true"] { border-bottom-color: var(--accent); color: var(--accent-strong); font-weight: 600; }
@@ -62,10 +62,10 @@ h2 { flex: 1; min-width: 0; margin: 0; font-size: 20px; line-height: 1.4; overfl
 dt { font-size: 12px; font-weight: 400; color: var(--text-secondary); }
 dd { margin: 4px 0 0; font-size: 14px; font-weight: 400; overflow-wrap: anywhere; }
 .company-name-field dd { font-size: 16px; font-weight: 700; }
-.company-name-value { display: flex; align-items: center; gap: 8px; }
+.company-name-value { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .company-name-value span { min-width: 0; }
-.name-copy-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 32px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: var(--surface-muted); cursor: pointer; }
-.name-copy-button:hover { background: var(--accent-soft); }
+.name-copy-button { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; min-height: 28px; max-width: 100%; padding: 4px 8px; border: 1px solid #86d3a5; border-radius: 4px; background: #dcfce7; color: #166534; font-size: 12px; font-weight: 600; line-height: 18px; cursor: pointer; }
+.name-copy-button:hover:not(:disabled) { background: #bbf7d0; border-color: #4caf75; }
 .name-copy-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .name-copy-button:disabled { opacity: .5; cursor: default; }
 .single-line-value { white-space: nowrap; overflow-wrap: normal; overflow-x: auto; }

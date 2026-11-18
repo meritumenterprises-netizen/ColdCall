@@ -1,6 +1,6 @@
 <dialog #dialog [class.map-view]="activeTab === 'map'" aria-labelledby="company-details-title" (cancel)="close()">
   <header>
-    <h2 id="company-details-title">{{ dialogTitle }}</h2>
+    <h2 id="company-details-title" [title]="dialogTitle">{{ dialogTitle }}</h2>
     <div class="header-actions">
       <button type="button" class="header-icon-button" (click)="copyCompany()" [disabled]="!details || loading || copying"
               aria-label="Kopiuj do schowka" title="Kopiuj do schowka">
@@ -31,12 +31,13 @@
         <div class="company-name-field">
           <dt>Nazwa</dt><dd class="company-name-value"><span>{{ value('name') }}</span>
             <button type="button" class="name-copy-button" (click)="copyNipAndOpenCeidg()" [disabled]="copying || !(details.company.nip || '').trim()"
-                    title="Kopiuj NIP i otw&#243;rz CEIDG" aria-label="Kopiuj NIP i otw&#243;rz CEIDG">
-              <img src="assets/globe.svg" width="20" height="20" alt="">
+                    title="Otw&#243;rz w CEIDG" aria-label="Otw&#243;rz w CEIDG">
+              Otw&#243;rz w CEIDG
             </button>
           </dd>
         </div>
-        <div class="company-date-field" [class.future-activity-date]="isFutureActivityDate(details.company[activityDateKey])">
+        <div class="company-date-field" [class.future-activity-date]="isFutureActivityDate(details.company[activityDateKey])"
+             [class.suspended-activity-date]="activityDateKey === 'suspendedOn'">
           <dt>{{ activityDateLabel }}</dt><dd>{{ value(activityDateKey) }}</dd>
         </div>
         <div class="company-date-field">

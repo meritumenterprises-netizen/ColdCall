@@ -103,6 +103,11 @@ export interface CsvExportRow { id: number; userId: number; searchProfileId: num
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
+  aiSearch(text: string): Observable<{ criteria: SearchCriteria; pkdCodes: Pkd[]; total: number; summary: string }> {
+    const csrf = this.csrfToken ? of(this.csrfToken) : this.csrfRequest || this.refreshCsrf();
+    return csrf.pipe(switchMap(() => this.http.post<{ criteria: SearchCriteria; pkdCodes: Pkd[]; total: number; summary: string }>(
+      this.url('/api/ai-search'), { text }, this.headers())));
+  }
   private dashboardSearchNavigation = new Subject<void>();
   readonly dashboardSearchRequested = this.dashboardSearchNavigation.asObservable();
   showDashboardSearch() { this.dashboardSearchNavigation.next(); }
@@ -419,6 +424,11 @@ export class ApiService {
 
   companyDetails(id: number): Observable<CompanyDetails> {
     return this.http.get<CompanyDetails>(this.url('/api/companies/' + id), this.headers());
+  }
+  getCompanyId(nip: string, status: string): Observable<string> {
+    return this.http.get<string>(this.url('/api/companies/ceidg-id'), {
+      ...this.headers(), params: { nip, status }
+    });
   }
   companyStatuses(): Observable<AddressOption[]> {
     return this.http.get<AddressOption[]>(this.url('/api/company-statuses'), this.headers()).pipe(

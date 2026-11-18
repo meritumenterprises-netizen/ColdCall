@@ -6,4 +6,8 @@
     <Project Path="AdjustCeidgAddress/AdjustCeidgAddress.csproj" />
   </Folder>
   <Project Path="WebApp/ColdCall.csproj" />
+  <Project Path="ColdCall.McpServer/ColdCall.McpServer.csproj" />
+  <Folder Name="/Tests/">
+    <Project Path="Tests/ColdCall.McpSmoke/ColdCall.McpSmoke.csproj" />
+  </Folder>
 </Solution>
