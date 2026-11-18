@@ -12,6 +12,10 @@ param(
     [string]$AppPoolName = 'ColdCall.McpServer',
     [ValidateRange(1024, 65535)]
     [int]$Port = 5086,
+    [switch]$PublicHttps,
+    [ValidatePattern('^[A-Za-z0-9.-]+$')]
+    [string]$HostName = 'mcp.findmyclient.pl',
+    [string]$CertificateThumbprint,
     [Security.SecureString]$ConnectionString,
     [Security.SecureString]$SigningKey
 )
@@ -87,6 +91,24 @@ try {
         throw 'ASP.NET Core IIS module is missing. Install/repair the .NET 10 Hosting Bundle after installing IIS.'
     }
     $binding = '127.0.0.1:' + $Port + ':'
+    $httpsBinding = '*:443:' + $HostName
+    $certificate = $null
+    if ($PublicHttps) {
+        if ([string]::IsNullOrWhiteSpace($CertificateThumbprint)) {
+            throw 'Public HTTPS requires -CertificateThumbprint for a certificate in Cert:\LocalMachine\My.'
+        }
+        $thumbprint = $CertificateThumbprint.Replace(' ', '')
+        if ($thumbprint -notmatch '^[A-Fa-f0-9]{40}$') { throw 'Invalid certificate thumbprint.' }
+        $certificate = Get-Item -LiteralPath ("Cert:\LocalMachine\My\" + $thumbprint)
+        if (-not $certificate.HasPrivateKey -or $certificate.NotAfter -le (Get-Date) -or $certificate.NotBefore -gt (Get-Date)) {
+            throw 'The HTTPS certificate must be valid and have a private key.'
+        }
+        $matchingNames = @($certificate.DnsNameList | ForEach-Object { $_.Unicode })
+        $wildcardName = '*.' + ($HostName -replace '^[^.]+\.', '')
+        if ($matchingNames -notcontains $HostName -and $matchingNames -notcontains $wildcardName) {
+            throw 'The HTTPS certificate does not cover HostName.'
+        }
+    }
     $site = $manager.Sites[$SiteName]
     $pool = $manager.ApplicationPools[$AppPoolName]
     foreach ($otherSite in $manager.Sites) {
@@ -97,6 +119,10 @@ try {
             }
         }
         foreach ($otherBinding in $otherSite.Bindings) {
+            if ($PublicHttps -and $otherSite.Name -ne $SiteName -and
+                $otherBinding.Protocol -eq 'https' -and $otherBinding.Host -eq $HostName) {
+                throw 'The HTTPS hostname is already assigned to another IIS site.'
+            }
             if ($otherSite.Name -ne $SiteName -and $otherBinding.EndPoint -and $otherBinding.EndPoint.Port -eq $Port) {
                 throw "Port $Port is already assigned to another IIS site. Choose another Port."
             }
@@ -107,9 +133,12 @@ try {
         if (-not $existingPath.StartsWith($root + '\', [StringComparison]::OrdinalIgnoreCase)) {
             throw 'The existing site is outside InstallDirectory. Refusing to replace another installation.'
         }
-        if ($site.Bindings.Count -ne 1 -or $site.Bindings[0].Protocol -ne 'http' -or
-            $site.Bindings[0].BindingInformation -ne $binding -or $site.Applications.Count -ne 1) {
-            throw 'The existing site must have only the requested loopback HTTP binding and root application.'
+        $unexpectedBindings = @($site.Bindings | Where-Object {
+            -not (($_.Protocol -eq 'http' -and $_.BindingInformation -eq $binding) -or
+                ($_.Protocol -eq 'https' -and $_.BindingInformation -eq $httpsBinding))
+        })
+        if ($unexpectedBindings.Count -gt 0 -or $site.Applications.Count -ne 1) {
+            throw 'The existing site contains unexpected bindings or applications. Refusing to replace it.'
         }
     }
     elseif ($pool) { throw 'The application pool already exists without this site. Choose another AppPoolName.' }
@@ -158,6 +187,16 @@ try {
     Set-PoolVariable $pool 'Mcp__ListenUrl' ("http://127.0.0.1:$Port")
     if (-not $site) { $site = $manager.Sites.Add($SiteName, 'http', $binding, $releasePath) }
     else { $site.Applications['/'].VirtualDirectories['/'].PhysicalPath = $releasePath }
+    if ($PublicHttps) {
+        $https = @($site.Bindings | Where-Object { $_.Protocol -eq 'https' -and $_.BindingInformation -eq $httpsBinding })
+        if ($https.Count -eq 0) {
+            $httpsBindingEntry = $site.Bindings.Add($httpsBinding, $certificate.GetCertHash(), 'My')
+        }
+        else { $httpsBindingEntry = $https[0] }
+        $httpsBindingEntry.CertificateHash = $certificate.GetCertHash()
+        $httpsBindingEntry.CertificateStoreName = 'My'
+        $httpsBindingEntry.SslFlags = [Microsoft.Web.Administration.SslFlags]::Sni
+    }
     $site.Applications['/'].ApplicationPoolName = $AppPoolName
     $site.ServerAutoStart = $true
     $manager.CommitChanges()
@@ -181,6 +220,11 @@ try {
 
     Write-Host "Installed: $releasePath"
     Write-Host "MCP endpoint: http://127.0.0.1:$Port/mcp (loopback only)"
+    if ($PublicHttps) {
+        Write-Host "Public MCP endpoint: https://$HostName/mcp"
+        Write-Host 'DNS must point to this VPS and inbound TCP 443 must be allowed. External reachability was not verified.'
+        Write-Warning 'This deployment still requires authenticated MCP tokens. Public OAuth client support must be configured separately.'
+    }
     Write-Host "IIS configuration backup: $backupName"
     Write-Host 'In the MAIN ColdCall app, set Mcp__Endpoint to this endpoint and Mcp__SigningKey to the SAME key, then recycle its pool.'
     Write-Host 'The health check verifies startup only, not SQL connectivity or authenticated searches.'

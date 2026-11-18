@@ -7,7 +7,12 @@ using Microsoft.IdentityModel.Tokens;
 using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.WebHost.UseUrls(builder.Configuration["Mcp:ListenUrl"] ?? "http://127.0.0.1:5086");
+// IIS supplies its own binding; standalone development uses a configurable loopback port.
+if (string.IsNullOrWhiteSpace(builder.Configuration["ASPNETCORE_PORT"]) &&
+    string.IsNullOrWhiteSpace(builder.Configuration["ASPNETCORE_IIS_PHYSICAL_PATH"]))
+{
+    builder.WebHost.UseUrls(builder.Configuration["Mcp:ListenUrl"] ?? builder.Configuration["urls"] ?? "http://127.0.0.1:5086");
+}
 builder.Services.AddDbContext<ColdCallDbContext>(options => options.UseSqlServer(
     builder.Configuration.GetConnectionString("Firmy") ?? throw new InvalidOperationException("ConnectionStrings:Firmy is required.")));
 builder.Services.AddScoped<AiCompanySearchService>();
@@ -23,8 +28,10 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         ValidateLifetime = true, ClockSkew = TimeSpan.FromSeconds(10)
     };
 });
+var publicOAuth = builder.AddPublicOAuth();
 builder.Services.AddAuthorization(options => options.AddPolicy("McpRead", policy =>
-    policy.RequireAuthenticatedUser().RequireClaim("scope", "companies:read")));
+    policy.RequireAuthenticatedUser().RequireAssertion(context =>
+        context.User.FindAll("scope").Any(claim => claim.Value.Split(' ').Contains(McpOAuthSettings.ReadScope)))));
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = 429;
@@ -32,9 +39,12 @@ builder.Services.AddRateLimiter(options =>
         context.User.FindFirst("sub")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
-builder.Services.AddMcpServer().WithHttpTransport().WithTools<CompanyTools>();
+builder.Services.AddMcpServer().WithHttpTransport(options =>
+    options.SessionMode = ModelContextProtocol.AspNetCore.HttpServerSessionMode.Stateless).WithTools<CompanyTools>();
 var app = builder.Build();
+app.MapPublicOAuth(publicOAuth);
 app.UseAuthentication();
+app.UsePaidOAuthAccounts(publicOAuth);
 app.UseAuthorization();
 app.UseRateLimiter();
 app.MapMcp("/mcp").RequireAuthorization("McpRead").RequireRateLimiting("Mcp");

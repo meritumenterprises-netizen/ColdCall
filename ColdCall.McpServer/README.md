@@ -1,5 +1,8 @@
 # ColdCall MCP server
 
+Public OAuth setup, local configuration, paid-plan eligibility and deployment:
+[OAUTH.md](OAUTH.md). The dashboard's existing internal MCP connection remains supported.
+
 An authenticated, read-only Streamable HTTP MCP endpoint at `/mcp`. Tools:
 `search_companies`, `count_companies`, and `get_company`.
 
@@ -101,6 +104,23 @@ This validates configuration syntax only, not SQL connectivity or permissions.
 Its `/health` check confirms startup, not SQL connectivity; verify an AI search
 after deployment. Development User Secrets are not used in Production.
 
+## Business address filter deployment
+
+Before deploying the version with `hasAddress`, run
+`WebApp/Sql/SearchProfileHasAddress.sql` against the ColdCall database. This adds
+the nullable `ColdCall.SearchProfileCriteria.HasAddress` column and leaves existing
+searches unchanged. The explicit `--initialize-database` maintenance command also
+applies this update; ordinary startup does not change the schema. Deploy both
+ColdCall (including its rebuilt frontend) and ColdCall.McpServer.
+
+The dashboard Address tab offers All / With address / Without address. AI questions
+such as `znajdz aktywne firmy bez adresu` select the same persisted filter used by
+pagination and CSV export. Without address means the Company has no locality ID
+and no nonblank postal code, street, building number or apartment number. Province,
+county and municipality alone do not constitute a business address. The geocoding
+flag `AddressIsMissing` and GeoPortal coordinates are not used for this filter.
+
+
 ## Security and scope
 
 The browser never receives MCP credentials. ColdCall issues five-minute,
@@ -127,3 +147,27 @@ the shared local signing key.
 `-- --live-geography --mcp` checks accounting searches around Toruń and Łódź
 against SQL and the running MCP service without calling Ollama. It verifies that
 city-wide municipality entries are selected instead of same-named villages or districts.
+# Public HTTPS installation
+
+Run on the VPS using elevated Windows PowerShell 5.1. First point DNS
+`mcp.findmyclient.pl` at the VPS, allow TCP 443, and install a valid certificate
+with its private key in `Cert:\LocalMachine\My`.
+
+```powershell
+.\Scripts\InstallMcpServer.ps1 -ZipPath C:\Deploy\ColdCall.McpServer-Release.zip -PublicHttps -CertificateThumbprint 'YOUR_CERTIFICATE_THUMBPRINT'
+```
+
+The installer retains `http://127.0.0.1:5086/mcp` for ColdCall's internal
+connection and adds an SNI HTTPS binding for `https://mcp.findmyclient.pl/mcp`.
+Existing SQL and signing-key settings are reused. Installation does not issue
+certificates, configure DNS/firewalls, or enable OAuth for external assistants.
+The authenticated endpoint does not become anonymous when exposed publicly.
+
+For a custom local port, run without the launch profile:
+
+```powershell
+dotnet run --project ColdCall.McpServer --no-launch-profile -- --urls http://127.0.0.1:5096
+```
+
+Set ColdCall's local `Mcp:Endpoint` to `http://127.0.0.1:5096/mcp` when using
+that port. Production can keep the internal loopback endpoint on port 5086.
