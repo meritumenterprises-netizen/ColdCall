@@ -40,7 +40,7 @@ public sealed class CompanyTools(AiCompanySearchService search, IHttpContextAcce
         return JsonSerializer.Serialize(new { total = result.Total, recordLimit = result.RecordLimit }, JsonOptions);
     }
 
-    [McpServerTool(Name = "get_company"), Description("Read company details by a 10-digit Polish NIP. Requires an active paid ColdCall plan.")]
+    [McpServerTool(Name = "get_company"), Description("Read company details by a 10-digit Polish NIP. Requires an active paid FindMyClient plan.")]
     public async Task<string> GetCompany(string nip, CancellationToken cancellationToken)
     {
         var userId = await RequireUserAsync(cancellationToken);

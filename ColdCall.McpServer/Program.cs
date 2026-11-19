@@ -39,7 +39,11 @@ builder.Services.AddRateLimiter(options =>
         context.User.FindFirst("sub")?.Value ?? context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
-builder.Services.AddMcpServer().WithHttpTransport(options =>
+builder.Services.AddMcpServer(options => options.ServerInfo = new()
+{
+    Name = "FindMyClient",
+    Version = typeof(CompanyTools).Assembly.GetName().Version?.ToString() ?? "1.0.0"
+}).WithHttpTransport(options =>
     options.SessionMode = ModelContextProtocol.AspNetCore.HttpServerSessionMode.Stateless).WithTools<CompanyTools>();
 var app = builder.Build();
 app.MapPublicOAuth(publicOAuth);
