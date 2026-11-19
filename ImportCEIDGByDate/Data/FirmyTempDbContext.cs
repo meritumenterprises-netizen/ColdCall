@@ -17,6 +17,8 @@ public partial class FirmyTempDbContext : DbContext
     public virtual DbSet<BusinessType> BusinessTypes { get; set; }
 
     public virtual DbSet<Company> Companies { get; set; }
+    public virtual DbSet<SearchProfile> SearchProfiles { get; set; }
+    public virtual DbSet<SearchProfileMcp> SearchProfileMcps { get; set; }
     public virtual DbSet<AdjustName> AdjustNames { get; set; }
     public virtual DbSet<GlobalSetting> GlobalSettings { get; set; }
     public virtual DbSet<UserLogin> UserLogins { get; set; }
@@ -42,6 +44,34 @@ public partial class FirmyTempDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         ConfigureNameGramSchema(modelBuilder);
+        modelBuilder.Entity<SearchProfile>(entity =>
+        {
+            entity.ToTable("SearchProfiles", "ColdCall");
+            entity.HasKey(row => row.Id).HasName("PK_SearchProfiles");
+            entity.Property(row => row.Id).UseIdentityColumn();
+            entity.HasIndex(row => row.AppUserId, "IX_SearchProfiles_AppUserId");
+            entity.Property(row => row.Name).HasColumnType("nvarchar(max)").IsRequired();
+            entity.Property(row => row.SearchProfileHash).HasMaxLength(1024);
+            entity.Property(row => row.CreatedAtUtc).HasColumnType("datetime2");
+            entity.Property(row => row.LastSavedAtUtc).HasColumnType("datetime2");
+        });
+        modelBuilder.Entity<SearchProfileMcp>(entity =>
+        {
+            entity.ToTable("SearchProfileMcp", "ColdCall");
+            entity.HasKey(row => row.SearchProfileMcpId).HasName("PK_SearchProfileMcp");
+            entity.Property(row => row.SearchProfileMcpId).UseIdentityColumn();
+            entity.Property(row => row.SearchCompaniesCount).HasColumnName("search_companies_count");
+            entity.Property(row => row.SearchCompaniesMaxCount).HasColumnName("search_companies_max_count");
+            entity.Property(row => row.GetCompanyCount).HasColumnName("get_company_count");
+            entity.Property(row => row.GetCompanyMaxCount).HasColumnName("get_company_max_count");
+            entity.Property(row => row.CsvExportCount).HasColumnName("csv_export_count");
+            entity.Property(row => row.CsvExportMaxCount).HasColumnName("csv_export_max_count");
+            entity.Property(row => row.GetPkdCodesCount).HasColumnName("get_pkd_codes_count");
+            entity.Property(row => row.GetPkdCodesMaxCount).HasColumnName("get_pkd_codes_max_count");
+            entity.HasOne(row => row.SearchProfile).WithMany(profile => profile.SearchProfileMcps)
+                .HasForeignKey(row => row.SearchProfileId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_SearchProfileMcp_SearchProfiles");
+        });
         modelBuilder.Entity<AdjustName>(entity =>
         {
             entity.ToTable("AdjustName", "ColdCall");
