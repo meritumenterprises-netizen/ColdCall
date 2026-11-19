@@ -7,7 +7,7 @@
 .admin-company-grid col.grid-details { width: 90px; }
 .admin-company-grid col.grid-address { width: 16%; }
 .admin-company-grid col.grid-email, .admin-company-grid col.grid-website { width: 7%; }
-.admin-company-grid td.grid-name-value { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+.admin-company-grid td.grid-name-value { white-space: nowrap; overflow-wrap: normal; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1200px) {
   .admin-company-grid col.grid-number { width: 3%; }
   .admin-company-grid col.grid-name { width: 29%; }

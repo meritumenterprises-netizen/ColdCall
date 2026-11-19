@@ -124,7 +124,7 @@ export class CompanyDetailsComponent implements AfterViewInit, OnDestroy {
       { key: 'regon', label: 'REGON' }, { key: 'nip', label: 'NIP' },
       { key: 'krs', label: 'KRS' }
     ]] },
-    { id: 'address', label: 'Adres', rows: [[
+    { id: 'address', label: 'Adres wykonywania dzia\u0142alno\u015bci', rows: [[
       { key: 'wojewodztwo', label: 'Wojew\u00f3dztwo' }, { key: 'powiat', label: 'Powiat' },
       { key: 'gmina', label: 'Gmina' }, { key: 'city', label: 'Miejscowo\u015b\u0107' },
       { key: 'postalCode', label: 'Kod Pocztowy' }

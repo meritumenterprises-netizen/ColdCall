@@ -18,6 +18,7 @@ public partial class ColdCallDbContext : DbContext
     public DbSet<PkdCode> PkdCodes => Set<PkdCode>();
     public DbSet<CompanyPkd> CompanyPkds => Set<CompanyPkd>();
     public DbSet<SearchProfile> SearchProfiles => Set<SearchProfile>();
+    public DbSet<SearchProfileMcp> SearchProfileMcps => Set<SearchProfileMcp>();
     public DbSet<SearchProfileCriteria> SearchProfileCriteria => Set<SearchProfileCriteria>();
     public DbSet<SearchProfilePkd> SearchProfilePkds => Set<SearchProfilePkd>();
     public DbSet<PlanDefinition> PlanDefinitions => Set<PlanDefinition>();
@@ -31,6 +32,23 @@ public partial class ColdCallDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema("ColdCall");
+        modelBuilder.Entity<SearchProfileMcp>(entity =>
+        {
+            entity.ToTable("SearchProfileMcp", "ColdCall");
+            entity.HasKey(row => row.SearchProfileMcpId).HasName("PK_SearchProfileMcp");
+            entity.Property(row => row.SearchProfileMcpId).UseIdentityColumn();
+            entity.Property(row => row.SearchCompaniesCount).HasColumnName("search_companies_count");
+            entity.Property(row => row.SearchCompaniesMaxCount).HasColumnName("search_companies_max_count");
+            entity.Property(row => row.GetCompanyCount).HasColumnName("get_company_count");
+            entity.Property(row => row.GetCompanyMaxCount).HasColumnName("get_company_max_count");
+            entity.Property(row => row.CsvExportCount).HasColumnName("csv_export_count");
+            entity.Property(row => row.CsvExportMaxCount).HasColumnName("csv_export_max_count");
+            entity.Property(row => row.GetPkdCodesCount).HasColumnName("get_pkd_codes_count");
+            entity.Property(row => row.GetPkdCodesMaxCount).HasColumnName("get_pkd_codes_max_count");
+            entity.HasOne(row => row.SearchProfile).WithMany(profile => profile.SearchProfileMcps)
+                .HasForeignKey(row => row.SearchProfileId).OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_SearchProfileMcp_SearchProfiles");
+        });
         modelBuilder.Entity<ImportByDate>(entity =>
         {
             entity.ToTable("ImportByDate", "ColdCall");

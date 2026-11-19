@@ -185,7 +185,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   maxRecordLimit = 0;
   readonly radiusOptions = [1, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 150, 200, 300, 400, 500];
   pkdSuggestions: Pkd[] = [];
-  maxSelectedPkds = 20;
+  maxSelectedPkds = 40;
   foundPkdId: number | null = null;
   selectedPkdId: number | null = null;
   pkdHint: { text: string; left: number; top: number | null; bottom: number | null } | null = null;
@@ -200,7 +200,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   loading = false;
   searchStartedAt = 0;
   searchFinishedAt = 0;
-  private refreshingSearchCount = false;
+  refreshingSearchCount = false;
   private companiesRequest: Subscription | null = null;
   private pendingCompaniesLoad: { refresh: boolean; startedAt: number } | null = null;
   private companiesDestroyed = false;
@@ -387,6 +387,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         hasPhone: criteria && criteria.hasPhone != null ? criteria.hasPhone : null,
         hasEmail: criteria && criteria.hasEmail != null ? criteria.hasEmail : null,
         hasWebsite: criteria && criteria.hasWebsite != null ? criteria.hasWebsite : null,
+        hasAddress: criteria && criteria.hasAddress != null ? criteria.hasAddress : null,
         companyStatusIds: criteria && criteria.companyStatusIds ? criteria.companyStatusIds.slice() : [1],
         startedFrom: criteria && criteria.dateRangeEnabled ? criteria.dateFrom || undefined : undefined,
         startedTo: criteria && criteria.dateRangeEnabled ? criteria.dateTo || undefined : undefined,
@@ -466,7 +467,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.pkdHint = null;
     this.pkdClassificationError = '';
     this.filterDraft = { companyName: '', address: '', hasPhone: null, hasEmail: null,
-      hasWebsite: null, recordLimit: this.maxRecordLimit, companyStatusIds: [1] };
+      hasWebsite: null, hasAddress: null, recordLimit: this.maxRecordLimit, companyStatusIds: [1] };
     this.appliedFilters = { ...this.filterDraft };
     this.dateRangeEnabled = false; this.dateFrom = '2020-01-01'; this.dateTo = this.todayDate();
     this.radiusEnabled = false; this.radiusKm = 1;
@@ -733,8 +734,10 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (this.companiesDestroyed) { return; }
     const generation = ++this.companiesGeneration;
     this.error = '';
-    this.searchStartedAt = startedAt;
-    this.searchFinishedAt = 0;
+    if (refreshSearchCount || !this.companies.length || !this.searchFinishedAt) {
+      this.searchStartedAt = startedAt;
+      this.searchFinishedAt = 0;
+    }
     this.pendingCompaniesLoad = null;
     if (this.companiesRequest) { this.companiesRequest.unsubscribe(); }
     if (this.allResultsCountRequest) { this.allResultsCountRequest.unsubscribe(); }
@@ -750,6 +753,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       }))
       .subscribe(result => {
       if (this.pendingCompaniesLoad || this.companiesDestroyed) { return; }
+      this.searchStartedAt = startedAt;
       this.searchFinishedAt = Date.now();
       this.hasNotes = result.hasNotes === true;
       if (this.activeResultTab.key === 'notes' && !this.hasNotes) {
@@ -874,6 +878,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       hasPhone: this.filterDraft.hasPhone,
       hasEmail: this.filterDraft.hasEmail,
       hasWebsite: this.filterDraft.hasWebsite,
+      hasAddress: this.filterDraft.hasAddress == null ? null : this.filterDraft.hasAddress,
       companyStatusIds: (this.filterDraft.companyStatusIds || [1]).slice().sort((a, b) => a - b),
       dateRangeEnabled: this.dateRangeEnabled,
       dateFrom: this.dateFrom,
@@ -986,7 +991,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         const additions = result.pkdCodes.filter(pkd => !this.selectedPkds.some(selected => selected.id === pkd.id));
         const available = this.maxSelectedPkds - this.selectedPkds.length;
         if (additions.length > available) {
-          this.pkdClassificationError = 'Lista Wybrane PKD moze zawierac maksymalnie 20 kodow. Usun kody, aby dodac pozostale.';
+          this.pkdClassificationError = 'Lista Wybrane PKD moze zawierac maksymalnie 40 kodow. Usun kody, aby dodac pozostale.';
         }
         if (available > 0 && additions.length) {
           this.selectedPkds = this.selectedPkds.concat(additions.slice(0, available));
@@ -1137,6 +1142,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       hasPhone: criteria && criteria.hasPhone != null ? criteria.hasPhone : null,
       hasEmail: criteria && criteria.hasEmail != null ? criteria.hasEmail : null,
       hasWebsite: criteria && criteria.hasWebsite != null ? criteria.hasWebsite : null,
+      hasAddress: criteria && criteria.hasAddress != null ? criteria.hasAddress : null,
       companyStatusIds: criteria && criteria.companyStatusIds ? criteria.companyStatusIds.slice() : [1],
       recordLimit: this.maxRecordLimit
     };
@@ -1205,6 +1211,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     return {
       sortColumn: this.sortBy, sortDirection: this.direction, companyName: this.filterDraft.companyName || '', address: '',
       hasPhone: this.filterDraft.hasPhone, hasEmail: this.filterDraft.hasEmail, hasWebsite: this.filterDraft.hasWebsite,
+      hasAddress: this.filterDraft.hasAddress == null ? null : this.filterDraft.hasAddress,
       companyStatusIds: (this.filterDraft.companyStatusIds || [1]).slice(),
       dateRangeEnabled: this.dateRangeEnabled, dateFrom: this.dateRangeEnabled ? this.dateFrom : null,
       dateTo: this.dateRangeEnabled ? this.dateTo : null, recordLimit: Number(this.filterDraft.recordLimit),

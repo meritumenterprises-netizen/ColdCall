@@ -113,6 +113,14 @@ export class LoginComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   private handleAuthenticated(me: Me, offer?: TrialOffer) {
+    const oauthReturn = this.route.snapshot.queryParams.oauthReturn;
+    if (typeof oauthReturn === 'string' && /^\/connect\/(authorize(?:\?|$)|integrations$)/.test(oauthReturn)) {
+      const destination = new URL(oauthReturn, window.location.origin);
+      if (destination.origin === window.location.origin &&
+          (destination.pathname === '/connect/authorize' || destination.pathname === '/connect/integrations')) {
+        window.location.assign(destination.href); return;
+      }
+    }
     if (me.isAdmin) { this.router.navigateByUrl('/admin'); return; }
     if (me.applicationInService) { this.router.navigateByUrl('/maintenance'); return; }
     if (me.requiresProfileCompletion) { this.router.navigateByUrl('/profile/data'); return; }

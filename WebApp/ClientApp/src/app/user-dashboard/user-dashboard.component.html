@@ -160,7 +160,7 @@
         </div>
 
         <div class="pkd-listbox">
-          <label>Wybrane PKD (max.20)</label>
+          <label>Wybrane PKD (max.40)</label>
           <div class="pkd-options" role="listbox" aria-label="Wybrane PKD" tabindex="0"
                [attr.aria-activedescendant]="selectedPkdId ? 'selected-pkd-' + selectedPkdId : null"
                (keydown)="navigatePkd($event, true)" (scroll)="pkdHint = null" (mouseleave)="hidePkdHint($event)">
@@ -198,6 +198,16 @@
           </div>
         </div>
       </div>
+      <div class="address-filter-footer">
+      <div class="address-presence-filter">
+        <label for="address-presence">Adres wykonywania dzia&#322;alno&#347;ci</label>
+        <select id="address-presence" name="addressPresence" [ngModel]="filterDraft.hasAddress == null ? null : filterDraft.hasAddress"
+                (ngModelChange)="filterDraft.hasAddress = $event; updateFilters()" [disabled]="filtersLocked">
+          <option [ngValue]="null">Wszystkie</option>
+          <option [ngValue]="true">Z adresem</option>
+          <option [ngValue]="false">Bez adresu</option>
+        </select>
+      </div>
       <div class="address-radius">
         <input id="address-radius-enabled" type="checkbox" [ngModel]="radiusEnabled" (ngModelChange)="setRadiusEnabled($event)" [disabled]="!radiusAvailable">
         <label for="address-radius-enabled">Firmy w promieniu</label>
@@ -205,6 +215,7 @@
           <option *ngFor="let km of radiusOptions" [ngValue]="km">{{ km }}</option>
         </select>
         <span> km od wybranej miejscowo&#347;ci</span>
+      </div>
       </div>
     </section>
 
@@ -307,7 +318,7 @@
          [style.left.px]="pkdHint.left" [style.top.px]="pkdHint.top" [style.bottom.px]="pkdHint.bottom"
          (mouseleave)="pkdHint = null">{{ pkdHint.text }}</div>
 
-    <app-company-search-progress [active]="loading" [startedAt]="searchStartedAt" [finishedAt]="searchFinishedAt" [recordCount]="totalWithoutLimit"></app-company-search-progress>
+    <app-company-search-progress [active]="loading && searchFinishedAt === 0" [startedAt]="searchStartedAt" [finishedAt]="searchFinishedAt" [recordCount]="totalWithoutLimit"></app-company-search-progress>
     <div class="error" *ngIf="error && !loading">{{ error }}</div>
 
     <div class="filter-tabs result-tabs" role="tablist" aria-label="Wyniki wyszukiwania">
@@ -351,12 +362,12 @@
             </ng-container>
           </tr>
         </thead>
-        <tbody *ngIf="loading" aria-hidden="true">
+        <tbody *ngIf="loading && (refreshingSearchCount || !companies.length)" aria-hidden="true">
           <tr *ngFor="let placeholder of loadingRows">
             <td hidden></td><td>&nbsp;</td><td class="company-notes-cell">&nbsp;</td><td *ngFor="let col of columns">&nbsp;</td>
           </tr>
         </tbody>
-        <tbody *ngIf="!loading">
+        <tbody *ngIf="!loading || (!refreshingSearchCount && companies.length)" [attr.inert]="loading ? '' : null">
           <tr *ngFor="let row of companies; let rowIndex = index" [attr.data-company-id]="row.id"
               class="company-row" [class.selected-company]="selectedCompanyId === row.id" [attr.title]="row.name"
               [attr.aria-selected]="selectedCompanyId === row.id" tabindex="0"
@@ -396,8 +407,7 @@
       <span>Strona {{ formatNumber(page) }} of {{ formatNumber(totalPages()) }}</span>
       <button (click)="prev()" [disabled]="loading || page === 1">Poprzednia</button>
       <button (click)="next()" [disabled]="loading || page >= totalPages()">Nast&#281;pna</button>
-      <span *ngIf="!loading; else resultsCountLoading">{{ formatNumber(totalWithoutLimit) }} rekord&#243;w (dost&#281;pne w planie: {{ formatNumber(maxRecordLimit) }})</span>
-      <ng-template #resultsCountLoading><span role="status">Wczytywanie...</span></ng-template>
+      <span>{{ formatNumber(totalWithoutLimit) }} rekord&#243;w (dost&#281;pne w planie: {{ formatNumber(maxRecordLimit) }})</span>
     </footer>
     </ng-template>
 <app-company-details *ngIf="detailsCompany" [companyId]="detailsCompany.id" [companyName]="detailsCompany.name"

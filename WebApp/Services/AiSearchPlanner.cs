@@ -19,7 +19,7 @@ public sealed class AiSearchPlanner(HttpClient http, IConfiguration configuratio
         var system = """
             Interpretuj polskie pytanie o firme jako kryteria wyszukiwania. Zwroc tylko obiekt JSON.
             Schemat: {"city":null,"voivodeship":null,"county":null,"municipality":null,"radiusKm":null,"statusIds":[1],"pkdCodes":[],"companyName":null,
-            "hasPhone":null,"hasEmail":null,"hasWebsite":null,"startedFrom":null,"startedTo":null,"page":1,"industry":null}.
+            "hasPhone":null,"hasEmail":null,"hasWebsite":null,"hasAddress":null,"startedFrom":null,"startedTo":null,"page":1,"industry":null}.
             city: miejscowosc w mianowniku z polskimi znakami (np. "od Torunia" -> "Toruń").
             voivodeship: nazwa wojewodztwa w mianowniku, np. "w wojewodztwie kujawsko-pomorskim" -> "kujawsko-pomorskie".
             Wojewodztwo nie jest miejscowoscia. Gdy podano tylko wojewodztwo, city i radiusKm pozostaja null.
@@ -29,6 +29,9 @@ public sealed class AiSearchPlanner(HttpClient http, IConfiguration configuratio
             "w gminie Grudziadz" oznacza municipality "Grudziądz", city null.
             Wpisuj city tylko gdy uzytkownik wskazal miejscowosc, a radiusKm tylko gdy podal promien.
             "z witryna www", "ze strona internetowa" oznacza hasWebsite true.
+            hasAddress: false dla "bez adresu", "nie maja adresu", true dla jawnego wymogu posiadania adresu.
+            Nie pomijaj warunku obecnosci adresu i nie zastepuj go brakiem filtrow lokalizacji.
+            Gdy pytanie nie wymaga obecnosci ani braku adresu, hasAddress pozostaje null.
             industry: opis branzy, np. "biura rachunkowe"; nie wpisuj branzy jako companyName.
             Prosba "Znajdz kod PKD odpowiadajacy [dzialalnosci]" oznacza wyszukanie firm z tej branzy:
             wpisz opis czynnosci w industry, pozostaw companyName null i pkdCodes puste, jesli uzytkownik nie podal numeru kodu.

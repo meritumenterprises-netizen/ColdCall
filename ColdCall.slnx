@@ -9,5 +9,6 @@
   <Project Path="ColdCall.McpServer/ColdCall.McpServer.csproj" />
   <Folder Name="/Tests/">
     <Project Path="Tests/ColdCall.McpSmoke/ColdCall.McpSmoke.csproj" />
+    <Project Path="Tests/ColdCall.OAuthSmoke/ColdCall.OAuthSmoke.csproj" />
   </Folder>
 </Solution>

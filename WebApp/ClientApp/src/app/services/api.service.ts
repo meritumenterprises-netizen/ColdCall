@@ -55,6 +55,7 @@ export interface BusinessType { typDzialalnosciId: number; typDzialalnosci: stri
 export interface CompanyPkd extends Pkd { prevailing: boolean; }
 export interface CompanyDetails { company: Company; pkdCodes: CompanyPkd[]; addresses: CompanyAddressDetails[]; }
 export interface CompanyFilters {
+  hasAddress?: boolean | null;
   companyStatusIds?: number[];
   companyName?: string;
   address: string; hasPhone: boolean | null; hasEmail: boolean | null; hasWebsite: boolean | null;
@@ -69,6 +70,7 @@ export interface CompanyShort {
   typyDzialalnosci?: string;
 }
 export interface SearchCriteria {
+  hasAddress?: boolean | null;
   companyStatusIds?: number[];
   wojewodztwoId?: number | null; powiatId?: number | null; gminaId?: number | null; miejscowoscId?: number | null;
   hasFirmyWPromieniu?: boolean | null; firmyWPromieniu?: number | null;
@@ -412,8 +414,8 @@ export class ApiService {
       ['wojewodztwoId', 'powiatId', 'gminaId', 'miejscowoscId', 'radiusKm', 'addressLocality'].forEach(key => {
         if (filters[key] !== undefined && filters[key] !== null) { params = params.set(key, String(filters[key])); }
       });
-      ['hasPhone', 'hasEmail', 'hasWebsite'].forEach(key => {
-        if (filters[key] !== null) { params = params.set(key, String(filters[key])); }
+      ['hasPhone', 'hasEmail', 'hasWebsite', 'hasAddress'].forEach(key => {
+        if (filters[key] !== null && filters[key] !== undefined) { params = params.set(key, String(filters[key])); }
       });
       if (filters.startedFrom && filters.startedTo) {
         params = params.set('startedFrom', filters.startedFrom).set('startedTo', filters.startedTo);

@@ -106,6 +106,7 @@ public class SearchProfile
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public ICollection<SearchProfilePkd> PkdCodes { get; set; } = new List<SearchProfilePkd>();
     public SearchProfileCriteria? Criteria { get; set; }
+    public ICollection<SearchProfileMcp> SearchProfileMcps { get; set; } = new List<SearchProfileMcp>();
 }
 
 public class SearchProfileCriteria
@@ -123,6 +124,7 @@ public class SearchProfileCriteria
     public bool? HasPhone { get; set; }
     public bool? HasEmail { get; set; }
     public bool? HasWebsite { get; set; }
+    public bool? HasAddress { get; set; }
     public bool DateRangeEnabled { get; set; }
     public DateOnly? DateFrom { get; set; }
     public DateOnly? DateTo { get; set; }

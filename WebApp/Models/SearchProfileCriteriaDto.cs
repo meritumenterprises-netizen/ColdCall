@@ -16,6 +16,7 @@ public class SearchProfileCriteriaDto : IValidatableObject
     public bool? HasPhone { get; set; }
     public bool? HasEmail { get; set; }
     public bool? HasWebsite { get; set; }
+    public bool? HasAddress { get; set; }
     public bool DateRangeEnabled { get; set; }
     public DateOnly? DateFrom { get; set; }
     public DateOnly? DateTo { get; set; }

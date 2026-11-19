@@ -16,10 +16,10 @@ public sealed class AiCompanySearchService(ColdCallDbContext db)
         return user;
     }
 
-    public async Task<AiCompanySearchResult> SearchAsync(int userId, AiCompanySearchRequest request, CancellationToken token)
+    public async Task<AiCompanySearchResult> SearchAsync(int userId, AiCompanySearchRequest request, CancellationToken token, bool enforcePaidPlanLimits = false, bool returnAllAccessible = false)
     {
         var user = await AuthorizeAsync(userId, token);
-        var limit = await PlanRecordLimits.ForUserAsync(db, userId, user.IsAdmin);
+        var limit = await PlanRecordLimits.ForUserAsync(db, userId, user.IsAdmin && !enforcePaidPlanLimits, enforcePaidPlanLimits);
         if (limit <= 0) throw new UnauthorizedAccessException("Plan nie pozwala na pobieranie rekordow.");
         Validate(request);
         if (await db.CompanyStatuses.CountAsync(row => request.StatusIds.Contains(row.StatusId), token) != request.StatusIds.Distinct().Count())
@@ -112,7 +112,7 @@ public sealed class AiCompanySearchService(ColdCallDbContext db)
         {
             CompanyName = request.CompanyName?.Trim() ?? "",
             CompanyStatusIds = CompanyStatusSelection.Serialize(request.StatusIds),
-            HasPhone = request.HasPhone, HasEmail = request.HasEmail, HasWebsite = request.HasWebsite,
+            HasPhone = request.HasPhone, HasEmail = request.HasEmail, HasWebsite = request.HasWebsite, HasAddress = request.HasAddress,
             DateRangeEnabled = request.StartedFrom.HasValue,
             DateFrom = request.StartedFrom, DateTo = request.StartedTo,
             MiejscowoscId = cityId, HasFirmyWPromieniu = request.RadiusKm.HasValue,
@@ -126,14 +126,16 @@ public sealed class AiCompanySearchService(ColdCallDbContext db)
         var query = search.SelectDetails(companies);
         var total = await query.CountAsync(token);
         var accessible = Math.Min(total, limit);
-        if ((long)(request.Page - 1) * 10 >= accessible && request.Page != 1)
+        if (!returnAllAccessible && (long)(request.Page - 1) * 10 >= accessible && request.Page != 1)
             throw new ArgumentException("Strona przekracza limit dostepnych wynikow.");
-        var items = await query.OrderBy(row => row.Name).ThenBy(row => row.Id).Skip((request.Page - 1) * 10)
-            .Take(Math.Min(10, Math.Max(0, accessible - (request.Page - 1) * 10))).ToListAsync(token);
+        var offset = returnAllAccessible ? 0 : (request.Page - 1) * 10;
+        var page = query.OrderBy(row => row.Name).ThenBy(row => row.Id).Skip(offset)
+            .Take(returnAllAccessible ? accessible : Math.Min(10, Math.Max(0, accessible - offset)));
+        var items = await WithAddressDetails(page).OrderBy(row => row.Name).ThenBy(row => row.Id).ToListAsync(token);
         var dto = new SearchProfileCriteriaDto
         {
             CompanyName = criteria.CompanyName, CompanyStatusIds = request.StatusIds,
-            HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail, HasWebsite = criteria.HasWebsite,
+            HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail, HasWebsite = criteria.HasWebsite, HasAddress = criteria.HasAddress,
             DateRangeEnabled = criteria.DateRangeEnabled, DateFrom = criteria.DateFrom, DateTo = criteria.DateTo,
             MiejscowoscId = cityId, HasFirmyWPromieniu = criteria.HasFirmyWPromieniu,
             WojewodztwoId = criteria.WojewodztwoId, PowiatId = criteria.PowiatId, GminaId = criteria.GminaId,
@@ -143,14 +145,29 @@ public sealed class AiCompanySearchService(ColdCallDbContext db)
         return new(dto, pkds, total, limit, request.Page, items, $"Znaleziono {total:N0} firm.");
     }
 
-    public async Task<CompanyShortDto?> GetCompanyAsync(int userId, string nip, CancellationToken token)
+    public async Task<AiCompanySearchItemDto?> GetCompanyAsync(int userId, string nip, CancellationToken token)
     {
         await AuthorizeAsync(userId, token);
         if (nip.Length != 10 || !nip.All(char.IsAsciiDigit)) throw new ArgumentException("Niepoprawny NIP.");
         var query = new CompanySearchQuery(db).SelectDetails(
             db.Companies.AsNoTracking().Where(row => !row.BlockedByRODO));
-        return await query.FirstOrDefaultAsync(row => row.Nip == nip, token);
+        return await WithAddressDetails(query.Where(row => row.Nip == nip)).FirstOrDefaultAsync(token);
     }
+
+    private IQueryable<AiCompanySearchItemDto> WithAddressDetails(IQueryable<CompanyShortDto> rows) =>
+        rows.Join(db.Companies.AsNoTracking(), row => row.Id, company => company.Id, (row, company) => new AiCompanySearchItemDto
+        {
+            Id = row.Id, Name = row.Name, Nip = row.Nip, FullAddress = row.FullAddress,
+            Phone = row.Phone, Email = row.Email, Www = row.Www,
+            DataAktywnosci = row.DataAktywnosci, DataModifiedOn = row.DataModifiedOn,
+            StatusDzialalnosci = row.StatusDzialalnosci,
+            TypDzialalnosci = row.TypDzialalnosci, TypyDzialalnosci = row.TypyDzialalnosci, UserNotes = row.UserNotes,
+            Wojewodztwo = company.Wojewodztwo == null ? null : company.Wojewodztwo.Name,
+            Gmina = company.Gmina == null ? null : company.Gmina.Name,
+            Powiat = company.Powiat == null ? null : company.Powiat.Name,
+            Miejscowosc = company.Miejscowosc == null ? null : company.Miejscowosc.Name,
+            Ulica = company.Street, BuildingNumber = company.BuildingNumber, ApartmentNumber = company.ApartmentNumber
+        });
 
     private static bool AddressNameEquals(string stored, string requested) =>
         System.Globalization.CultureInfo.GetCultureInfo("pl-PL").CompareInfo.Compare(stored.Trim(), requested.Trim(),
@@ -164,7 +181,7 @@ public sealed class AiCompanySearchService(ColdCallDbContext db)
         if (request.Page < 1 || request.Page > 100000 || (request.City?.Length ?? 0) > 250 || (request.Voivodeship?.Length ?? 0) > 250
             || (request.County?.Length ?? 0) > 250 || (request.Municipality?.Length ?? 0) > 250
             || (request.CompanyName?.Length ?? 0) > 1000 || request.PkdCodes == null
-            || request.PkdCodes.Length > 20 || request.PkdCodes.Any(code => string.IsNullOrWhiteSpace(code) || code.Length > 12)
+            || request.PkdCodes.Length > 40 || request.PkdCodes.Any(code => string.IsNullOrWhiteSpace(code) || code.Length > 12)
             || request.StatusIds == null || request.StatusIds.Length == 0
             || request.StatusIds.Any(id => id < 1 || id > 255))
             throw new ArgumentException("Niepoprawne kryteria wyszukiwania.");

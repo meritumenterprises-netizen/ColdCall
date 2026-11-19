@@ -9,6 +9,9 @@ public static class ApiRateLimitConfiguration
     public static void Configure(RateLimiterOptions options)
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.AddPolicy("mcp-registration", context => RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
             context.Request.Path.StartsWithSegments("/api")
                 ? RateLimitPartition.GetFixedWindowLimiter(

@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <ItemGroup><PackageReference Include="ModelContextProtocol" Version="2.4.0" /></ItemGroup>
 	<ItemGroup>
+		<PackageReference Include="OpenIddict.Server.AspNetCore" Version="7.9.0" />
+		<PackageReference Include="OpenIddict.EntityFrameworkCore" Version="7.9.0" />
 		<EmbeddedResource Include="ClientApp/src/assets/seo-pages.json" LogicalName="ColdCall.Seo.pages.json" />
 		<EmbeddedResource Include="ClientApp/src/assets/guides.json" LogicalName="ColdCall.Seo.guides.json" />
 		<EmbeddedResource Include="Seo/landing.html" LogicalName="ColdCall.Seo.landing.html" />
@@ -11,6 +13,7 @@
 		<EmbeddedResource Include="Sql\PlanRecordLimits.sql" />
 		<EmbeddedResource Include="Sql\CompanyUserNotes.sql" />
 		<EmbeddedResource Include="Sql\SearchProfileLastSaved.sql" />
+		<EmbeddedResource Include="Sql\SearchProfileHasAddress.sql" />
 		<EmbeddedResource Include="Sql\SearchProfileRecordCount.sql" />
 		<EmbeddedResource Include="Sql\DictionaryNames.sql" />
 		<EmbeddedResource Include="Sql\StripePayments.sql" />

@@ -46,6 +46,7 @@ public partial class CompaniesController : ControllerBase
         [FromQuery] bool? hasPhone = null,
         [FromQuery] bool? hasEmail = null,
         [FromQuery] bool? hasWebsite = null,
+        [FromQuery] bool? hasAddress = null,
         [FromQuery] DateOnly? startedFrom = null,
         [FromQuery] DateOnly? startedTo = null,
         [FromQuery] int? recordLimit = null,
@@ -99,7 +100,7 @@ public partial class CompaniesController : ControllerBase
                 {
                     CompanyName = companyName ?? "", Address = address ?? "", HasPhone = hasPhone, HasEmail = hasEmail,
                     CompanyStatusIds = CompanyStatusSelection.Serialize(CompanyStatusSelection.Parse(companyStatusIds)),
-                    HasWebsite = hasWebsite, DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue,
+                    HasWebsite = hasWebsite, HasAddress = hasAddress, DateRangeEnabled = startedFrom.HasValue || startedTo.HasValue,
                     DateFrom = startedFrom, DateTo = startedTo, WojewodztwoId = wojewodztwoId, PowiatId = powiatId,
                     GminaId = gminaId, MiejscowoscId = miejscowoscId,
                     HasFirmyWPromieniu = radiusKm.HasValue, FirmyWPromieniu = radiusKm

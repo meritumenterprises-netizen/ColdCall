@@ -105,7 +105,7 @@ public partial class AdminController
     {
         Name = c.Name, CompanyName = c.CompanyName, CompanyStatusIds = c.CompanyStatusIds,
         SortColumn = c.SortColumn, SortDirection = c.SortDirection, Address = c.Address,
-        HasPhone = c.HasPhone, HasEmail = c.HasEmail, HasWebsite = c.HasWebsite,
+        HasPhone = c.HasPhone, HasEmail = c.HasEmail, HasWebsite = c.HasWebsite, HasAddress = c.HasAddress,
         DateRangeEnabled = c.DateRangeEnabled, DateFrom = c.DateFrom, DateTo = c.DateTo,
         RecordLimit = c.RecordLimit, WojewodztwoId = c.WojewodztwoId, PowiatId = c.PowiatId,
         GminaId = c.GminaId, MiejscowoscId = c.MiejscowoscId,

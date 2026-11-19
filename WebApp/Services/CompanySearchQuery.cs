@@ -47,6 +47,21 @@ public class CompanySearchQuery
             || !miejscowoscId.HasValue))
             throw new ArgumentException("Wybierz miejscowosc i poprawny promien.");
         var companies = await ApplyPkdFilterAsync(source ?? _db.Companies.AsNoTracking(), pkdIds, token);
+        if (criteria.HasAddress.HasValue)
+        {
+            // AddressIsMissing describes geocoding, not the presence of a business address.
+            companies = criteria.HasAddress.Value
+                ? companies.Where(company => company.MiejscowoscId.HasValue
+                    || (company.PostalCode != null && company.PostalCode.Trim() != "")
+                    || (company.Street != null && company.Street.Trim() != "")
+                    || (company.BuildingNumber != null && company.BuildingNumber.Trim() != "")
+                    || (company.ApartmentNumber != null && company.ApartmentNumber.Trim() != ""))
+                : companies.Where(company => !company.MiejscowoscId.HasValue
+                    && (company.PostalCode == null || company.PostalCode.Trim() == "")
+                    && (company.Street == null || company.Street.Trim() == "")
+                    && (company.BuildingNumber == null || company.BuildingNumber.Trim() == "")
+                    && (company.ApartmentNumber == null || company.ApartmentNumber.Trim() == ""));
+        }
         if (!includeAllCompanies || criteria.CompanyStatusIds != null)
         {
             var statuses = CompanyStatusSelection.Parse(criteria.CompanyStatusIds).Select(status => (byte)status).ToArray();
@@ -252,6 +267,7 @@ public class CompanySearchQuery
         ? companies.Select(c => new CompanyShortDto
         {
             Id = c.Id, Name = c.Name, Nip = c.Nip, Phone = c.Phone, Email = c.Email,
+            StatusDzialalnosci = c.StatusDzialalnosci == null ? null : c.StatusDzialalnosci.Nazwa,
             Www = c.Website,
             DataAktywnosci = c.StartedAt,
             DataModifiedOn = c.DataModifiedOn,
@@ -265,6 +281,7 @@ public class CompanySearchQuery
         {
             Id = c.Id, Name = c.Name, Nip = c.Nip, Phone = c.Phone, Email = c.Email,
             Www = c.Website, DataAktywnosci = c.StartedAt, DataModifiedOn = c.DataModifiedOn,
+            StatusDzialalnosci = c.StatusDzialalnosci == null ? null : c.StatusDzialalnosci.Nazwa,
             FullAddress = _db.CompaniesShort.Where(row => row.Id == c.Id)
                 .Select(row => row.FullAddress).FirstOrDefault()!,
             TypyDzialalnosci = c.BusinessType!.TypDzialalnosci

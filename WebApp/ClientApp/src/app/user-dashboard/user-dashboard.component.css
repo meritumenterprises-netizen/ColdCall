@@ -205,7 +205,7 @@
 .companies-grid-table col.grid-details { width: 76px; }
 .companies-grid-table col.grid-address { width: 16%; }
 .companies-grid-table col.grid-email, .companies-grid-table col.grid-website { width: 7%; }
-.companies-grid-table td.grid-name-value { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; }
+.companies-grid-table td.grid-name-value { white-space: nowrap; overflow-wrap: normal; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1200px) {
   .companies-grid-table col.grid-number { width: 3%; }
   .companies-grid-table col.grid-name { width: 29%; }
@@ -321,6 +321,16 @@
 .ai-search-progress .grid-spinner { width: 48px; height: 48px; flex: 0 0 48px; }
 .ai-search-progress p { margin: 0; }
 .ai-search-elapsed { min-width: 12ch; text-align: center; font-variant-numeric: tabular-nums; }
+.address-filter-footer { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px 24px; margin-top: 16px; }
+.address-filter-footer .address-radius { min-width: 0; margin-top: 0; margin-left: auto; justify-content: flex-end; }
+.address-filter-footer select { height: 36px; box-sizing: border-box; padding: 6px 8px; font-size: 14px; }
+.address-presence-filter { display: flex; flex-wrap: nowrap; align-items: center; gap: 12px; min-width: 0; max-width: 100%; }
+.address-presence-filter label { flex: 0 1 auto; min-width: 0; margin: 0; }
+.address-presence-filter select { flex: 0 0 auto; width: 150px; min-width: 110px; max-width: 45%; }
+@media (max-width: 800px) {
+  .address-filter-footer { grid-template-columns: minmax(0, 1fr); }
+  .address-filter-footer .address-radius { margin-left: 0; justify-content: flex-start; }
+}
 .ai-search > label { display: block; font-weight: 600; margin-bottom: 8px; }
 .ai-search-input { display: flex; align-items: flex-start; gap: 12px; }
 .ai-search-input textarea { flex: 1; min-width: 0; resize: vertical; font: inherit; line-height: 1.5; padding: 10px 12px; border: 1px solid #198754; border-radius: 6px; box-sizing: border-box; }

@@ -16,12 +16,14 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
 
 var initializeDatabase = args.Contains("--initialize-database", StringComparer.OrdinalIgnoreCase);
+var initializeMcpOAuth = args.Contains("--initialize-mcp-oauth", StringComparer.OrdinalIgnoreCase);
 var angularDevelopment = args.Contains("--angular-dev-server", StringComparer.OrdinalIgnoreCase);
 var builder = WebApplication.CreateBuilder(args.Where(arg =>
     !arg.Equals("--initialize-database", StringComparison.OrdinalIgnoreCase) &&
+    !arg.Equals("--initialize-mcp-oauth", StringComparison.OrdinalIgnoreCase) &&
     !arg.Equals("--angular-dev-server", StringComparison.OrdinalIgnoreCase)).ToArray());
 
-builder.Services.AddControllers(options => options.Filters.Add<RegistrationSuspendedExceptionFilter>());
+builder.Services.AddControllersWithViews(options => options.Filters.Add<RegistrationSuspendedExceptionFilter>());
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<CompanySearchSnapshotCache>();
 builder.Services.AddSingleton<LandingStatisticsService>();
@@ -144,10 +146,17 @@ builder.Services
         };
     });
 builder.Services.AddAuthorization();
+McpOAuth.AddServer(builder.Services, builder.Configuration, builder.Environment);
 
 StripeConfiguration.ApiKey = builder.Configuration["Stripe:SecretKey"];
 
 var app = builder.Build();
+if (initializeMcpOAuth)
+{
+    await McpOAuth.InitializeAsync(app.Services);
+    app.Logger.LogInformation("MCP OAuth database and registered clients initialized.");
+    return;
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -277,6 +286,8 @@ app.Use(async (context, next) =>
 app.UseMiddleware<RequestCancellationMiddleware>();
 app.UseRouting();
 app.UseCors("LocalAngular");
+if (app.Services.GetRequiredService<McpOAuthSettings>().Enabled)
+    app.Use((context, next) => context.RequestServices.GetRequiredService<McpOAuthRequestLimiter>().InvokeAsync(context, next));
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseMiddleware<AccountEnabledMiddleware>();
@@ -402,6 +413,7 @@ static async Task EnsureDatabaseSchemaAsync(ColdCallDbContext db)
         await EnsureCompanyStatusAsync(connection);
         await EnsureDictionaryNamesAsync(connection);
         await EnsureSearchProfileCriteriaAsync(connection);
+        await ExecuteSchemaResourceAsync(connection, "SearchProfileHasAddress");
         await ExecuteSchemaResourceAsync(connection, "SearchProfileRecordCount");
         await ExecuteSchemaResourceAsync(connection, "PlanRecordLimits");
         await ExecuteSchemaResourceAsync(connection, "CompanyUserNotes");

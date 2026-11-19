@@ -136,15 +136,15 @@ public class SearchesController : ControllerBase
                 CompanyStatusIds = CompanyStatusSelection.Serialize(criteria.CompanyStatusIds),
                 SortColumn = criteria.SortColumn, SortDirection = criteria.SortDirection,
                 CompanyName = criteria.CompanyName, Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
-                HasWebsite = criteria.HasWebsite, DateRangeEnabled = criteria.DateRangeEnabled,
+                HasWebsite = criteria.HasWebsite, HasAddress = criteria.HasAddress, DateRangeEnabled = criteria.DateRangeEnabled,
                 DateFrom = criteria.DateFrom, DateTo = criteria.DateTo, RecordLimit = criteria.RecordLimit,
                 WojewodztwoId = criteria.WojewodztwoId, PowiatId = criteria.PowiatId,
                 GminaId = criteria.GminaId, MiejscowoscId = criteria.MiejscowoscId,
                 HasFirmyWPromieniu = criteria.HasFirmyWPromieniu, FirmyWPromieniu = criteria.FirmyWPromieniu
             });
         var pkdIds = request.PkdCodeIds.Distinct().ToArray();
-        if (pkdIds.Length > 20 || await _db.PkdCodes.CountAsync(x => pkdIds.Contains(x.Id)) != pkdIds.Length)
-            return BadRequest(new { message = "Wybierz maksymalnie 20 istniejacych kodow PKD." });
+        if (pkdIds.Length > 40 || await _db.PkdCodes.CountAsync(x => pkdIds.Contains(x.Id)) != pkdIds.Length)
+            return BadRequest(new { message = "Wybierz maksymalnie 40 istniejacych kodow PKD." });
         foreach (var removed in profile.PkdCodes.Where(x => !pkdIds.Contains(x.PkdCodeId)).ToArray())
         {
             profile.PkdCodes.Remove(removed);
@@ -184,7 +184,7 @@ public class SearchesController : ControllerBase
             CompanyStatusIds = CompanyStatusSelection.Parse(criteria.CompanyStatusIds),
             SortColumn = criteria.SortColumn, SortDirection = criteria.SortDirection,
             CompanyName = criteria.CompanyName, Address = criteria.Address, HasPhone = criteria.HasPhone, HasEmail = criteria.HasEmail,
-            HasWebsite = criteria.HasWebsite, DateRangeEnabled = criteria.DateRangeEnabled,
+            HasWebsite = criteria.HasWebsite, HasAddress = criteria.HasAddress, DateRangeEnabled = criteria.DateRangeEnabled,
             DateFrom = criteria.DateFrom, DateTo = criteria.DateTo, RecordLimit = criteria.RecordLimit,
             WojewodztwoId = criteria.WojewodztwoId, PowiatId = criteria.PowiatId,
             GminaId = criteria.GminaId, MiejscowoscId = criteria.MiejscowoscId,

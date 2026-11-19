@@ -9,6 +9,7 @@ export class LandingGuard implements CanActivate {
   constructor(private api: ApiService, private router: Router) {}
 
   canActivate(route: ActivatedRouteSnapshot): boolean | Observable<boolean | UrlTree> {
+    if (route.queryParams.oauthReturn) { return true; }
     if (route.queryParams.mode === 'confirm-email' || route.queryParams.mode === 'reset-password') { return true; }
     return this.api.restoreSession().pipe(
       map(user => this.router.parseUrl(user.isAdmin ? '/admin' : user.applicationInService ? '/maintenance'

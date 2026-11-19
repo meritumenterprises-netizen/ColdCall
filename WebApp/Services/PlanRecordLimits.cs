@@ -12,11 +12,11 @@ public static class PlanRecordLimits
         limits.Select(limit => Math.Max(limit ?? DefaultLimit, 0))
             .DefaultIfEmpty(isAdmin ? DefaultLimit : 0).Max();
 
-    public static async Task<int> ForUserAsync(ColdCallDbContext db, int userId, bool isAdmin)
+    public static async Task<int> ForUserAsync(ColdCallDbContext db, int userId, bool isAdmin, bool paidOnly = false)
     {
         var now = DateTime.UtcNow;
         var limits = await db.UserPlans.AsNoTracking()
-            .Where(plan => plan.AppUserId == userId && plan.ExpiresAtUtc > now)
+            .Where(plan => plan.AppUserId == userId && plan.ExpiresAtUtc > now && (!paidOnly || !plan.PlanDefinition.IsTrial))
             .Select(plan => plan.PlanDefinition.MaxNumberOfExportedRecords)
             .ToListAsync();
         return Resolve(limits, isAdmin);

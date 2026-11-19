@@ -24,6 +24,19 @@ var countyPlan = AiSearchPlanner.Parse("""{"voivodeship":"kujawsko-pomorskie","c
 Check(countyPlan.Request.County == "Grudziądz" && countyPlan.Request.Municipality == null
     && countyPlan.Request.City == null, "County does not select lower address levels");
 var municipalityPlan = AiSearchPlanner.Parse("""{"municipality":"Grudziądz"}""");
+Check(AiSearchPlanner.Parse("""{"statusIds":[1],"hasAddress":false}""").Request.HasAddress == false,
+    "Missing business address filter accepted");
+Check(AiSearchPlanner.Parse("""{"hasAddress":true}""").Request.HasAddress == true,
+    "Present business address filter accepted");
+var hashProfile = new SearchProfile { Criteria = new SearchProfileCriteria() };
+var originalHash = SearchProfileHashCalculator.Calculate(hashProfile);
+hashProfile.Criteria.HasAddress = false;
+var withoutAddressHash = SearchProfileHashCalculator.Calculate(hashProfile);
+hashProfile.Criteria.HasAddress = true;
+Check(originalHash != withoutAddressHash && withoutAddressHash != SearchProfileHashCalculator.Calculate(hashProfile),
+    "Address presence changes saved-search and CSV fingerprints");
+hashProfile.Criteria.HasAddress = null;
+Check(originalHash == SearchProfileHashCalculator.Calculate(hashProfile), "Unset address filter preserves legacy fingerprints");
 Check(municipalityPlan.Request.Municipality == "Grudziądz" && municipalityPlan.Request.City == null,
     "Municipality does not select a city");
 Check(AiSearchPlanner.Parse("```json\n{\"city\":\"Toruń\",\"radiusKm\":20}\n```").Request.RadiusKm == 20, "Ollama JSON code fence");
@@ -34,6 +47,14 @@ foreach (var radius in new[] { 40, 60, 70, 80, 90, 150, 300, 400 })
         "new radius accepted without rounding: " + radius);
 Reject("""{"statusIds":null}""");
 Reject("""{"pkdCodes":null}""");
+var fortyPkds = Enumerable.Range(1, 40).Select(i => new PkdDto(i, $"{i:00}.10.Z", "Test PKD")).ToArray();
+Check(AiSearchPlanner.Parse(JsonSerializer.Serialize(new { pkdCodes = fortyPkds.Select(code => code.Code) }))
+    .Request.PkdCodes.Length == 40, "Search accepts 40 PKD codes");
+Reject(JsonSerializer.Serialize(new { pkdCodes = fortyPkds.Select(code => code.Code).Append("41.10.Z") }));
+Check(PkdClassifier.Parse("OK\n" + string.Join("\n", fortyPkds.Select(code => code.Code)), fortyPkds).Count == 40,
+    "Classifier accepts 40 PKD codes");
+try { PkdClassifier.Parse("OK\n" + string.Join("\n", fortyPkds.Select(code => code.Code).Append("41.10.Z")), fortyPkds); throw new Exception("Accepted 41 PKD codes"); }
+catch (FormatException) { checks++; Console.WriteLine("PASS classifier rejects 41 PKD codes"); }
 Reject("""{"companyName":"ab"}""");
 var todayInPoland = DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.UtcNow, "Central European Standard Time"));
 var openRange = AiSearchPlanner.Parse("""{"startedFrom":"2025-01-02","startedTo":null,"industry":"transport"}""").Request;
@@ -99,6 +120,8 @@ try {
         AdditionalHeaders = new Dictionary<string,string> { ["Authorization"] = "Bearer " + McpSessionToken.Create(123,config) } });
     await using var client = await McpClient.CreateAsync(transport);
     var tools = await client.ListToolsAsync();
+    Check(client.ServerInfo?.Name == "FindMyClient", "MCP advertises the FindMyClient brand");
+    Check(tools.All(tool => !(tool.Description ?? "").Contains("ColdCall")), "Tool descriptions use the public brand");
     Check(tools.Count == 3 && tools.Any(t=>t.Name=="search_companies") && tools.Any(t=>t.Name=="count_companies") && tools.Any(t=>t.Name=="get_company"), "real MCP initialization and tools/list");
 } finally { if (!process.HasExited) process.Kill(true); await process.WaitForExitAsync(); await errors; await output; }
 
@@ -121,9 +144,15 @@ if (args.Contains("--live-search") || args.Contains("--live-geography")) {
     var live = new ConfigurationBuilder().AddJsonFile(Path.Combine(root?.FullName
         ?? throw new InvalidOperationException("Run live checks from the ColdCall repository."), "WebApp/appsettings.json"))
         .AddUserSecrets("ColdCall-LocalDevelopment").Build();
-    var options = new DbContextOptionsBuilder<ColdCallDbContext>().UseSqlServer(live.GetConnectionString("Firmy"), sql=>sql.CommandTimeout(30)).Options;
+    var options = new DbContextOptionsBuilder<ColdCallDbContext>().UseSqlServer(live.GetConnectionString("Firmy"), sql=>sql.CommandTimeout(120)).Options;
     await using var db = new ColdCallDbContext(options);
     using var cancel = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+    if (args.Contains("--apply-address-schema"))
+    {
+        await db.Database.ExecuteSqlRawAsync(await File.ReadAllTextAsync(Path.Combine(root!.FullName,
+            "WebApp/Sql/SearchProfileHasAddress.sql"), cancel.Token), cancel.Token);
+        Console.WriteLine("Applied idempotent HasAddress schema update to local configured database.");
+    }
     var adminId = await db.Users.Where(u=>u.IsAdmin && u.IsEnabled).Select(u=>u.Id).FirstAsync(cancel.Token);
     if (args.Contains("--live-geography"))
     {
@@ -159,6 +188,27 @@ if (args.Contains("--live-search") || args.Contains("--live-geography")) {
     var found = await new AiCompanySearchService(db).SearchAsync(adminId,plan,cancel.Token);
     Console.WriteLine($"LIVE database search: {timer.Elapsed.TotalSeconds:F2}s");
     Console.WriteLine($"LIVE search returned {found.Total} matches; first page has {found.Items.Count} records.");
+    if (plan.HasAddress.HasValue)
+    {
+        Check(found.Criteria.HasAddress == plan.HasAddress, "Address presence returned to dashboard filters");
+        var addressed = db.Companies.Where(row => row.MiejscowoscId.HasValue
+            || (row.PostalCode != null && row.PostalCode.Trim() != "")
+            || (row.Street != null && row.Street.Trim() != "")
+            || (row.BuildingNumber != null && row.BuildingNumber.Trim() != "")
+            || (row.ApartmentNumber != null && row.ApartmentNumber.Trim() != ""));
+        var ids = found.Items.Select(row => row.Id).ToArray();
+        var addressedCount = await addressed.CountAsync(row => ids.Contains(row.Id), cancel.Token);
+        Check(plan.HasAddress.Value ? addressedCount == ids.Length : addressedCount == 0, "Address presence filters live company results");
+        Check(!await db.Companies.AnyAsync(row => ids.Contains(row.Id) && row.StatusDzialalnosciId != 1, cancel.Token),
+            "Active status preserved alongside address presence");
+        var withAddress = await new CompanySearchQuery(db).BuildCompaniesAsync(new SearchProfileCriteria { HasAddress = true }, [], null, token: cancel.Token);
+        var withoutAddress = await new CompanySearchQuery(db).BuildCompaniesAsync(new SearchProfileCriteria { HasAddress = false }, [], null, token: cancel.Token);
+        var allActive = await new CompanySearchQuery(db).BuildCompaniesAsync(new SearchProfileCriteria(), [], null, token: cancel.Token);
+        Check(await withAddress.CountAsync(cancel.Token) + await withoutAddress.CountAsync(cancel.Token) == await allActive.CountAsync(cancel.Token),
+            "With/without address partition active companies completely");
+        var savedCriteria = await db.Set<SearchProfileCriteria>().AsNoTracking().FirstOrDefaultAsync(cancel.Token);
+        Console.WriteLine("LIVE HasAddress column readable through EF; returned criteria HasAddress=" + found.Criteria.HasAddress);
+    }
     if (!string.IsNullOrWhiteSpace(plan.County) || !string.IsNullOrWhiteSpace(plan.Municipality))
     {
         Check(found.Criteria.PowiatId.HasValue, "Administrative area has its county selected");

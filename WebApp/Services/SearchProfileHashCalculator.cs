@@ -46,6 +46,8 @@ public static class SearchProfileHashCalculator
             c.DateFrom, c.DateTo, c.RecordLimit, c.WojewodztwoId, c.PowiatId,
             c.GminaId, c.MiejscowoscId, c.HasFirmyWPromieniu, c.FirmyWPromieniu
         });
+        // Preserve fingerprints of existing searches when the new filter is not selected.
+        if (c.HasAddress.HasValue) payload += c.HasAddress.Value ? ":HasAddress=true" : ":HasAddress=false";
         return Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(payload)));
     }
 }

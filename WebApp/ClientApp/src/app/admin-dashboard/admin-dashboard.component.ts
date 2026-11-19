@@ -564,7 +564,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     if (!this.pkdDescription.trim() || this.classifyingPkd) { return; }
     this.classifyingPkd = true;
     this.classificationRequest = this.api.classifyPkd(this.pkdDescription).pipe(finalize(() => this.classifyingPkd = false)).subscribe(result => {
-      this.selectedPkds = this.sortPkds(result.pkdCodes.slice(0, 10));
+      this.selectedPkds = this.sortPkds(result.pkdCodes.slice(0, this.maxSelectedPkds));
       this.selectedPkdId = this.selectedPkds.length ? this.selectedPkds[0].id : null;
       this.updatePkdSuggestions(); this.updateFilters();
     }, () => this.filterError = 'Nie udalo sie rozpoznac kodow PKD.');
@@ -824,7 +824,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
   selectedPkds: Pkd[] = [];
   pkdTerm = '';
   pkdSuggestions: Pkd[] = [];
-  maxSelectedPkds = 20;
+  maxSelectedPkds = 40;
   foundPkdId: number | null = null;
   selectedPkdId: number | null = null;
   sortBy = 'startedAt';
